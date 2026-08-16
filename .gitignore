@@ -2,6 +2,8 @@
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+.ruff_cache/
 
 # Docker & Local Data
 data/
@@ -12,3 +14,6 @@ data/
 __pycache__/
 .pytest_cache/
 .env
+.env.*
+!.env.example
+.DS_Store
