@@ -9,3 +9,17 @@ data/
 
 # IDE
 .vscode/
+.env
+.env.*
+!.env.example
+
+
+apps/sensor-simulator/.env
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+infra/docker/
+docker-compose.yml
+docs/
+pipelines/
