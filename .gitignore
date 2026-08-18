@@ -11,9 +11,9 @@ data/
 
 # IDE
 .vscode/
-__pycache__/
-.pytest_cache/
 .env
 .env.*
 !.env.example
-.DS_Store
+
+infra/docker/
+pipelines/
