@@ -1,9 +1,0 @@
-Metadata-Version: 2.4
-Name: kitchen-sensor-simulator
-Version: 0.1.0
-Summary: Async kitchen sensor event producer for Kafka
-Requires-Python: >=3.11
-Requires-Dist: clear>=2.0.0
-Requires-Dist: confluent-kafka<3.0,>=2.6
-Requires-Dist: pydantic<3.0,>=2.9
-Requires-Dist: pydantic-settings<3.0,>=2.5

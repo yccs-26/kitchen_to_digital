@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1400" viewBox="0 0 1400 1400"><defs><marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#60758a"/></marker></defs><rect width="1400" height="1400" fill="#f4f7fb"/><g transform="translate(0,140)">
+<text x="50" y="52" font-family="Apple SD Gothic Neo, sans-serif" font-size="32" fill="#19354b" font-weight="bold">KTD | 주방 IoT 데이터 플랫폼</text>
+<text x="50" y="84" font-family="Apple SD Gothic Neo, sans-serif" font-size="18" fill="#19354b" font-weight="normal">2026-09-24 · 채택된 논리 구조 / 구현 및 성능 검증 전</text>
+<rect x="470" y="115" width="410" height="85" rx="14" fill="#fff3d9" stroke="#c3983b" stroke-width="2"/>
+<text x="488" y="146" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Sensor Simulator / Producer</text>
+<text x="488" y="173" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">Avro 이벤트 · key = equipment_id</text>
+<rect x="990" y="115" width="340" height="85" rx="14" fill="#fff" stroke="#b5c3d1" stroke-width="2"/>
+<text x="1008" y="146" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Schema Registry</text>
+<text x="1008" y="173" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">스키마 관리·호환성 검사</text>
+<polyline points="990,157 880,157" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)" stroke-dasharray="7 5"/>
+<rect x="470" y="245" width="410" height="80" rx="14" fill="#fff3d9" stroke="#c3983b" stroke-width="2"/>
+<text x="488" y="276" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">kitchen.sensor.raw</text>
+<text x="488" y="303" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">검증 전 센서 원본</text>
+<polyline points="675,200 675,245" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<rect x="60" y="385" width="330" height="90" rx="14" fill="#e7f0ff" stroke="#557ac9" stroke-width="2"/>
+<text x="78" y="416" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Job 1 · Raw Ingestion</text>
+<text x="78" y="443" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">원본 bytes + Kafka metadata 보존</text>
+<rect x="470" y="385" width="410" height="90" rx="14" fill="#e7f0ff" stroke="#557ac9" stroke-width="2"/>
+<text x="488" y="416" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Job 2 · Validation + Dedup</text>
+<text x="488" y="443" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">계약·업무 품질·late 정책·중복 제거</text>
+<polyline points="675,325 675,355 225,355 225,385" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<polyline points="675,325 675,385" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<rect x="60" y="540" width="330" height="100" rx="14" fill="#e3f4ee" stroke="#449779" stroke-width="2"/>
+<text x="78" y="571" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Iceberg Bronze</text>
+<text x="78" y="598" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">days(ingested_at)</text>
+<text x="78" y="622" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">원본·중복 보존 / replay 원천</text>
+<polyline points="225,475 225,540" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<rect x="990" y="385" width="340" height="100" rx="14" fill="#fff" stroke="#b5c3d1" stroke-width="2"/>
+<text x="1008" y="416" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Quarantine / DLQ</text>
+<text x="1008" y="443" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">품질 실패 → Quarantine</text>
+<text x="1008" y="467" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">시스템 실패 → Retry → DLQ</text>
+<polyline points="880,430 990,430" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<rect x="990" y="550" width="340" height="90" rx="14" fill="#e3f4ee" stroke="#449779" stroke-width="2"/>
+<text x="1008" y="581" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Iceberg Silver</text>
+<text x="1008" y="608" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">영속 canonical history</text>
+<polyline points="780,475 780,505 1160,505 1160,550" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<rect x="470" y="550" width="410" height="90" rx="14" fill="#fff3d9" stroke="#c3983b" stroke-width="2"/>
+<text x="488" y="581" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">kitchen.sensor.validated</text>
+<text x="488" y="608" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">업무 품질·dedup 통과 이벤트</text>
+<polyline points="675,475 675,550" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<rect x="450" y="720" width="330" height="90" rx="14" fill="#e7f0ff" stroke="#557ac9" stroke-width="2"/>
+<text x="468" y="751" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Job 3 · Metric Aggregation</text>
+<text x="468" y="778" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">1분 tumbling / 5분 sliding</text>
+<rect x="850" y="720" width="480" height="90" rx="14" fill="#e7f0ff" stroke="#557ac9" stroke-width="2"/>
+<text x="868" y="751" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Job 4 · State Machine + Alert</text>
+<text x="868" y="778" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">운영 상태 / Health / 경보 lifecycle</text>
+<polyline points="675,640 675,680 615,680 615,720" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<polyline points="675,680 1090,680 1090,720" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<rect x="60" y="720" width="300" height="90" rx="14" fill="#fff" stroke="#b5c3d1" stroke-width="2"/>
+<text x="78" y="751" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Airflow + Spark Batch</text>
+<text x="78" y="778" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">기간 backfill / 동일 변환 재사용</text>
+<polyline points="225,640 225,720" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)" stroke-dasharray="7 5"/>
+<rect x="450" y="885" width="330" height="100" rx="14" fill="#e3f4ee" stroke="#449779" stroke-width="2"/>
+<text x="468" y="916" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Iceberg Gold</text>
+<text x="468" y="943" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">metric·state·alert 이력</text>
+<text x="468" y="967" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">S3 저장 + Glue Catalog</text>
+<polyline points="615,810 615,885" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<polyline points="1090,810 1090,847 710,847 710,885" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<rect x="850" y="885" width="480" height="100" rx="14" fill="#e3f4ee" stroke="#449779" stroke-width="2"/>
+<text x="868" y="916" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Current Twin / 실시간 이벤트</text>
+<text x="868" y="943" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">DynamoDB: 최신 상태 조건부 갱신</text>
+<text x="868" y="967" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">state.changes / alerts</text>
+<polyline points="1160,810 1160,885" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
+<polyline points="210,810 210,935 450,935" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)" stroke-dasharray="7 5"/>
+<text x="52" y="1010" font-family="Apple SD Gothic Neo, sans-serif" font-size="18" fill="#19354b" font-weight="normal">Backfill은 Silver/Gold 정정. 일반 backfill은 현재 Twin과 실시간 알림을 갱신하지 않음.</text>
+<text x="52" y="1040" font-family="Apple SD Gothic Neo, sans-serif" font-size="18" fill="#19354b" font-weight="normal">각 Spark query: 독립 S3 checkpoint · 목표 연산 환경: Databricks PySpark</text>
+<text x="52" y="1070" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">점선: 계약 조회·배치 복구 경로. Silver/validated 이중 쓰기 원자성 및 복구 프로토콜은 후속 설계.</text>
+</g></svg>

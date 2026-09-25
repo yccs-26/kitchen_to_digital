@@ -1,0 +1,9 @@
+# Window 집계 규칙 — 면접 준비
+
+설계 의도를 설명하는 개인 메모다. 구현·검증이 끝나기 전에는 완료 실적으로 표현하지 않는다.
+
+[설계 기준](../streaming/window-aggregation.md)
+
+## Window aggregation과 metric별 규칙
+
+“numeric은 avg/min/max, state는 duration/ratio/transition count, cumulative는 delta 중심으로 구분했습니다.”
