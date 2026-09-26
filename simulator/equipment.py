@@ -14,7 +14,7 @@ class EquipmentConfig:
 EQUIPMENTS = [
     EquipmentConfig(
         store_id="store-001",
-        equipment_id="fridge-01",
+        equipment_id="fridge-001",
         equipment_type="refrigerator",
         metric_name="temperature_celsius",
         metric_type="numeric",
@@ -24,7 +24,7 @@ EQUIPMENTS = [
     ),
     EquipmentConfig(
         store_id="store-001",
-        equipment_id="freezer-01",
+        equipment_id="freezer-001",
         equipment_type="freezer",
         metric_name="temperature_celsius",
         metric_type="numeric",
@@ -34,7 +34,7 @@ EQUIPMENTS = [
     ),
     EquipmentConfig(
         store_id="store-001",
-        equipment_id="fryer-01",
+        equipment_id="fryer-001",
         equipment_type="fryer",
         metric_name="oil_temperature_celsius",
         metric_type="numeric",
@@ -44,7 +44,7 @@ EQUIPMENTS = [
     ),
     EquipmentConfig(
         store_id="store-001",
-        equipment_id="hood-01",
+        equipment_id="hood-001",
         equipment_type="hood",
         metric_name="fan_rpm",
         metric_type="numeric",
@@ -54,14 +54,14 @@ EQUIPMENTS = [
     ),
     EquipmentConfig(
         store_id="store-001",
-        equipment_id="fridge-door-01",
+        equipment_id="fridge-door-001",
         equipment_type="refrigerator",
         metric_name="door_open",
         metric_type="boolean",
     ),
     EquipmentConfig(
         store_id="store-001",
-        equipment_id="dishwasher-01",
+        equipment_id="dishwasher-001",
         equipment_type="dishwasher",
         metric_name="state",
         metric_type="categorical",

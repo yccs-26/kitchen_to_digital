@@ -1,12 +1,12 @@
 import asyncio
 import json
-import random
 import uuid
 from datetime import datetime, timezone
 
 from equipment import EQUIPMENTS, EquipmentConfig
 from models import SensorEvent
-from generators import generate_metric_value
+from generator import generate_metric_value
+from producer import KafkaEventProducer
 
 def generate_event(equipment: EquipmentConfig) -> SensorEvent:
     return SensorEvent(
@@ -25,10 +25,13 @@ def generate_event(equipment: EquipmentConfig) -> SensorEvent:
 
 async def simulate_equipment(
         equipment: EquipmentConfig,
+        producer: KafkaEventProducer,
         interval_seconds: float = 1.0,
 ):
     while True:
         event = generate_event(equipment)
+
+        producer.send(event)
 
         print(
             json.dumps(
@@ -42,14 +45,23 @@ async def simulate_equipment(
 
 
 async def main():
+    producer = KafkaEventProducer()
+
     tasks = [
         asyncio.create_task(
-            simulate_equipment(equipment)
+            simulate_equipment(
+                equipment,
+                producer,
+            )
         )
         for equipment in EQUIPMENTS
     ]
+    try:
+        await asyncio.gather(*tasks)
 
-    await asyncio.gather(*tasks)
+    finally:
+        producer.flush()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
