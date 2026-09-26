@@ -17,6 +17,11 @@ def generate_metric_value(equipment: EquipmentConfig):
             2
         )
 
+    if equipment.metric_type == "boolean":
+        return random.choice(
+            [True, False]
+        )
+
     if equipment.metric_type == "categorical":
         return random.choice(
             ["idle", "washing", "rinsing", "drying"]

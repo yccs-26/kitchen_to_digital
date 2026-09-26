@@ -1,3 +1,4 @@
+import asyncio
 import json
 import random
 import uuid
@@ -21,8 +22,12 @@ def generate_event(equipment: EquipmentConfig) -> SensorEvent:
         source="simulator",
     )
 
-def main():
-    for equipment in EQUIPMENTS:
+
+async def simulate_equipment(
+        equipment: EquipmentConfig,
+        interval_seconds: float = 1.0,
+):
+    while True:
         event = generate_event(equipment)
 
         print(
@@ -32,5 +37,19 @@ def main():
             )
         )
 
+        await asyncio.sleep(interval_seconds)
+
+
+
+async def main():
+    tasks = [
+        asyncio.create_task(
+            simulate_equipment(equipment)
+        )
+        for equipment in EQUIPMENTS
+    ]
+
+    await asyncio.gather(*tasks)
+
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
