@@ -47,6 +47,18 @@ services:
     volumes:
       - kafka_data:/var/lib/kafka/data
 
+  kafka-init:
+    image: apache/kafka:4.1.0
+    container_name: ktd-kafka-init
+
+    depends_on:
+      - kafka
+    
+    volumes:
+      - ./kafka/init-topics.sh:/init/init-topics.sh:ro
+
+    command: ["/bin/bash", "/init/init-topics.sh"]
+
 volumes:
   postgres_data:
   kafka_data:
