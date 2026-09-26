@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from equipment import EQUIPMENTS, EquipmentConfig
 from models import SensorEvent
+from generators import generate_metric_value
 
 def generate_event(equipment: EquipmentConfig) -> SensorEvent:
     return SensorEvent(
@@ -14,13 +15,7 @@ def generate_event(equipment: EquipmentConfig) -> SensorEvent:
         equipment_id=equipment.equipment_id,
         equipment_type=equipment.equipment_type,
         metric_name=equipment.metric_name,
-        metric_value=round(
-            random.uniform(
-                equipment.min_value,
-                equipment.max_value,
-            ),
-            2,
-        ),
+        metric_value=generate_metric_value(equipment),
         unit=equipment.unit,
         schema_version="1.0.0",
         source="simulator",
