@@ -1,15 +1,30 @@
 import json
+import os
 
+from dotenv import load_dotenv
 from confluent_kafka import KafkaError, Message, Producer
 
 from models import SensorEvent
 
+load_dotenv()
 
 class KafkaEventProducer:
     def __init__(self):
-        self.producer = Producer({
-            "bootstrap.servers": "localhost:9092",
-        })
+        self.bootstrap_servers = os.getenv(
+            "KAFKA_BOOTSTRAP_SERVERS",
+            "localhost:9092",
+        )
+
+        self.topic = os.getenv(
+            "KAFKA_TOPIC_SENSOR_RAW",
+            "kitchen.sensor.raw",
+        )
+
+        self.producer = Producer(
+            {
+                "bootstrap.servers": self.bootstrap_servers,
+            }
+        )
 
     def _delivery_callback(
             self,
@@ -31,15 +46,29 @@ class KafkaEventProducer:
     def send(self, event: SensorEvent) -> None:
         key = f"{event.store_id}:{event.equipment_id}"
 
-        self.producer.produce(
-            topic="kitchen.sensor.raw",
-            key=key,
-            value=json.dumps(
-                event.to_dict(),
-                ensure_ascii=False
-            ),
-            on_delivery=self._delivery_callback,
+        payload = json.dumps(
+            event.to_dict(),
+            ensure_ascii=False,
         )
+
+        try:
+            self.producer.produce(
+                topic=self.topic,
+                key=key,
+                value=payload,
+                on_delivery=self._delivery_callback,
+            )
+        except BufferError:
+            print("[KAFKA BUFFER FULL] waiting for queued messages")
+
+            self.producer.poll(1.0)
+
+            self.producer.produce(
+                topic=self.topic,
+                key=key,
+                value=payload,
+                on_delivery=self._delivery_callback,
+            )
 
         self.producer.poll(0)
 
