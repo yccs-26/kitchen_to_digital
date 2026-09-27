@@ -7,6 +7,7 @@ from simulator.equipment import EQUIPMENTS, EquipmentConfig
 from simulator.models import SensorEvent
 from simulator.generator import generate_metric_value
 from simulator.producer import KafkaEventProducer
+from simulator.fault_injection import inject_fault
 
 def generate_event(equipment: EquipmentConfig) -> SensorEvent:
     return SensorEvent(
@@ -31,7 +32,19 @@ async def simulate_equipment(
     while True:
         event = generate_event(equipment)
 
-        producer.send(event)
+        payload = event.to_dict()
+
+        payload = inject_fault(
+            payload,
+            fault_rate=0.1,
+        )
+
+        key = f"{event.store_id}:{event.equipment_id}"
+
+        producer.send(
+            key=key,
+            payload=payload
+        )
 
         print(
             json.dumps(

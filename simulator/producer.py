@@ -31,6 +31,7 @@ class KafkaEventProducer:
             err: KafkaError | None,
             msg: Message,
     ) -> None:
+
         if err is not None:
             print(f"[KAFKA ERROR] {err}")
             return
@@ -42,12 +43,14 @@ class KafkaEventProducer:
             f"offset={msg.offset()}"
         )
 
-
-    def send(self, event: SensorEvent) -> None:
-        key = f"{event.store_id}:{event.equipment_id}"
-
-        payload = json.dumps(
-            event.to_dict(),
+    # key 생성 책임 -> main.py
+    def send(
+        self,
+        key: str,
+        payload: dict,
+    ) -> None:
+        value = json.dumps(
+            payload,
             ensure_ascii=False,
         )
 
@@ -55,18 +58,17 @@ class KafkaEventProducer:
             self.producer.produce(
                 topic=self.topic,
                 key=key,
-                value=payload,
+                value=value,
                 on_delivery=self._delivery_callback,
             )
-        except BufferError:
-            print("[KAFKA BUFFER FULL] waiting for queued messages")
 
+        except BufferError:
             self.producer.poll(1.0)
 
             self.producer.produce(
                 topic=self.topic,
                 key=key,
-                value=payload,
+                value=value,
                 on_delivery=self._delivery_callback,
             )
 
