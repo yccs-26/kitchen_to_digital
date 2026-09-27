@@ -1,6 +1,6 @@
 import random
 
-from equipment import EquipmentConfig
+from simulator.equipment import EquipmentConfig
 
 def generate_metric_value(equipment: EquipmentConfig):
     if equipment.metric_type == "numeric":

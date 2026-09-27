@@ -3,10 +3,10 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from equipment import EQUIPMENTS, EquipmentConfig
-from models import SensorEvent
-from generator import generate_metric_value
-from producer import KafkaEventProducer
+from simulator.equipment import EQUIPMENTS, EquipmentConfig
+from simulator.models import SensorEvent
+from simulator.generator import generate_metric_value
+from simulator.producer import KafkaEventProducer
 
 def generate_event(equipment: EquipmentConfig) -> SensorEvent:
     return SensorEvent(
@@ -60,6 +60,14 @@ async def main():
         await asyncio.gather(*tasks)
 
     finally:
+        for task in tasks:
+            task.cancel()
+
+        await asyncio.gather(
+            *tasks,
+            return_exceptions=True,
+        )
+        
         producer.flush()
 
 

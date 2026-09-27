@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from confluent_kafka import KafkaError, Message, Producer
 
-from models import SensorEvent
+from simulator.models import SensorEvent
 
 load_dotenv()
 
