@@ -2,6 +2,7 @@ import json
 import os
 
 from confluent_kafka import Consumer, KafkaError
+from streaming.validator import validate_event
 
 BOOTSTRAP_SERVERS = os.getenv(
     "KAFKA_BOOTSTRAP_SERVERS",
@@ -56,6 +57,24 @@ def main():
             value = json.loads(
                 message.value().decode("utf-8")
             )
+
+            is_valid, reason = validate_event(value)
+
+            if is_valid:
+                print(
+                    f"[VALID] "
+                    f"partition={message.partition()} "
+                    f"offset={message.offset()} "
+                    f"key={key}"
+                )
+            else:
+                print(
+                    f"[INVALID] "
+                    f"partition={message.partition()} "
+                    f"offset={message.offset()} "
+                    f"key={key} "
+                    f"reason={reason}"
+                )
 
             print(
                 f"partition={message.partition()} "
