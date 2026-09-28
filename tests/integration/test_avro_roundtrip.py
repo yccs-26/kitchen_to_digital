@@ -1,5 +1,3 @@
-"""Opt-in, finite roundtrip against the real raw topic; never commits offsets."""
-
 import os
 import time
 from datetime import datetime, timezone
@@ -85,40 +83,55 @@ def test_avro_roundtrip():
             for partition, offset in starts.items()
         ])
         print(f"[ROUNDTRIP START] offsets={starts}")
+
         for payload in expected.values():
             producer.send(payload["equipment_id"], payload)
+
         producer.flush()
         assert producer.delivered == len(expected)
         received = set()
         deadline = time.monotonic() + 15
+
         while len(received) < len(expected) and time.monotonic() < deadline:
             message = consumer.poll(min(1.0, max(0.0, deadline - time.monotonic())))
+
             if message is None:
                 continue
+
             assert message.error() is None, message.error()
+
             # Isolate this run from concurrent producers before decoding their payloads.
             if message.key() not in keys:
                 continue
+
             raw = message.value()
             assert raw is not None and len(raw) > 5 and raw[0] == 0
+
             schema_id = int.from_bytes(raw[1:5], "big")
             assert schema_id == registered.schema_id
+
             decoded = deserialize(
                 raw, SerializationContext(message.topic(), MessageField.VALUE)
             )
+
             event_id = decoded["event_id"]
+
             assert event_id in expected
             assert event_id not in received, "duplicate fixture event received"
             assert decoded == expected[event_id], "Avro fields differ from the original payload"
             assert type(decoded["metric_value"]) is float
             assert message.key().decode("utf-8") == decoded["equipment_id"]
+
             received.add(event_id)
+
             print(
                 f"[ROUNDTRIP OK] event_id={event_id} key={decoded['equipment_id']} "
                 f"partition={message.partition()} offset={message.offset()} "
                 f"schema_id={schema_id} metric_value={decoded['metric_value']} "
                 "fields_equal=True value_type=float"
             )
+
         assert received == set(expected), f"Timed out; missing event_ids={set(expected) - received}"
+        
     finally:
         consumer.close()

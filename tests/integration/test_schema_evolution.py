@@ -1,7 +1,6 @@
-"""Read-only compatibility checks and invalid-input serialization checks."""
-
 import os
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from confluent_kafka.schema_registry import Schema
@@ -37,6 +36,8 @@ def test_backward_compatibility_preserves_registered_versions():
 @pytest.mark.parametrize("case", ["missing_source", "unit_wrong_type", "metric_wrong_type"])
 def test_invalid_avro_input_is_not_enqueued(case):
     producer = KafkaEventProducer()
+    # Native producer length includes protocol requests, not only event records.
+    producer.producer = Mock(wraps=producer.producer)
     payload = generate_event(EQUIPMENTS[0]).to_dict()
     if case == "missing_source":
         del payload["source"]
@@ -46,6 +47,6 @@ def test_invalid_avro_input_is_not_enqueued(case):
         payload["metric_value"] = "not-a-double"
     with pytest.raises((ValueError, TypeError)) as error:
         producer.send(payload["equipment_id"], payload)
-    assert len(producer.producer) == 0
+    producer.producer.produce.assert_not_called()
     assert producer.delivered == producer.failed == 0
-    print(f"[INVALID INPUT OK] {case}: {type(error.value).__name__}; queued=0")
+    print(f"[INVALID INPUT OK] {case}: {type(error.value).__name__}; produce_calls=0")
