@@ -77,9 +77,12 @@ class KafkaEventProducer:
     ) -> None:
         if not key or key != payload.get("equipment_id"):
             raise ValueError("Kafka key must equal payload equipment_id")
+
         metric_value = payload.get("metric_value")
+
         if isinstance(metric_value, bool) or not isinstance(metric_value, (int, float)):
             raise ValueError("metric_value must be numeric, not boolean or string")
+
         value = self.value_serializer(
             payload, SerializationContext(self.topic, MessageField.VALUE)
         )

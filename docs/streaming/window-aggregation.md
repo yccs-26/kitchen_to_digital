@@ -1,6 +1,6 @@
 # Window 집계 규칙
 
-상태: 확정 설계, 구현·검증 전 · 갱신: 2026-09-24
+상태: 확정 설계, 구현·검증 전
 
 [설계 문서 목록](../architecture/design-decisions.md)
 
