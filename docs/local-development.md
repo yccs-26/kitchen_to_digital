@@ -71,3 +71,25 @@ Producer flush에는 별도 timeout이 있으므로 테스트 전체가 15초라
 임시 group과 manual assign을 쓰며 auto commit/offset store를 끄고, 종료 시 Consumer를 닫는다.
 기존 group offset을 변경하지 않는다. 검증 레코드는 raw에 보존한다.
 `ROUNDTRIP OK` 4줄과 pytest 통과 결과를 함께 촬영하면 복원 증빙으로 사용할 수 있다.
+
+## 호환성·장애 검증 — P0-7
+
+Kafka와 Registry가 실행 중이고 v1/v2 실험 스키마가 등록된 현재 환경에서 실행한다.
+새 환경에서는 먼저 등록 상태를 준비해야 하며 테스트가 자동 등록하지 않는다.
+
+```bash
+# 호환성 및 잘못된 입력. 서비스를 중단하지 않는다.
+KTD_RUN_INTEGRATION=1 uv run python -m pytest -q -s tests/integration/test_schema_evolution.py
+
+# SIGINT와 Kafka/Registry 중단·재시작. 다른 Producer를 종료한 뒤 단독 실행한다.
+KTD_RUN_INTEGRATION=1 KTD_RUN_RECOVERY=1 uv run python -m pytest -q -s tests/integration/test_local_recovery.py
+```
+
+재시작 검사는 이 저장소의 `infra/docker/compose.yml`, localhost:9092/8081,
+`kitchen.sensor.raw`로 제한된다. 외부 접속 환경 변수를 사용하지 않는다.
+기존 컨테이너를 stop/start하고 일반적인 실패 시에도 finally에서 서비스를 시작한다.
+raw에 시험 레코드가 추가되며 삭제하지 않는다. 실패 시 우선 `docker compose -f infra/docker/compose.yml ps -a`로
+상태를 확인한다. 중지됐다면 `docker compose -f infra/docker/compose.yml start kafka schema-registry`로 복구한다.
+
+일반 실행은 단위 8개만 실행한다. `KTD_RUN_INTEGRATION=1`만 켜면 단위/통합 13개를
+실행하고 서비스 중단 테스트 2개는 skip한다. 상세 해석은 [호환성·장애 검증](schema-evolution-test.md)에 있다.

@@ -14,7 +14,8 @@ Registry latest는 version 2 / schema ID 2이며 nullable `firmware_version`
 운영 필드 추가로 채택한 것이 아니며 Producer는 로컬 기본 version 1 스키마를 사용한다.
 P0-5에서 Avro 발행과 key/schema ID를 확인했다. P0-6에서는 실제 raw 토픽을 통해
 event_id·key·10개 필드와 double 값의 roundtrip을 검증했다.
-호환성 실험의 재현 검증은 아직 남아 있다.
+P0-7에서 v2/v1 호환=True, 필수 manufacturer를 추가한 v3/v2 호환=False를
+Registry 검사 API로 재현했다. [호환성 검증](../schema-evolution-test.md)의 범위와 한계를 따른다.
 재현 명령은 [Phase 0 검증 기록](../reports/phase-0-verification.md)에 있다.
 
 ## 이전 설계 기록

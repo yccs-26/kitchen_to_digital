@@ -1,5 +1,75 @@
 # Phase 0 검증 기록
 
+## P0-7 호환성·종료·장애·재시작 검증
+
+- 환경: Python 3.11.15, confluent-kafka 2.15.1, Kafka 4.1.0, Registry 8.1.5, 기존 Compose 컨테이너.
+- 결과: **P0-7 통과. P0-8 최종 DoD/문서 검토와 commit/push/PR/merge는 남아 있다.**
+
+### 구현과 실행 결과
+
+기존 `schemas/avro/compatibility/`의 v2/v3 fixture를 재사용했다.
+`tests/integration/test_schema_evolution.py`는 Registry 호환성 검사와 입력 오류를,
+`tests/integration/test_local_recovery.py`는 실제 프로세스 SIGINT와 서비스 stop/start를 검증한다.
+재시작 테스트는 `KTD_RUN_RECOVERY=1`까지 명시해야 실행된다.
+
+| 명령 | 실제 결과 |
+|---|---|
+| `.venv/bin/python -m pytest -q` | 8 passed, 7 skipped |
+| `KTD_RUN_INTEGRATION=1 .venv/bin/python -m pytest -q -s tests/integration/test_schema_evolution.py` | 4 passed |
+| `KTD_RUN_INTEGRATION=1 KTD_RUN_RECOVERY=1 .venv/bin/python -m pytest -q -s tests/integration/test_local_recovery.py` | 최종 2 passed, 29.96초 |
+| `KTD_RUN_INTEGRATION=1 .venv/bin/python -m pytest -q -s` | 재시작 이후 회귀 검사 13 passed, 2 skipped |
+| `git diff --check` | 통과 |
+
+각 pytest 실행에 기존 Authlib httpx deprecation warning 1건이 있었다.
+스키마 v2/v1은 True, v3/v2는 False였고 등록 버전 `[1, 2]`와 BACKWARD는 유지됐다.
+source 누락, unit 타입 오류, metric_value 문자열 입력은 모두 발행 전에 거부됐다.
+SIGINT 시 `delivered=4 failed=0 remaining=0`, subprocess exit=-2를 확인했다.
+
+최종 장애 검사의 핵심 결과:
+
+```text
+BEFORE: raw offsets={0: (0, 224), 1: (0, 336), 2: (0, 311)}
+        schema_ids=[1, 2], compatibility=BACKWARD
+BROKER FAILURE: failed=1, unresolved_callbacks=0
+REGISTRY FAILURE: cold serializer connection error, produce_calls=0
+OUTAGE OUTCOME: failed=1, delivered_after_restart=0, unresolved_callbacks=0
+RESTORE: bytes/schema/config/container IDs unchanged, raw offset ranges unchanged
+```
+
+저장 표본: `event_id=0053adff-7308-4790-b10c-fc686464c2c7`, raw partition 1 / offset 335.
+재시작 후 같은 위치에서 key/value bytes가 같았고 Avro 전체 payload도 일치했다.
+새 Producer는 `event_id=678b0e2a-32ba-45b4-8154-c9b686e6c045`를 partition 1 / offset 336에
+발행했으며 역직렬화까지 성공했다. 이 추가 발행 및 후속 roundtrip으로 최종 끝 offset은 늘어난다.
+fixture는 기존 generator의 무작위 값·현재 UTC·UUID를 사용했으며 고정 seed는 사용하지 않았다.
+
+### 실패에서 수정한 가정
+
+첫 실행은 flush 이후 반드시 `failed=1`일 것으로 가정했으나 `failed=0 remaining=1`이어서
+실패했다. flush timeout은 미전송 레코드를 삭제하지 않으므로, 이후 callback 결과까지 집계하도록
+테스트를 수정했다. 재개 후에는 `len(Producer)`에 내부 요청이 포함되는 점 때문에 cold serializer의
+큐 검사도 실패했다. 이 검사는 실제 `produce()` 호출이 0회인지 감시하도록 수정했다.
+서비스는 두 실패 모두 finally에서 복구됐고 실패 로그도 보존했다.
+최종 성공 실행에서 복구 후 지연 성공 분기는 관측되지 않았으며 timeout 실패 1건으로 확정됐다.
+
+### 스크린샷과 원본 증빙
+
+사용자 요청에 따라 `screenshots/phase-0/`에 저장했다. 실제 pytest 로그 또는 그 명시된 발췌를
+로컬 Chrome에 표시해 캡처한 화면이며, 가상의 터미널 출력 이미지를 만든 것이 아니다.
+비밀값 없는 결과만 표시했고 기존 Git 제외 설정을 유지했다.
+
+- `screenshots/phase-0/p0-7-schema-tests.jpg`: 호환성·입력 오류 4개 통과.
+- `screenshots/phase-0/p0-7-recovery-first-attempt.jpg`: 첫 실패와 remaining=1 관측.
+- `screenshots/phase-0/p0-7-recovery-final-2026-09-29.jpg`: SIGINT, 장애, 보존, 재접속 최종 성공.
+- `screenshots/phase-0/p0-7-schema-tests.log`: 최초 호환성 검사 원본.
+- `screenshots/phase-0/p0-7-recovery-first-attempt.log`: 최초 실패 원본.
+- `screenshots/phase-0/p0-7-recovery-2026-09-29.log`: 내부 요청 수를 레코드 수로 오해한 중간 실패.
+- `screenshots/phase-0/p0-7-recovery-final-2026-09-29.log`: 최종 재시작 테스트 원본.
+- `screenshots/phase-0/p0-7-regression-2026-09-29.log`: 복구 후 회귀 검사 원본.
+
+재현과 한계는 [호환성·장애 검증](../schema-evolution-test.md)에 기록했다.
+컨테이너 재생성·볼륨 유실·디스크 outbox·실패 이벤트 자동 재발행은 검증/구현하지 않았다.
+토픽·볼륨·offset 삭제/초기화 또는 Git staging/commit/push/merge는 수행하지 않았다.
+
 ## P0-6 유한한 Avro roundtrip 검증
 
 - 환경: 기존 Python 3.11.15 / confluent-kafka 2.15.1 / Kafka 4.1.0 / Registry 8.1.5.
