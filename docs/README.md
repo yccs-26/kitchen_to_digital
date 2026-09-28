@@ -1,8 +1,17 @@
-# KTD 설계 문서
+# KTD 문서
 
-갱신: 2026-09-24 · 설계 기록이며 구현·배포·성능 달성 기록이 아니다.
+## 구현과 실행 기록
 
-1. [최근 Work 문서화 이후 결정과 변경 이력](architecture/planning-update-2026-09-24.md)
+- [로컬 실행](local-development.md)
+- [데이터 계약](data/data-contract.md)
+- [스키마 호환성·장애 검사](schema-evolution-test.md)
+- [Phase 0 검증 결과와 남은 절차](reports/phase-0-verification.md)
+
+## 설계
+
+아래 문서는 설계 기록이며 구현·배포·성능 달성 기록이 아니다.
+
+1. [최근 Work 문서화 이후 결정과 변경 이력](architecture/planning-update.md)
 2. [최종 구조와 흐름도](architecture/diagrams.md) — Mermaid 원본 및 바로 열어볼 수 있는 SVG
 3. [분야별 기준 문서](architecture/design-decisions.md)
 4. [성능 실험 계획](experiments/performance-plan.md)

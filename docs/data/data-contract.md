@@ -1,6 +1,27 @@
 # 이벤트 계약과 Schema Evolution
 
-상태: Avro 초기 도입 채택 / 구체 필드의 최신 변경안은 제안 · 2026-09-24
+## 현재 확인된 Avro 계약
+
+P0-4에서 [로컬 스키마](../../schemas/avro/sensor_metric_event.avsc)를
+파싱하고 Registry의 `kitchen.sensor.raw-value` version 1 / schema ID 1과
+JSON 내용이 일치함을 확인했다. subject의 명시적 설정은 `BACKWARD`다.
+`metric_value`는 double, 나머지 9개 필드는 string이다.
+`source`, string `schema_version`, string `event_time`을 유지한다.
+필드는 모두 필수이며 null union이나 default는 없다.
+
+Registry latest는 version 2 / schema ID 2이며 nullable `firmware_version`
+(default null)이 추가돼 있다. 사용자가 이 version 2는 Avro 호환성 테스트용이라고 확인했다.
+운영 필드 추가로 채택한 것이 아니며 Producer는 로컬 기본 version 1 스키마를 사용한다.
+P0-5에서 Avro 발행과 key/schema ID를 확인했다. P0-6에서는 실제 raw 토픽을 통해
+event_id·key·10개 필드와 double 값의 roundtrip을 검증했다.
+P0-7에서 v2/v1 호환=True, 필수 manufacturer를 추가한 v3/v2 호환=False를
+Registry 검사 API로 재현했다. [호환성 검증](../schema-evolution-test.md)의 범위와 한계를 따른다.
+재현 명령은 [Phase 0 검증 기록](../reports/phase-0-verification.md)에 있다.
+
+## 이전 설계 기록
+
+아래는 당시 제안과 미정 사항이다. 현재 물리 스키마는 위 검증 결과를 우선한다.
+`producer_id`/int 버전 제안은 적용되지 않았다.
 
 ## 채택된 정책
 

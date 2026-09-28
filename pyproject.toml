@@ -5,11 +5,15 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "confluent-kafka>=2.15.1",
+    "confluent-kafka[avro,schemaregistry]>=2.15.1",
     "fastavro>=1.12.2",
+    "python-dotenv>=1.2.3",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+markers = ["integration: requires running Kafka and Schema Registry; writes test records"]

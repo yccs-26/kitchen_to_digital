@@ -1,0 +1,47 @@
+{
+  "type": "record",
+  "name": "SensorMetricEvent",
+  "namespace": "ktd.sensor",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string"
+    },
+    {
+      "name": "event_time",
+      "type": "string"
+    },
+    {
+      "name": "store_id",
+      "type": "string"
+    },
+    {
+      "name": "equipment_id",
+      "type": "string"
+    },
+    {
+      "name": "equipment_type",
+      "type": "string"
+    },
+    {
+      "name": "metric_name",
+      "type": "string"
+    },
+    {
+      "name": "metric_value",
+      "type": "double"
+    },
+    {
+      "name": "unit",
+      "type": "string"
+    },
+    {
+      "name": "schema_version",
+      "type": "string"
+    },
+    {
+      "name": "source",
+      "type": "string"
+    }
+  ]
+}

@@ -20,6 +20,9 @@ htmlcov/
 .env.*
 !.env.example
 
+# docs
+docs/plans
+
 # VS Code
 .vscode/
 *.code-workspace
@@ -39,3 +42,6 @@ temp/
 build/
 dist/
 *.egg-info/
+
+# Screenshots
+screenshots/

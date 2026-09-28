@@ -1,10 +1,9 @@
 # KTD 분야별 설계 기준
 
-갱신: 2026-09-24 · 설계와 구현 상태를 구분한다.
 
 | 분야 | 기준 문서 |
 |---|---|
-| 변경 이력·결정 상태·남은 작업 | [계획 업데이트](planning-update-2026-09-24.md) |
+| 변경 이력·결정 상태·남은 작업 | [계획 업데이트](planning-update.md) |
 | 전체 구조·4개 Spark Job | [플랫폼](platform.md), [도식](diagrams.md) |
 | Kafka 토픽·병렬성·신뢰성 | [Kafka](kafka-topics.md) |
 | Avro 계약·호환성·최신 제안 | [데이터 계약](../data/data-contract.md) |
