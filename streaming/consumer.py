@@ -15,7 +15,7 @@ TOPIC = os.getenv(
 )
 
 GROUP_ID = os.getenv(
-    "KAKFA_CONSUMER_GROUP",
+    "KAFKA_CONSUMER_GROUP",
     "ktd-raw-consumer",
 )
 
