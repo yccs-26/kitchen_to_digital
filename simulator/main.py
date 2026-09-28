@@ -1,4 +1,5 @@
 import asyncio
+import argparse
 import json
 import uuid
 from datetime import datetime, timezone
@@ -10,6 +11,8 @@ from simulator.producer import KafkaEventProducer
 from simulator.fault_injection import inject_fault
 
 def generate_event(equipment: EquipmentConfig) -> SensorEvent:
+    if equipment.metric_type != "numeric" or not equipment.unit:
+        raise ValueError("SensorMetricEvent requires numeric equipment with a unit")
     return SensorEvent(
         event_id=str(uuid.uuid4()),
         event_time=datetime.now(timezone.utc).isoformat(),
@@ -28,18 +31,21 @@ async def simulate_equipment(
         equipment: EquipmentConfig,
         producer: KafkaEventProducer,
         interval_seconds: float = 1.0,
+        count: int | None = None,
+        fault_rate: float = 0.0,
 ):
-    while True:
+    sent = 0
+    while count is None or sent < count:
         event = generate_event(equipment)
 
         payload = event.to_dict()
 
         payload = inject_fault(
             payload,
-            fault_rate=0.1,
+            fault_rate=fault_rate,
         )
 
-        key = f"{event.store_id}:{event.equipment_id}"
+        key = event.equipment_id
 
         producer.send(
             key=key,
@@ -48,16 +54,20 @@ async def simulate_equipment(
 
         print(
             json.dumps(
-                event.to_dict(),
+                payload,
                 ensure_ascii=False,
             )
         )
 
-        await asyncio.sleep(interval_seconds)
+        sent += 1
+        if count is None or sent < count:
+            await asyncio.sleep(interval_seconds)
 
 
 
-async def main():
+async def main(count: int | None = None):
+    if count is not None and count < 1:
+        raise ValueError("count must be positive")
     producer = KafkaEventProducer()
 
     tasks = [
@@ -65,9 +75,11 @@ async def main():
             simulate_equipment(
                 equipment,
                 producer,
+                count=count,
             )
         )
         for equipment in EQUIPMENTS
+        if equipment.metric_type == "numeric"
     ]
     try:
         await asyncio.gather(*tasks)
@@ -85,4 +97,9 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Publish numeric SensorMetricEvent records as Avro")
+    parser.add_argument("--count", type=int, help="Events per numeric equipment; omit to run continuously")
+    args = parser.parse_args()
+    if args.count is not None and args.count < 1:
+        parser.error("--count must be positive")
+    asyncio.run(main(count=args.count))

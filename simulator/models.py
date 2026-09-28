@@ -1,6 +1,4 @@
 from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
-from typing import Union
 
 @dataclass
 class SensorEvent:
@@ -10,7 +8,7 @@ class SensorEvent:
     equipment_id: str
     equipment_type: str
     metric_name: str
-    metric_value: Union[int, float, bool]
+    metric_value: float
     unit: str
     schema_version: str
     source: str

@@ -1,6 +1,6 @@
-from producer import KafkaEventProducer
-from equipment import EQUIPMENTS
-from main import generate_event
+from simulator.producer import KafkaEventProducer
+from simulator.equipment import EQUIPMENTS
+from simulator.main import generate_event
 
 def main():
     producer = KafkaEventProducer()
@@ -10,7 +10,9 @@ def main():
 
         print(f"send attempt: {i}")
 
-        producer.send(event)
+        producer.send(key=event.equipment_id, payload=event.to_dict())
+
+    producer.flush()
 
 if __name__ == "__main__":
     main()

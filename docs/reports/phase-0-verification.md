@@ -1,5 +1,139 @@
 # Phase 0 검증 기록
 
+## P0-5 Producer Avro 전환
+
+- 결과: **P0-5 통과. Phase 0 전체는 미완료.**
+- version 2의 nullable `firmware_version`은 사용자 확인에 따라 호환성 테스트용으로 기록한다.
+  Producer는 기존 로컬 기본 스키마를 사용하며 Registry의 테스트 버전을 변경하지 않는다.
+
+### 구현
+
+- `simulator/producer.py`: AvroSerializer와 UTF-8 key, topic subject naming을 적용했다.
+  자동 등록/latest 선택을 끄고 로컬 스키마를 Registry에서 조회한다.
+  key=payload equipment_id를 검사하고 boolean/string metric_value는 발행 전에 거부한다.
+  기존 BufferError 1회 재시도를 유지한다. flush는 15초로 제한하고 실패·미전송 시 예외를 낸다.
+- `simulator/main.py`, `simulator/models.py`: 정상 경로를 수치형 장비로 제한하고
+  오류 주입 기본값을 0으로 변경했다. 기존 장비 정의와 fault injection 함수는 보존했다.
+  `--count`는 장비별 발행 횟수이며 생략하면 연속 실행한다.
+- `pyproject.toml`, `uv.lock`: 공식 Avro/Registry extras를 추가해 certifi 누락을 해결했다.
+- `simulator/test_buffer_full.py`: 패키지 import와 현재 send 인터페이스를 맞췄다.
+  이 수동 스크립트가 실제 버퍼 포화를 증명하는 것은 아니다. 재시도 분기는 단위 테스트로 확인했다.
+- `tests/unit/test_avro_producer.py`: 실제 AvroSerializer와 모의 Registry/broker로
+  schema ID 선택, key, 타입 거부, BufferError 재시도, flush 실패, 유한 main 실행을 검증한다.
+- `.env.example`, `docs/local-development.md`: 호스트 설정과 실행 방법을 기록했다.
+
+### 검증 결과
+
+`uv sync` 성공. confluent-kafka 2.15.1과 기존 fastavro를 유지하고 Registry 의존성을 설치했다.
+`.venv/bin/python -m pytest -q`: **8 passed**, Authlib의 httpx deprecation warning 1건.
+초기 테스트 fixture의 RegisteredSchema guid와 subject strategy 설정을 수정한 후 통과했다.
+단위 테스트의 delivery failure는 모의 오류이며 실제 네트워크 장애 주입은 아니다.
+
+실제 Kafka 검증은 임시 Consumer로 발행 전 각 partition 끝 offset을 읽고,
+`asyncio.run(main(count=1))`으로 4건 발행한 뒤 해당 offset부터 최대 15초 동안 읽었다.
+임시 UUID group, auto commit/offset store 비활성화, 수동 assign을 사용했고 commit하지 않았다.
+이번에는 magic byte와 schema ID, key를 확인했으며 payload 전체 역직렬화는 P0-6 범위다.
+
+```text
+START_OFFSETS {0: 221, 1: 319, 2: 300}
+[KAFKA FLUSH] delivered=4 failed=0 remaining=0
+```
+
+| raw partition:offset | key | schema ID |
+|---|---|---|
+| 1:319 | fridge-001 | 1 |
+| 1:320 | freezer-001 | 1 |
+| 2:300 | fryer-001 | 1 |
+| 2:301 | hood-001 | 1 |
+
+4건 모두 magic byte 0, schema ID 1이었다. Registry 버전 목록은 `[1, 2]`로 유지됐다.
+입력은 현재 UTC 시각·UUID·무작위 수치이며 고정 seed는 사용하지 않았다.
+토픽/볼륨/offset 삭제나 초기화는 수행하지 않았다.
+
+### 직접 재현·증빙과 남은 범위
+
+`uv run python -m simulator.main --count 1`로 같은 발행 경로를 실행할 수 있다.
+매 실행마다 새 4건이 추가되므로 위 offset과 UUID는 반복되지 않는다.
+payload 출력과 4개 delivery callback, `delivered=4 failed=0 remaining=0`을 함께 촬영하면
+발행 성공을 보여준다. 
+
+기존 JSON Consumer는 아직 Avro 대응 전이다. 전체 필드 roundtrip, 필수값/Avro 타입 오류,
+호환·비호환 변경 재현, 서비스 장애·재시작은 남아 있다. 다음 작업은 P0-6이다.
+
+## P0-4 Avro 등록 상태와 BACKWARD 확인
+
+- 환경: Python 3.11.15, 기존 fastavro, Schema Registry 8.1.5.
+- 결과: **P0-4 통과. Phase 0 전체는 미완료.** 아래 이전 절은 당시 상태다.
+
+### 실제 결과와 변경 이유
+
+| 검사 | 결과 |
+|---|---|
+| 로컬 Avro `parse_schema` | 성공 |
+| subject 버전 목록 | `[1, 2]` |
+| version 1 / schema ID 1 | 로컬 기본 스키마와 JSON 내용 일치 |
+| version 2 / schema ID 2 | nullable `firmware_version`, default null 추가 |
+| `GET /config/kitchen.sensor.raw-value` | HTTP 200, `{"compatibilityLevel":"BACKWARD"}` |
+
+기존 등록과 subject 설정이 요구를 만족하므로 재등록하거나 설정을 변경하지 않았다.
+version 2도 그대로 보존했다. 기본 스키마 파일은 JSON 내용·필드 순서를 보존하고
+들여쓰기와 끝 개행만 정리했다. 데이터 계약 문서는 검증된 물리 스키마와 과거 제안을 구분했다.
+
+subject는 버전·호환성을 관리하는 이름, version은 해당 subject 내의 버전,
+schema ID는 직렬화 스키마 식별자다. payload의 string `schema_version`은 별도 필드다.
+BACKWARD의 의도는 새 reader가 이전 writer의 데이터를 읽는 것이다.
+설정 확인과 실제 호환/비호환 변경 실험은 구분한다.
+
+### 재현 명령
+
+저장소 루트에서 실행한다. GET만 사용하므로 Registry 데이터를 변경하지 않는다.
+스키마 정리 전후 모두 파싱·비교 검증을 통과했다.
+
+```bash
+.venv/bin/python - <<'PY'
+import json
+import urllib.request
+from pathlib import Path
+from fastavro import parse_schema
+
+base = 'http://localhost:8081'
+subject = 'kitchen.sensor.raw-value'
+
+def get(path):
+    with urllib.request.urlopen(base + path, timeout=10) as response:
+        return json.load(response)
+
+local = json.loads(Path('schemas/avro/sensor_metric_event.avsc').read_text())
+parse_schema(local)
+matched = []
+for version in get(f'/subjects/{subject}/versions'):
+    registered = get(f'/subjects/{subject}/versions/{version}')
+    matches = json.loads(registered['schema']) == local
+    print(f'version={version} schema_id={registered["id"]} matches_local={matches}')
+    if matches:
+        matched.append(version)
+assert matched, 'Local schema is not registered'
+config = get(f'/config/{subject}')
+assert config['compatibilityLevel'] == 'BACKWARD', config
+print('PASS: local schema registered at', matched, '; subject config:', config)
+PY
+```
+
+실제 결과:
+
+```text
+version=1 schema_id=1 matches_local=True
+version=2 schema_id=2 matches_local=False
+PASS: local schema registered at [1] ; subject config: {'compatibilityLevel': 'BACKWARD'}
+```
+
+### 남은 범위
+
+Producer/Consumer Avro 전환, roundtrip, 잘못된 타입·필수값 실패, 실제 호환/비호환 검사,
+발행 실패·재시작 검증은 남아 있다. 기존 pytest의 certifi 누락은 이번에 수정하거나
+재실행하지 않았고 HTTP 조회와 Avro 파싱으로 이번 범위를 검증했다.
+`git diff --check`는 통과했다. 다음 작업은 P0-5이며 이번에는 시작하지 않았다.
+
 ## P0-3 Schema Registry 기동과 Kafka 연결
 
 - 브랜치: `feat/phase0-foundation`
