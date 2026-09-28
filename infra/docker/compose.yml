@@ -59,6 +59,21 @@ services:
 
     command: ["/bin/bash", "/init/init-topics.sh"]
 
+  schema-registry:
+    image: confluentinc/cp-schema-registry:8.1.5
+    container_name: ktd-schema-registry
+
+    depends_on:
+      - kafka
+
+    ports:
+      - "8081:8081"
+
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema_registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:29092
+
 volumes:
   postgres_data:
   kafka_data:

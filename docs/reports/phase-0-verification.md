@@ -1,13 +1,73 @@
 # Phase 0 검증 기록
 
-## 2026-09-28 — P0-2 Kafka 기동과 토픽 초기화
+## P0-3 Schema Registry 기동과 Kafka 연결
 
 - 브랜치: `feat/phase0-foundation`
-- 기준 HEAD: `05756c602a7dc481e532b3b70ab9430f0c7f43d1` (미커밋 변경 포함)
+- 환경: 기존 Docker/Compose/Kafka 환경 유지, Registry 이미지 및 기동 로그 버전 8.1.5.
+
+### 동작과 확인 근거
+
+```text
+호스트의 HTTP 요청 → localhost:8081 → Schema Registry
+                                      ↓ Kafka 내부 listener
+                                  kafka:29092 → _schemas
+```
+
+호스트는 공개된 8081 포트로 접근한다. Registry는 Compose 네트워크 안에서
+`PLAINTEXT://kafka:29092`로 broker에 연결한다. 기동 로그에 이 주소와
+`KafkaStore: Reached offset at 8`이 나타났고, HTTP 조회에서 기존 subject가 반환됐다.
+이를 통해 단순 컨테이너 실행뿐 아니라 Kafka 저장 내용의 로딩과 HTTP 접근을 확인했다.
+
+`_schemas` 조회 결과는 partition 1, RF 1, `cleanup.policy=compact`,
+leader/replicas/ISR 모두 broker 1이다. raw 이벤트 토픽과 별도의 스키마 저장 토픽이다.
+로그에는 복수 SLF4J binding 및 Jersey provider 경고가 있었으나 기동과 `/subjects`
+조회는 성공했다. 다른 API 전체의 정상 동작까지 검증한 것은 아니다.
+
+### 실제 실행과 결과
+
+모든 명령은 저장소 루트에서 실행했다. 기존 컨테이너를 `start`했으며 재생성하지 않았다.
+
+| 명령 | 결과 |
+|---|---|
+| `docker compose -f infra/docker/compose.yml config --quiet` | 정리 전후 종료 코드 0 |
+| `docker compose -f infra/docker/compose.yml start schema-registry` | 기존 컨테이너 시작 성공 |
+| `docker compose -f infra/docker/compose.yml ps -a` | Kafka·Registry Up, PostgreSQL 중지 유지 |
+| `curl --fail --silent --show-error --max-time 10 -w '\nHTTP %{http_code}\n' http://localhost:8081/subjects` | HTTP 200, `["kitchen.sensor.raw-value"]` |
+| `docker exec ktd-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --describe --topic _schemas` | partition 1 / RF 1 / compact 확인 |
+| `docker exec ktd-kafka /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server kafka:29092 --topic kitchen.sensor.raw` | 끝 offset 221 / 319 / 300, P0-2 결과와 동일 |
+| `git diff --check` | 통과. P0-2에서 기록한 Compose 공백 오류도 해소 |
+
+이번 기동의 핵심 로그 재확인 명령:
+
+```bash
+docker logs --since 2026-09-28T11:34:00Z ktd-schema-registry 2>&1 \
+  | rg 'kafkastore.bootstrap.servers =|Reached offset|Schema Registry version:|Server started|ERROR'
+```
+
+실제 주요 결과:
+
+```text
+kafkastore.bootstrap.servers = [PLAINTEXT://kafka:29092]
+Reached offset at 8
+Schema Registry version: 8.1.5
+Server started, listening for requests...
+```
+
+기존 subject를 발견했지만 이번에는 스키마를 등록하거나 compatibility 설정을
+변경하지 않았다. **등록된 스키마와 로컬 Avro의 일치 여부, subject BACKWARD 확인은
+P0-4에 남아 있다.** Producer 발행, roundtrip, 장애 복구 검증도 여전히 미완료다.
+P0-2의 pytest 수집 오류는 이번 범위에서 수정하거나 재실행하지 않았다.
+기존 토픽·볼륨·offset 삭제/초기화 및 Git staging/commit/push는 수행하지 않았다.
+Kafka와 Registry는 실행 상태로 두었다.
+
+
+## P0-2 Kafka 기동과 토픽 초기화
+
+- 브랜치: `feat/phase0-foundation`
 - 환경: macOS arm64, Docker 28.3.3, Compose v2.39.2-desktop.1,
   Kafka 이미지 `apache/kafka:4.1.0`, Python 3.11.15.
 - 범위: 기존 컨테이너 시작, broker 접속, raw 토픽 설정, 초기화 재실행 검증.
-- 결과: P0-2 검증 통과. **Phase 0 전체는 미완료.**
+- 결과: P0-2 검증 통과
 
 ### 변경 이유와 동작
 
@@ -116,11 +176,3 @@ trailing whitespace 1건을 보고했다. 이번 작업의 스크립트 변경�
 차이, `unit=None`, 기본 fault injection을 함께 검토해야 한다.
 구형 ADR의 전체 로컬 환경 및 과거 계약 제안보다 최신 로컬 계획서의
 Kafka/Registry 로컬 범위와 수치 telemetry 계약을 이번 판단에 적용했다.
-
-### 사용자가 확인할 증빙
-
-`docker compose -f infra/docker/compose.yml ps -a`와
-`docker logs --tail 12 ktd-kafka-init` 화면을 촬영하면 Kafka 실행과 초기화 성공,
-raw 설정을 보여줄 수 있다. 출력에 비밀값이 없는지 확인한다.
-기존 Git 제외 폴더 `screenshots/`에 보관할 수 있다.
-Kafka는 검증 후 실행 상태로 두었다.
