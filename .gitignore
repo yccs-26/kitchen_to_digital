@@ -20,6 +20,9 @@ htmlcov/
 .env.*
 !.env.example
 
+# docs
+docs/plans
+
 # VS Code
 .vscode/
 *.code-workspace
