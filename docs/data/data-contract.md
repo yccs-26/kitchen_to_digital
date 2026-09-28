@@ -12,8 +12,9 @@ JSON 내용이 일치함을 확인했다. subject의 명시적 설정은 `BACKWA
 Registry latest는 version 2 / schema ID 2이며 nullable `firmware_version`
 (default null)이 추가돼 있다. 사용자가 이 version 2는 Avro 호환성 테스트용이라고 확인했다.
 운영 필드 추가로 채택한 것이 아니며 Producer는 로컬 기본 version 1 스키마를 사용한다.
-P0-5에서 Avro 발행과 key/schema ID를 확인했다. 전체 필드 roundtrip과 호환성 실험의
-재현 검증은 아직 남아 있다.
+P0-5에서 Avro 발행과 key/schema ID를 확인했다. P0-6에서는 실제 raw 토픽을 통해
+event_id·key·10개 필드와 double 값의 roundtrip을 검증했다.
+호환성 실험의 재현 검증은 아직 남아 있다.
 재현 명령은 [Phase 0 검증 기록](../reports/phase-0-verification.md)에 있다.
 
 ## 이전 설계 기록

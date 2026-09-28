@@ -1,8 +1,72 @@
 # Phase 0 검증 기록
 
+## P0-6 유한한 Avro roundtrip 검증
+
+- 환경: 기존 Python 3.11.15 / confluent-kafka 2.15.1 / Kafka 4.1.0 / Registry 8.1.5.
+- 결과: **P0-6 통과. Phase 0 전체는 미완료**
+
+### 변경 이유와 구현
+
+기존 빈 `tests/integration/test_avro_roundtrip.py`에 실제 Producer/Registry/Kafka를
+사용하는 유한한 검증을 구현했다. `pyproject.toml`에는 integration marker를 등록했다.
+일반 pytest는 통합 테스트를 skip하며 `KTD_RUN_INTEGRATION=1`로 명시한 경우만 발행한다.
+
+발행 전 partition별 끝 offset을 읽고 그 위치에 직접 assign한다. UUID 장비 key로
+이번 실행 메시지만 골라 기존 JSON·문자열 및 다른 Producer의 데이터를 decode하지 않는다.
+별도 Registry client의 AvroDeserializer가 메시지의 writer schema ID로 스키마를 조회한다.
+로컬 reader schema나 테스트용 latest version 2는 주입하지 않는다.
+원본 dict 전체 일치, event_id, key, schema ID, metric_value의 float 타입을 assert한다.
+
+fixture 값은 `2.5 / -18.75 / 0.0 / 175.125`, source는 `simulator-왕복검증`이다.
+event_id와 equipment_id는 실행별 UUID, event_time은 현재 UTC다. 수치값은 고정이므로
+random seed가 필요 없다. 테스트용 장비·매장이며 업무 도메인 검증은 이 테스트의 범위가 아니다.
+
+### 실제 실행·결과
+
+| 실행 명령 | 결과 |
+|---|---|
+| `.venv/bin/python -m pytest -q` | 8 passed, 1 skipped |
+| `KTD_RUN_INTEGRATION=1 .venv/bin/python -m pytest -q -s` | 9 passed (통합 1 + 단위 8) |
+| `git diff --check` | 통과 |
+
+Authlib httpx deprecation warning 1건은 기존과 동일하다.
+`-s` 전체 실행 중 나타난 모의 delivery failure/remaining 출력은 단위 테스트의 기대한
+실패 시나리오이며 실제 통합 발행 실패가 아니다.
+
+```text
+[ROUNDTRIP START] offsets={0: 221, 1: 323, 2: 304}
+[KAFKA FLUSH] delivered=4 failed=0 remaining=0
+```
+
+| event_id | raw partition:offset | metric_value |
+|---|---|---:|
+| 0f93091b-317a-464a-b71e-b6ac24660f8d | 0:221 | 2.5 |
+| a2aa9707-7398-4ef5-8259-1bfbbc95f761 | 1:323 | -18.75 |
+| 6beddba5-0aa5-413c-85ea-e1a854a8daf1 | 1:324 | 0.0 |
+| 616e012e-c4ab-4748-a66c-bf2e24562bbb | 0:222 | 175.125 |
+
+위 순서의 equipment_id/key는 `p0-6-b77b5de034cc47c2ac2ed106c84b4aa4-0`부터 `-3`이다.
+4건 모두 schema ID 1, `fields_equal=True value_type=float`으로 복원됐다.
+고정 수치와 한글 source를 포함한 10개 필드 모두 원본과 일치했다.
+
+수신 루프는 15초로 제한하며 실패 시 누락 event_id를 보고한다. 네트워크 호출에는 별도
+timeout이 있다. auto commit/offset store를 끄고 임시 group/manual assign을 사용했다.
+consumer.close()는 finally에서 실행한다. 기존 group offset commit, topic/volume 삭제,
+offset reset은 수행하지 않았고 테스트 레코드는 raw에 남겼다.
+
+### 재현·증빙과 남은 범위
+
+실행 방법은 [로컬 개발 안내](../local-development.md)의 P0-6 절에 있다.
+통합 테스트만 `-s`로 실행해 `ROUNDTRIP OK` 4줄과 통과 결과를 촬영하면
+event_id/transport 위치/필드 복원 증빙이 된다.
+
+기존 JSON `streaming/consumer.py`의 미커밋 수정은 보존했다. 이 통합 테스트가 P0-6의
+검증 Consumer 역할이며 상시 ingestion이나 업무 validation으로 확장하지 않았다.
+실제 호환/비호환 변경, 잘못된 Avro 타입·필수값 누락, 서비스 장애·재시작은 P0-7에 남아 있다.
+
 ## P0-5 Producer Avro 전환
 
-- 결과: **P0-5 통과. Phase 0 전체는 미완료.**
+- 결과: **P0-5 통과. Phase 0 전체는 미완료**
 - version 2의 nullable `firmware_version`은 사용자 확인에 따라 호환성 테스트용으로 기록한다.
   Producer는 기존 로컬 기본 스키마를 사용하며 Registry의 테스트 버전을 변경하지 않는다.
 

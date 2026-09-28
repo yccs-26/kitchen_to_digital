@@ -40,4 +40,34 @@ schema ID 1은 현재 로컬 Registry에서 관측한 값이며 코드에 고정
 flush에서 예외를 발생시켜 성공처럼 끝내지 않는다. 이는 전체 장애 복구 검증 완료를 뜻하지 않는다.
 
 기존 `streaming/consumer.py`는 JSON 전용이라 Avro 레코드를 읽으면 실패할 수 있다.
-Avro 역직렬화 검증 도구는 P0-6에서 구현한다. 기존 토픽·offset을 초기화하지 않는다.
+Avro 확인에는 아래 유한한 통합 테스트를 사용한다. 기존 토픽·offset을 초기화하지 않는다.
+
+## Avro roundtrip 검증 — P0-6
+
+Kafka/Registry와 기본 스키마가 준비된 상태에서 저장소 루트에서 실행한다.
+
+```bash
+KTD_RUN_INTEGRATION=1 uv run python -m pytest -q -s tests/integration/test_avro_roundtrip.py
+```
+
+실제 `kitchen.sensor.raw`에 4건이 추가된다. 기본 pytest 실행에서는 skip하며
+`KTD_RUN_INTEGRATION=1`을 명시했을 때만 실행한다. 활성화 후 서비스가 없거나
+설정이 맞지 않으면 skip하지 않고 실패한다. raw 이외의 토픽 설정도 실패한다.
+
+```text
+partition별 끝 offset 저장 → 고유 key로 4건 발행 → 저장한 offset부터 읽기
+  → 이번 실행 key만 선택 → Registry writer schema로 decode → 원본 전체 dict 비교
+```
+
+고정 값 `2.5`, `-18.75`, `0.0`, `175.125`와 한글 source를 사용한다.
+UUID event_id와 `p0-6-<run UUID>-<번호>` equipment_id로 실행을 구분한다.
+이는 직렬화 검증용 fixture이며 실장비 ID·온도 범위의 업무 유효성 검사는 아니다.
+각 메시지의 schema ID가 로컬 스키마의 등록 ID와 일치하는지 확인하고,
+event_id를 포함한 10개 필드, key=equipment_id, metric_value의 float 타입을 비교한다.
+테스트용 Registry version 2를 latest reader로 자동 선택하지 않는다.
+
+수신 루프는 최대 15초이고 누락 event_id가 있으면 실패한다. metadata/Registry 요청과
+Producer flush에는 별도 timeout이 있으므로 테스트 전체가 15초라는 뜻은 아니다.
+임시 group과 manual assign을 쓰며 auto commit/offset store를 끄고, 종료 시 Consumer를 닫는다.
+기존 group offset을 변경하지 않는다. 검증 레코드는 raw에 보존한다.
+`ROUNDTRIP OK` 4줄과 pytest 통과 결과를 함께 촬영하면 복원 증빙으로 사용할 수 있다.

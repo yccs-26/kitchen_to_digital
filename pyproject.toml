@@ -14,3 +14,6 @@ dependencies = [
 dev = [
     "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+markers = ["integration: requires running Kafka and Schema Registry; writes test records"]
