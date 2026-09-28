@@ -1,5 +1,38 @@
 # Phase 0 검증 기록
 
+## P0-8 최종 문서·DoD 검토 
+
+**판정: 현재 로컬 환경의 Phase 0 기능 검증 근거를 확보했다. 이번 문서 commit/push와
+PR 검토·main 병합은 사용자 작업으로 남아 있으므로 Phase 1은 아직 시작하지 않는다.**
+
+| 검토 영역 | 확인 근거와 범위 |
+|---|---|
+| 기존 구현 재사용 | 기존 Compose, Simulator, schema 및 tests 경로 유지 |
+| 서비스/계약 | Kafka 4.1.0·Registry 8.1.5 실행 확인, subject BACKWARD와 versions `[1, 2]` 재조회 |
+| 토픽 설정 | 아래 P0-2 기록의 raw partition 3 / RF 1, 개발용 값 |
+| 발행/역직렬화 | 이번 회귀 실행에서 event_id·key·전체 payload·double 검증 통과 |
+| 호환성과 입력 거부 | 이번 회귀 실행에 v2 허용/v3 거부 및 필수값·타입 실패 포함 |
+| 종료/장애/재시작 | 아래 P0-7 최종 2 passed 로그와 저장 표본 보존 근거; 이번 문서 변경에서는 중단 검사를 반복하지 않음 |
+| 실행 정보 | 루트/Compose `.env.example`, 로컬 실행 문서 및 아래 환경 버전 기록 유지 |
+| 증빙/Git | 로컬 screenshots 보존; 이번 변경 commit/push 및 PR 병합 대기 |
+
+실행 명령 `KTD_RUN_INTEGRATION=1 .venv/bin/python -m pytest -q -s`:
+**13 passed, 2 skipped, 1 warning in 0.53s**. skip 2개는 별도 opt-in인 서비스 중단 검사다.
+Authlib의 기존 deprecation warning은 남아 있다. 이 명령은 raw에 4개 검증 이벤트를 추가했다.
+`docker compose -f infra/docker/compose.yml ps -a`로 Kafka/Registry 실행을 확인했다.
+
+증빙: `screenshots/phase-0/p0-8-regression.log` 원본과
+`screenshots/phase-0/p0-8-regression.jpg` 실제 로그 발췌의 브라우저 캡처.
+문서의 상대 파일 링크 존재 확인 및 `git diff --check`를 수행했다.
+
+남은 범위: 빈 환경에서의 전체 구축/스키마 등록 재현, 컨테이너 재생성·볼륨 유실,
+실패 이벤트의 영속 outbox/자동 재발행, 클라우드 연결 및 적재는 검증하지 않았다.
+nullable firmware_version v2는 호환성 실험이며 현재 Producer는 기본 로컬 schema를 사용한다.
+
+PR 준비 제목: `feat: establish local Avro sensor pipeline and verification`.
+PR 설명에는 현재 로컬 Avro 발행/복원, BACKWARD 및 장애 검증 결과와 위 한계를 포함하고
+이 보고서를 연결한다. push 대상은 확인된 `origin`의 `feat/phase0-foundation`, 병합 대상은 `main`이다.
+
 ## P0-7 호환성·종료·장애·재시작 검증
 
 - 환경: Python 3.11.15, confluent-kafka 2.15.1, Kafka 4.1.0, Registry 8.1.5, 기존 Compose 컨테이너.
