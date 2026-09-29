@@ -1,72 +1,67 @@
 # 이벤트 계약과 Schema Evolution
 
-## 현재 확인된 Avro 계약
+## 현재 물리 계약
 
-P0-4에서 [로컬 스키마](../../schemas/avro/sensor_metric_event.avsc)를
-파싱하고 Registry의 `kitchen.sensor.raw-value` version 1 / schema ID 1과
-JSON 내용이 일치함을 확인했다. subject의 명시적 설정은 `BACKWARD`다.
-`metric_value`는 double, 나머지 9개 필드는 string이다.
-`source`, string `schema_version`, string `event_time`을 유지한다.
-필드는 모두 필수이며 null union이나 default는 없다.
+[Avro 스키마](../../schemas/avro/sensor_metric_event.avsc)의 `ktd.sensor.SensorMetricEvent`는 수치 telemetry 계약이다.
+모든 필드는 필수이며 null union이나 default는 없다. 현재 Producer는 이 로컬 스키마로 직렬화한다.
 
-Registry latest는 version 2 / schema ID 2이며 nullable `firmware_version`
-(default null)이 추가돼 있다. 사용자가 이 version 2는 Avro 호환성 테스트용이라고 확인했다.
-운영 필드 추가로 채택한 것이 아니며 Producer는 로컬 기본 version 1 스키마를 사용한다.
-P0-5에서 Avro 발행과 key/schema ID를 확인했다. P0-6에서는 실제 raw 토픽을 통해
-event_id·key·10개 필드와 double 값의 roundtrip을 검증했다.
-P0-7에서 v2/v1 호환=True, 필수 manufacturer를 추가한 v3/v2 호환=False를
-Registry 검사 API로 재현했다. [호환성 검증](../schema-evolution-test.md)의 범위와 한계를 따른다.
-재현 명령은 [Phase 0 검증 기록](../reports/phase-0-verification.md)에 있다.
-
-## 이전 설계 기록
-
-아래는 당시 제안과 미정 사항이다. 현재 물리 스키마는 위 검증 결과를 우선한다.
-`producer_id`/int 버전 제안은 적용되지 않았다.
-
-## 채택된 정책
-
-사용자가 Avro + Schema Registry를 처음부터 사용하도록 명시했다. schema ID는 직렬화 스키마 식별자, payload의 schema_version은 논리 계약 버전으로 구분해 유지한다. BACKWARD를 기본 호환성 방향으로 두고 optional/default 필드 추가 중심으로 진화시킨다. breaking change는 새 계약/topic 또는 명시적 major migration으로 분리한다.
-
-BACKWARD의 의도는 새 reader로 이전 데이터를 읽는 것이다. Producer 선배포와 구형 reader가 새 데이터를 읽는 안전성까지 자동으로 승인한 것이 아니다. 배포 순서, mixed-version 테스트와 과거 모든 버전 replay의 범위는 별도 검증한다.
-
-## 이전안과 마지막 제안의 차이
-
-| 항목 | 이전 Work 기준 | 마지막 답변의 제안 |
+| 필드 | Avro 타입 | 의미·현재 생성 방식 |
 |---|---|---|
-| 이벤트 범위 | 수치·문자·boolean 공통 Metric Event | raw는 수치 telemetry SensorMetricEvent |
-| 값 | numeric_value/string_value/boolean_value 중 하나 | metric_value: double |
-| 상태 이벤트 | 같은 이벤트 모델 | 요구 시 별도 EquipmentEvent 계약 |
-| 종류·metric·단위 | 문자열 및 품질 규칙 | string 유지, Job 2 참조 규칙으로 조합 검증 |
-| schema_version | string 예시 1.0 | int 논리 버전 예시 |
-| 발생 원천 | source | producer_id |
-| ingested_at | 공통 이벤트 필드로 제시 | Spark가 붙이는 처리 metadata |
+| `event_id` | string | 측정 식별자. Simulator는 새 측정마다 UUID 생성 |
+| `event_time` | string | 측정 발생 시각. Simulator는 UTC ISO 8601 문자열 생성 |
+| `store_id` | string | 매장 식별자 |
+| `equipment_id` | string | 장비 식별자이자 Kafka key |
+| `equipment_type` | string | 장비 종류 |
+| `metric_name` | string | 측정 항목 |
+| `metric_value` | double | 수치 측정값. Producer는 boolean/string 입력 거부 |
+| `unit` | string | 측정 단위 |
+| `schema_version` | string | 논리 계약 버전. Simulator 생성값은 `1.0.0` |
+| `source` | string | 발생 원천. Simulator 생성값은 `simulator` |
 
-마지막 제안 이후 사용자의 채택 응답은 확인되지 않았다. **numeric-only, 버전 타입, source/producer_id 전환을 확정 계약으로 간주하지 않는다.** 마지막 설계 방향을 기록하되 코드·Avro schema를 변경하기 전에 이 경계를 닫아야 한다. 기존 상태형 집계와 FSM에 필요한 입력을 수치형 계약만으로 이미 제공한다고 가정하지 않는다.
+`event_time`이 string이라는 사실은 timestamp 유효성을 보장하지 않는다.
+장비·metric·unit 조합, 값 범위, 참조 유효성은 후속 Job 2의 [업무 품질 검증](validation.md) 책임이다.
+Avro는 구조를 검증하며 장비의 실제 상태나 업무적 타당성을 대신 판정하지 않는다.
 
-## 최신 논리 스키마 제안
+## Identity와 처리 metadata
 
-| 필드 | 타입·책임 |
-|---|---|
-| event_id | string, 같은 측정의 재전송·재처리에서 유지 |
-| event_time | timestamp, 실제 측정 시각 |
-| store_id, equipment_id, equipment_type | string |
-| metric_name, unit | string, 허용 조합은 Job 2가 검사 |
-| metric_value | double, 수치형 telemetry만 |
-| producer_id | string, 발생 producer 식별 제안 |
-| schema_version | int 제안, 기존 string에서 전환 정책 미정 |
+Kafka key는 UTF-8 `equipment_id`이며 Producer가 payload와의 일치를 검사한다.
+`event_id`는 같은 측정의 재전송·재처리에서 유지하는 설계다. 새 측정과 재시도를 구분해야 한다.
+매장 간 장비 ID의 전역 유일성은 아직 확인해야 한다.
 
-Kafka topic/partition/offset/timestamp 및 ingested_at/processed_at은 운송·처리 metadata로 분리한다. 원본 bytes와 schema 식별 정보는 Bronze에 보존한다. Avro logical timestamp 단위, null/default, subject naming, 미지원 버전 매핑은 아직 물리 계약으로 확정하지 않았다.
+`event_time`은 발생 시각이고, 후속 수집 계층의 `ingested_at`은 도착 지연 관측용 시각이다.
+`ingested_at`, `processed_at`과 Kafka topic/partition/offset/timestamp는 현재 payload의 10개 필드에 포함되지 않는다.
+원본 수집 시각과 재처리 시각을 구분하며, 부여 위치·세부 의미는 ingestion 구현에서 확정한다.
+Bronze는 원본 bytes와 schema 식별 정보·운송 metadata를 보존하는 설계다.
 
-## 변경 정책과 검증
+## 버전과 호환성 정책
 
-- optional/default 추가: 호환성 검사와 V1/V2 혼합 처리·backfill 테스트 후 적용.
-- 필드 rename, 타입 변경, required 필드 추가, 의미 변경: 현재 계약에서 허용하지 않는 방향.
-- 필드 삭제: 앞선 논의는 breaking으로 분류했고 마지막 답변은 optional 제거를 신중 허용하자고 제안했다. 삭제 승인 기준은 미정이며 자동 허용하지 않는다.
-- 계약 오류와 domain 오류는 [검증](validation.md)에서 분류한다.
-- 이벤트 schema와 Iceberg 저장 schema 진화는 별개로 검증한다.
+Avro + Schema Registry는 구조적 계약과 업무 의미를 분리하고 reader/writer 변경을 관리하기 위한 선택이다.
+subject는 버전·호환성 관리 단위, Registry schema ID는 직렬화 스키마 식별자,
+payload의 `schema_version`은 논리 계약 버전이다.
 
-## 현재 코드와의 관계
+Producer는 topic subject naming을 쓰며 기본 raw 토픽의 subject는 `kitchen.sensor.raw-value`다.
+`auto.register.schemas=False`, `use.latest.version=False`로 등록된 로컬 스키마를 조회한다.
+로컬 환경에서 관측한 ID를 코드에 고정하거나 호환성 실험의 latest를 자동 채택하지 않는다.
 
-확인한 기존 models.py는 metric_value: float, schema_version: str='1.0', 제한된 equipment_type을 사용한다. 수치형 값이 유사해도 Avro 전환과 새 논리 계약이 완료된 것은 아니다. simulated_fault, 구형 원본 변환, 단위·범위 사전도 전환 설계 대상이다.
+기본 호환성 방향은 BACKWARD다. 새 reader가 이전 writer 데이터를 읽는 방향이며,
+구형 reader의 새 데이터 읽기나 모든 과거 버전 replay까지 자동 보장하지 않는다.
 
-**이유:** 구조적 계약과 업무 의미를 분리한다. **트레이드오프:** 범용 수치 모델은 단순하지만 상태·문자 이벤트를 별도로 설계해야 한다. **면접 포인트:** 호환 변경 수용과 breaking 변경 차단을 실제 테스트 결과로 증명한다.
+- optional/default 필드 추가도 호환성 검사, 혼합 버전 처리와 backfill 검증 후 적용한다.
+- rename·타입 변경·required 추가·의미 변경은 breaking change로 다루고 새 계약/topic 또는 명시적 major migration으로 분리한다.
+- 필드 삭제 승인 기준은 미정이다. optional 필드라는 이유만으로 자동 허용하지 않는다.
+- 배포 순서와 과거 버전 replay 범위를 별도 검증한다. 이벤트 schema와 Iceberg 저장 schema 진화도 구분한다.
+
+## 검증 범위와 미결정 사항
+
+기존 Phase 0 기록에는 기본 v1 발행·전체 필드 roundtrip, subject BACKWARD,
+nullable `firmware_version`과 default null을 추가한 실험용 v2의 호환성 결과가 있다.
+v2는 현재 Producer 계약에 채택된 필드가 아니다. 상세 결과와 한계는
+[호환성 검증](../schema-evolution-test.md), [검증 보고서](../reports/phase-0-verification.md)를 따른다.
+Registry 등록 상태는 해당 실행 시점의 관측이다.
+
+이전 공통 numeric/string/boolean 모델에서 현재 수치형 계약으로 범위가 좁아졌다.
+`source → producer_id`, `schema_version: string → int`, logical timestamp 전환은 적용되지 않은 제안이다.
+상태·문자 이벤트는 별도 입력 계약이 필요하며 현재 수치형 payload만으로 제공된다고 가정하지 않는다.
+미지원 버전 매핑, 구형 원본 변환, fault injection 입력의 품질 처리도 후속 설계 대상이다.
+
+수치형 공통 모델은 단순하지만 상태 이벤트를 별도로 설계해야 한다는 트레이드오프가 있다.

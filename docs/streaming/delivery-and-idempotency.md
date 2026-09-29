@@ -20,7 +20,7 @@
 
 ## Silver 실험 보류
 
-사용자는 매 micro-batch MERGE와 append + 주기적 dedup/compaction을 비교한 뒤 결정하도록 명시했다. MERGE는 후보이며 확정 구현이 아니다. 요구사항은 persistent idempotency다.
+매 micro-batch MERGE와 append + 주기적 dedup/compaction을 비교한 뒤 결정한다. MERGE는 후보이며 확정 구현이 아니다. 요구사항은 persistent idempotency다.
 
 append 후 정기 dedup은 정리 전 중복 노출 가능성을 함께 평가해야 한다. compaction만 수행하는 것을 event_id dedup으로 취급하지 않는다. canonical 읽기 경계·정리 작업 실패·validated 토픽 중복·Gold 오염까지 검증해야 두 전략을 공정하게 비교할 수 있다.
 
