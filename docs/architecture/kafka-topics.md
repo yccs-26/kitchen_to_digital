@@ -12,7 +12,7 @@
 | kitchen.sensor.reprocess | 원인 수정 후 명시적 개별 재처리 | 3 |
 | kitchen.sensor.dlq | bounded retry를 소진한 처리·시스템 실패 | 미정 |
 
-파티션 수 6은 사용자가 고정하지 않도록 명시한 baseline이다. 3/6/12를 부하 테스트한다. 장비별 key는 equipment_id, 센서 이벤트 identity는 event_id다. 매장 간 ID 중복 여부와 복합 키 전환 필요성은 확정해야 한다. 잘못된 메시지에 장비 ID가 없을 때 오류 토픽 key 규칙도 미정이다.
+파티션 수 6은 성능 비교용 baseline이다. 현재 로컬 raw는 partition 3 / RF 1이며 아래 목표 설정과 구분한다. 3/6/12를 부하 테스트한다. 장비별 key는 equipment_id, 센서 이벤트 identity는 event_id다. 매장 간 ID 중복 여부와 복합 키 전환 필요성은 확정해야 한다. 잘못된 메시지에 장비 ID가 없을 때 오류 토픽 key 규칙도 미정이다.
 
 동일 key의 Kafka 기록 순서와 event_time 순서는 같다고 가정하지 않는다. 파티션 증설 시 key 매핑·진행 중 상태의 영향을 검증한다. 독립 목적의 Job은 [별도 소비 경계](platform.md)를 사용한다.
 
@@ -26,4 +26,4 @@
 
 **이유:** 장애 시 유실보다 재처리를 선택하고 역할별 확장·복구를 가능하게 한다. **대가:** 복제 비용, ISR 부족 시 쓰기 거부, hot key와 partition blocking 가능성. 초기 별도 retry 토픽은 도입하지 않고 실제 blocking이 관측되면 검토한다.
 
-retention 기간, producer timeout/retry 횟수, DLQ 파티션 수는 아직 미정이다. 관련: [실패·재처리](../operations/late-events-and-backfill.md), [실험](../experiments/performance-plan.md).
+retention 기간, 운영 환경의 producer timeout/retry 정책, DLQ 파티션 수는 아직 미정이다. 현재 로컬 timeout 설정은 [실행 안내](../local-development.md)에 있다. 관련: [실패·재처리](../operations/late-events-and-backfill.md), [실험](../experiments/performance-plan.md).
