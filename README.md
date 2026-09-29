@@ -1,41 +1,46 @@
 # Kitchen to Digital (KTD)
 
-주방 장비의 센서 이벤트를 수집하고 검증·집계해 Digital Twin으로 연결하는 데이터 엔지니어링 프로젝트다.
+주방 장비의 센서 이벤트를 수집·검증·집계해 Digital Twin으로 연결하는 데이터 엔지니어링 프로젝트다.
+원본 보존, 데이터 품질, 최신 장비 상태와 과거 이력의 분리를 통해 지연·중복·장애 상황에서도 결과를 설명하고 복구할 수 있는 구조를 목표로 한다.
 
-현재 구현·검증 범위는 **Phase 0: 로컬 Kafka + Schema Registry + Avro Simulator**다.
-Databricks/S3/Iceberg/Glue/DynamoDB는 후속 설계이며 클라우드 적재 완료를 의미하지 않는다.
+현재 구현 범위는 **Phase 0: 로컬 Kafka + Schema Registry + Avro Simulator**다.
+Avro 왕복·호환성·로컬 재시작의 기존 실행 결과는 [Phase 0 검증 기록](docs/reports/phase-0-verification.md)에 있다.
+Databricks와 클라우드 저장 경로는 후속 설계다.
+
+## 데이터 흐름과 설계 특징
 
 ```mermaid
 flowchart LR
-    A[수치형 장비 Simulator] --> B[Avro Producer]
-    R[Schema Registry] -->|등록된 로컬 스키마 ID| B
-    B -->|key = equipment_id| K[kitchen.sensor.raw]
-    K --> C[유한한 검증 Consumer]
-    R -->|writer schema| C
-    C --> D[event_id · 전체 필드 · double 비교]
+    P[Simulator / Avro] --> K[Kafka raw]
+    R[Schema Registry] -. 계약 .-> P
+    K --> C[Phase 0 검증 Consumer]
+    K -. Job 1 계획 .-> B[Bronze 원본]
+    K -. Job 2 계획 .-> S[Silver / validated]
+    S -. Job 3 계획 .-> G[Gold 집계]
+    S -. Job 4 계획 .-> T[DynamoDB 현재 상태 / Iceberg 이력]
 ```
 
-- [로컬 실행과 테스트](docs/local-development.md): 준비 조건, 환경 변수, 유한 실행, 장애 검사 주의사항.
-- [실제 데이터 계약](docs/data/data-contract.md): 10개 필드와 Kafka key 계약.
-- [호환성·장애 검사 해설](docs/schema-evolution-test.md): BACKWARD, 잘못된 입력, 종료와 복구.
-- [Phase 0 검증 기록](docs/reports/phase-0-verification.md): 실행 결과, 증빙, 미검증 범위와 병합 조건.
-- [전체 설계 문서](docs/README.md): 구현 결과와 구분해서 읽는 후속 아키텍처.
+- Kafka key는 `equipment_id`, 측정 이벤트 식별자는 `event_id`로 분리한다.
+- Avro와 Registry로 구조적 계약을 관리하고, 업무 품질 검증은 후속 Job 2가 담당한다.
+- 목표 플랫폼은 Databricks PySpark + S3/Iceberg + Glue Catalog다. Bronze 원본을 기반으로 재처리하고, query별 checkpoint와 sink 멱등성으로 복구 경계를 나눈다.
+- 현재 상태는 DynamoDB, 이력은 Iceberg에 분리하는 설계다. 독립 Job과 복수 sink는 장애 격리에 유리하지만 이중 쓰기 복구가 필요하다.
 
-등록된 기본 스키마를 사용하며, nullable `firmware_version`을 추가한 Registry v2는
-호환성 실험용이다. 현재 Producer 계약에 필드를 추가한 것이 아니다.
+## 로컬 실행
 
-기존 로컬 환경의 빠른 확인 명령(저장소 루트):
+Kafka/Registry가 실행 중이고 기본 스키마가 등록된 기존 환경에서 저장소 루트 기준으로 실행한다.
 
 ```bash
 uv sync --locked
-docker compose -f infra/docker/compose.yml ps -a
-uv run python -m pytest -q
-KTD_RUN_INTEGRATION=1 uv run python -m pytest -q -s
+uv run python -m simulator.main --count 1
 ```
 
-통합 검사는 Kafka/Registry와 등록된 v1/v2가 필요하며 실제 raw에 레코드를 추가한다.
-기본 pytest는 외부 서비스 검사를 건너뛴다. 서비스 중단 검사는 별도 opt-in이며
-[실행 안내](docs/local-development.md)를 먼저 확인한다. 빈 환경 전체 구축은 아직 재검증하지 않았다.
+수치형 장비마다 1건씩 현재 총 4건을 raw에 추가한다. 빈 환경 전체 구축과 스키마 등록 자동화는 아직 검증되지 않았다.
 
-증빙은 로컬 `screenshots/phase-0/`에 보관하며 Git 제외 설정을 유지한다.
-Phase 1은 Phase 0 변경의 사용자 commit/push 및 PR 검토·main 병합 후 시작한다.
+## 주요 문서
+
+- [로컬 환경과 실행](docs/local-development.md)
+- [데이터 계약](docs/data/data-contract.md)
+- [전체 구조와 흐름도](docs/architecture/diagrams.md)
+- [분야별 설계](docs/architecture/design-decisions.md)
+- [호환성·장애 검증](docs/schema-evolution-test.md)
+- [문서 목록](docs/README.md)

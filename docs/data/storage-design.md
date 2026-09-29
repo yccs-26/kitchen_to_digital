@@ -21,7 +21,7 @@ Item 논리 필드: equipment_type, operational_state, health_status, state_star
 
 이전 days(event_time) Bronze 및 day+bucket(16) Silver/Gold는 최신 단순 시작안으로 대체한다. equipment_id identity partition은 초기 사용하지 않는다. bucket(N,equipment_id)는 query scan·파일 수·크기 측정 후 실험한다. event_time을 해석 못 하는 원본도 Bronze에 보존할 수 있어야 한다.
 
-Gold 물리 테이블·컬럼명은 DDL 전 확정한다. [Gold 논리 모델](gold-model.md)을 기준으로 하며 대화의 equipment_metric_1m/5m는 물리 분리 확정으로 해석하지 않는다.
+Gold 물리 테이블·컬럼명은 DDL 전 확인한다. [Gold 논리 모델](gold-model.md)은 fact 중심이고, 로컬 개발 계획서는 equipment_metric_1m/5m 이름을 사용한다. 두 모델의 매핑과 물리 분리 여부는 아직 일치시키지 않았다.
 
 ## 유지보수 방향과 초기 운영안
 
@@ -36,6 +36,6 @@ Gold 물리 테이블·컬럼명은 DDL 전 확정한다. [Gold 논리 모델](g
 | time travel | 배포 전후 비교·품질 변경·장애 분석 | 활용 방향 |
 | 배포 전 snapshot tag | 중요 배포 보호 | 후속 고급 기능 |
 
-snapshot retention과 raw 데이터 retention은 다르다. 원천 보존 기간은 아직 미정이다. compaction 후에도 snapshot이 참조하는 파일이 남을 수 있으므로 실제 저장 비용을 관측한다. 정리 작업은 긴 write/backfill과 겹치는 상황을 검증하고 실행한다. 이번 문서화는 정리 작업 실행을 뜻하지 않는다.
+snapshot retention과 raw 데이터 retention은 다르다. 원천 보존 기간은 아직 미정이다. compaction 후에도 snapshot이 참조하는 파일이 남을 수 있으므로 실제 저장 비용을 관측한다. 정리 작업은 긴 write/backfill과 겹치는 상황을 검증하고 실행한다. 이 정책은 아직 운영 검증 전이다.
 
 **이유:** 시간 범위 replay와 query pruning을 지원하면서 과도한 partition·small file을 피한다. **대가:** compaction 비용과 snapshot 보관 비용, maintenance/writer 충돌 관리가 필요하다.

@@ -1,6 +1,8 @@
 # Phase 0 검증 기록
 
-## P0-8 최종 문서·DoD 검토 
+P0-8부터 P0-2까지 역순으로 보존한 당시 실행 기록이다. 각 절의 미완료·다음 작업·Git 상태는 해당 시점의 판단이며 현재 상태를 뜻하지 않는다.
+
+## P0-8 최종 문서·DoD 검토
 
 **판정: 현재 로컬 환경의 Phase 0 기능 검증 근거를 확보했다. 이번 문서 commit/push와
 PR 검토·main 병합은 사용자 작업으로 남아 있으므로 Phase 1은 아직 시작하지 않는다.**
@@ -159,7 +161,7 @@ offset reset은 수행하지 않았고 테스트 레코드는 raw에 남겼다.
 
 ### 재현·증빙과 남은 범위
 
-실행 방법은 [로컬 개발 안내](../local-development.md)의 P0-6 절에 있다.
+실행 방법은 [로컬 개발 안내](../local-development.md#검증-명령)의 P0-6 명령을 따른다.
 통합 테스트만 `-s`로 실행해 `ROUNDTRIP OK` 4줄과 통과 결과를 촬영하면
 event_id/transport 위치/필드 복원 증빙이 된다.
 
@@ -222,7 +224,7 @@ START_OFFSETS {0: 221, 1: 319, 2: 300}
 `uv run python -m simulator.main --count 1`로 같은 발행 경로를 실행할 수 있다.
 매 실행마다 새 4건이 추가되므로 위 offset과 UUID는 반복되지 않는다.
 payload 출력과 4개 delivery callback, `delivered=4 failed=0 remaining=0`을 함께 촬영하면
-발행 성공을 보여준다. 
+발행 성공을 보여준다.
 
 기존 JSON Consumer는 아직 Avro 대응 전이다. 전체 필드 roundtrip, 필수값/Avro 타입 오류,
 호환·비호환 변경 재현, 서비스 장애·재시작은 남아 있다. 다음 작업은 P0-6이다.
