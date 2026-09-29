@@ -1,12 +1,12 @@
 # 실행 환경과 4개 Spark Job
 
-상태: 채택된 목표 설계, 구현·검증 전 · 2026-09-24
+상태: 목표 설계. Phase 1은 Unity Catalog Managed Iceberg로 구현 중이며 E2E 완료는 미확인.
 
 [전체 도식](diagrams.md) · [변경 이력](planning-update.md)
 
 ## 플랫폼
 
-Kafka를 이벤트 로그로, Databricks PySpark Structured Streaming을 연산 환경으로, AWS S3 + Apache Iceberg를 저장 계층으로, Glue Catalog를 메타데이터 catalog로 사용한다. 로컬 MVP 우선 원칙은 기존 ADR을 유지한다. runtime·connector 버전과 실제 쓰기 호환성은 구현 검증 대상이다.
+Kafka를 이벤트 로그로, Databricks PySpark Structured Streaming을 연산 환경으로, AWS S3 + Unity Catalog Managed Iceberg를 저장 계층으로 사용한다. GlueCatalog 직접 연결과 외부 Iceberg JAR는 사용하지 않는다. 로컬 MVP 우선 원칙은 기존 ADR을 유지한다. runtime·connector 버전과 실제 쓰기 호환성은 구현 검증 대상이다.
 
 ## Job 경계
 
