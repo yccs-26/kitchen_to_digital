@@ -1,12 +1,18 @@
 # 실행 환경과 4개 Spark Job
 
-상태: 목표 설계. Phase 1은 Unity Catalog Managed Iceberg로 구현 중이며 E2E 완료는 미확인.
+상태: Phase 1의 Managed Iceberg sink 검증과 MSK 인프라 구성 완료. MSK → Bronze E2E는 PENDING이며 나머지 Job은 목표 설계다.
 
 [전체 도식](diagrams.md) · [변경 이력](planning-update.md)
 
 ## 플랫폼
 
-Kafka를 이벤트 로그로, Databricks PySpark Structured Streaming을 연산 환경으로, AWS S3 + Unity Catalog Managed Iceberg를 저장 계층으로 사용한다. GlueCatalog 직접 연결과 외부 Iceberg JAR는 사용하지 않는다. 로컬 MVP 우선 원칙은 기존 ADR을 유지한다. runtime·connector 버전과 실제 쓰기 호환성은 구현 검증 대상이다.
+Phase 1의 cloud 경로는 Amazon MSK Serverless → Databricks PySpark Structured Streaming → S3의 Unity Catalog Managed Iceberg다. Databricks가 지원하는 managed 경로를 사용해 GlueCatalog 직접 연결과 외부 Iceberg JAR·extension을 두지 않는다. Bronze sink는 검증됐으며 실제 MSK 연결·적재는 아직 미검증이다.
+
+로컬 Docker Kafka의 `localhost:9092`에는 원격 compute가 접근할 수 없어 cloud Kafka로 전환 중이다. `ap-northeast-2`의 KTD VPC 내 두 private subnet에 MSK Serverless를 생성했다. Databricks VPC와의 VPC Peering은 Active이며 양쪽 route를 구성했다. Public internet을 거치지 않도록 하고, MSK security group은 Databricks worker security groups에서 오는 TCP 9098 접근을 허용한다.
+
+UC Service Credential `ktd-msk-consumer`는 consumer IAM Role을 AssumeRole하며 Validate가 성공했다. Producer와 Consumer 권한을 분리해 consumer에는 raw 읽기·그룹 관리 권한을 부여하고 topic 생성·쓰기는 허용하지 않는다. Validate 성공은 Structured Streaming의 실제 MSK 연결 성공과 구별한다.
+
+Phase 0의 로컬 Kafka·Registry·Simulator 범위는 유지한다. KTD VPC 내부 Producer 실행 환경은 다음 작업이며 EC2 Kafka client는 검토 중인 후보로, 아직 생성하지 않았다.
 
 ## Job 경계
 

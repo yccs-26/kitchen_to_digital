@@ -1,7 +1,8 @@
 # Phase 1 검증 상태
 
-**부분 구현·검증 완료. Kafka → Bronze E2E는 네트워크 blocker로 미검증.**
-Phase 1 완료 판정, main 병합, 완료 tag는 하지 않았다.
+**부분 구현·검증 완료. 로컬 Kafka → Databricks는 BLOCKED, MSK → Bronze E2E는 PENDING.**
+Phase 1 DoD 완료, PR, main 병합, 완료 tag는 아직 진행하지 않았다.
+아래 테스트 결과는 기존 실행 기록이며 재실행하지 않았다.
 
 | 검증 | 실제 결과 |
 |---|---|
@@ -11,9 +12,12 @@ Phase 1 완료 판정, main 병합, 완료 tag는 하지 않았다.
 | 기본 전체 수집 | `uv run python -m pytest -q`: 24 passed, opt-in integration 9 skipped |
 | Connect | Spark 4.0.0, range, catalog 조회 성공 |
 | Bronze table | `ktd.bronze.sensor_raw`, MANAGED / iceberg, 지정한 8개 컬럼 생성 성공 |
+| Managed Iceberg roundtrip | 외부 Iceberg JAR·extension 제거 후 CREATE·INSERT·SELECT 성공 |
+| MSK 인프라 | Serverless cluster 생성, VPC Peering Active·양방향 route·worker SG의 TCP 9098 허용 구성 완료. 실제 연결은 PENDING |
+| Service Credential | consumer Role·policy 연결, External ID trust·self-assume 구성 후 Validate 성공. 실제 MSK 인증·소비는 PENDING |
 | UC volume | `ktd.bronze.checkpoints` 생성 성공 |
 | native streaming sink | 파일 fixture로 bytes/null/headers 보존 및 동일 checkpoint 재실행 통과 |
-| 원격 Kafka source | `describeTopics` timeout. 현재 localhost advertised listener에 원격 접근 불가 |
+| 기존 로컬 Kafka source | BLOCKED: `describeTopics` timeout. localhost advertised listener와 로컬 Mac으로의 네트워크 경로 부재 |
 | Kafka A/B/C/D | 테스트 코드 작성. 실제 Kafka → Bronze 정상·재발행·손상·재시작 결과는 미검증 |
 | sink commit 후 checkpoint 완료 전 실패 | 미검증. 정상 재시작 테스트로 대체 판정하지 않음 |
 
@@ -32,8 +36,9 @@ query ID 유지/run ID 변경, 기존 행 불변, lineage별 1행을 확인했�
 
 ## 남은 조건
 
-Databricks compute와 로컬 Producer가 **같은 Kafka cluster**에 접근하도록
-승인된 네트워크 경로와 advertised listener가 필요하다.
-새 인프라, 공개 broker 노출, IAM/보안 정책 변경은 자동 수행하지 않았다.
-연결 확보 후 `scripts/phase1_preflight.py`와 [runbook](../runbook.md)의 E2E 테스트를 실행한다.
+- MSK의 `kitchen.sensor.raw` topic 생성, Producer IAM Role과 KTD VPC 내부 실행 환경 구성 및 실제 SensorEvent 발행. EC2 Kafka client는 검토 중이며 아직 생성하지 않았다.
+- Job·preflight·통합 테스트의 MSK IAM 연결 설정과 Databricks Structured Streaming의 실제 접속·소비 검증. 기존 코드는 bootstrap 주소 변경만으로 준비가 끝난 상태가 아니다.
+- MSK → Bronze E2E 적재와 실제 offset/lineage 대조, duplicate event_id·corrupt payload·동일 checkpoint 재시작 검증. 파일 fixture 결과로 대체하지 않는다.
+- 실패 주입을 포함한 Phase 1 DoD 확인 후 PR·main 병합·tag 진행.
+
 계획의 `days(ingested_at)`는 Managed Iceberg 제약으로 미적용이며 초기 table은 무분할이다.

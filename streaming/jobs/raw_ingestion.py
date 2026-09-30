@@ -141,6 +141,7 @@ def main() -> None:
         table=os.getenv("KTD_BRONZE_TABLE", "ktd.bronze.sensor_raw"),
         starting_offsets=os.getenv("KTD_STARTING_OFFSETS", "earliest"),
     )
+    
     from databricks.connect import DatabricksSession
 
     spark = DatabricksSession.builder.getOrCreate()
