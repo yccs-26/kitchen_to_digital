@@ -1,4 +1,4 @@
-# Phase 1 검증 상태 — 2026-09-30
+# Phase 1 검증 상태
 
 **부분 구현·검증 완료. Kafka → Bronze E2E는 네트워크 blocker로 미검증.**
 Phase 1 완료 판정, main 병합, 완료 tag는 하지 않았다.

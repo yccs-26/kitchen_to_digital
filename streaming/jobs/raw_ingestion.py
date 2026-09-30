@@ -18,7 +18,6 @@ BRONZE_DDL = """
 
 
 def quoted_table(name: str) -> str:
-    """Accept a three-part UC name; never interpolate arbitrary SQL."""
     parts = name.split(".")
     if len(parts) != 3 or any(
         not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", part) for part in parts
@@ -76,7 +75,6 @@ def ensure_bronze_table(spark, table: str) -> None:
 
 
 def kafka_source(spark, config: IngestionConfig):
-    """Let Spark own offsets; retain headers including repeated keys."""
     return (
         spark.readStream.format("kafka")
         .option("kafka.bootstrap.servers", config.bootstrap_servers)
