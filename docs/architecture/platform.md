@@ -1,18 +1,20 @@
 # 실행 환경과 4개 Spark Job
 
-상태: Phase 1의 Managed Iceberg sink 검증과 MSK 인프라 구성 완료. MSK → Bronze E2E는 PENDING이며 나머지 Job은 목표 설계다.
+상태: Phase 1의 Managed Iceberg sink 및 EC2 → MSK IAM Admin·topic 생성 검증 완료. MSK → Bronze E2E는 PENDING이며 나머지 Job은 목표 설계다.
 
 [전체 도식](diagrams.md) · [변경 이력](planning-update.md)
 
 ## 플랫폼
 
-Phase 1의 cloud 경로는 Amazon MSK Serverless → Databricks PySpark Structured Streaming → S3의 Unity Catalog Managed Iceberg다. Databricks가 지원하는 managed 경로를 사용해 GlueCatalog 직접 연결과 외부 Iceberg JAR·extension을 두지 않는다. Bronze sink는 검증됐으며 실제 MSK 연결·적재는 아직 미검증이다.
+Phase 1의 cloud E2E 목표는 EC2 Producer → Amazon MSK Serverless (`kitchen.sensor.raw`) → Databricks PySpark Structured Streaming → Unity Catalog Managed Iceberg (`ktd.bronze.sensor_raw`)다. Databricks가 지원하는 managed 경로를 사용해 GlueCatalog 직접 연결과 외부 Iceberg JAR·extension을 두지 않는다. Bronze sink는 검증됐으며 Databricks의 실제 MSK 연결·적재는 아직 미검증이다.
 
 로컬 Docker Kafka의 `localhost:9092`에는 원격 compute가 접근할 수 없어 cloud Kafka로 전환 중이다. `ap-northeast-2`의 KTD VPC 내 두 private subnet에 MSK Serverless를 생성했다. Databricks VPC와의 VPC Peering은 Active이며 양쪽 route를 구성했다. Public internet을 거치지 않도록 하고, MSK security group은 Databricks worker security groups에서 오는 TCP 9098 접근을 허용한다.
 
-UC Service Credential `ktd-msk-consumer`는 consumer IAM Role을 AssumeRole하며 Validate가 성공했다. Producer와 Consumer 권한을 분리해 consumer에는 raw 읽기·그룹 관리 권한을 부여하고 topic 생성·쓰기는 허용하지 않는다. Validate 성공은 Structured Streaming의 실제 MSK 연결 성공과 구별한다.
+MSK는 IAM 인증의 private endpoint를 유지한다. 개발자 Mac의 직접 접속 대신 KTD VPC 내부의 임시 `ktd-kafka-client` EC2를 사용한다. 설치·운영용 outbound internet은 별도 `ktd-client-public-a` subnet과 `ktd-igw`로 제공하고, EC2 → MSK는 VPC 내부 private traffic을 사용한다. Public default route는 client subnet에만 적용하며 기존 MSK private subnet에는 연결하지 않는다. Session Manager로 접속해 SSH key pair와 inbound TCP 22를 사용하지 않는다.
 
-Phase 0의 로컬 Kafka·Registry·Simulator 범위는 유지한다. KTD VPC 내부 Producer 실행 환경은 다음 작업이며 EC2 Kafka client는 검토 중인 후보로, 아직 생성하지 않았다.
+IAM은 cluster/topic/group resource별로 권한을 나누고 역할별 최소 권한을 적용한다. Producer `ktd-msk-producer-role`은 Connect·CreateTopic·DescribeTopic·WriteData를 사용하며 ReadData·consumer group 권한은 부여하지 않는 방향이다. Consumer `ktd-databricks-msk-consumer-role`에는 Connect·DescribeTopic·ReadData·DescribeGroup·AlterGroup만 부여하고 CreateTopic·WriteData는 허용하지 않는다. UC Service Credential `ktd-msk-consumer`의 Validate 성공은 Structured Streaming의 실제 MSK 접속과 구별한다.
+
+EC2의 IAM Admin 요청과 `kitchen.sensor.raw` 생성(3 partitions)까지 검증됐다. 3은 기능/E2E 검증용 초기값이며 성능 최적값이 아니다. Phase 0 로컬 Kafka·Registry·Simulator 범위는 유지한다. 기존 Producer의 MSK/IAM 연결 방식과 cloud Schema Registry 사용 방식은 다음 구현 단계에서 결정하며, EC2를 장기 Producer 환경으로 확정하지 않는다. [검증 범위](../reports/phase-1-verification.md)를 참고한다.
 
 ## Job 경계
 

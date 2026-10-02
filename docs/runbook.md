@@ -5,7 +5,45 @@ headers는 `ARRAY<STRUCT<key: STRING, value: BINARY>>`로 보존한다.
 배열을 map으로 바꾸지 않아 header 순서와 중복 이름도 유지한다.
 Avro decode와 event_id dedup은 하지 않는다. null value도 보존한다.
 
-## 실행 조건
+## EC2 / MSK Kafka client
+
+현재 `ktd-kafka-client`(t3.micro)는 Phase 1 검증용 client다. Session Manager로 접속하며
+SSH key pair나 inbound TCP 22는 사용하지 않는다. Role은 `ktd-msk-producer-role`이고
+Session Manager용 `AmazonSSMManagedInstanceCore`를 사용한다.
+`ktd-client-public-a` (`10.20.10.0/24`)의 `ktd-client-public-rt`에만
+`0.0.0.0/0 → ktd-igw`를 연결한다. MSK SG는 `ktd-kafka-client-sg`에서 오는 TCP 9098을 허용한다.
+이는 기존 구성의 확인 기준이며 MSK private subnet의 route를 변경하는 절차가 아니다.
+
+1. Session Manager에서 `aws sts get-caller-identity`로 producer Role을 확인한다.
+   결과의 Account ID·전체 ARN은 증빙에서 가린다. `curl`로 outbound HTTPS 접근을 확인한다.
+2. 설치된 Kafka CLI의 classpath에 AWS MSK IAM authentication client JAR이 포함됐는지 확인한다.
+   `client.properties`의 핵심 설정은 다음과 같다.
+
+   ```properties
+   security.protocol=SASL_SSL
+   sasl.mechanism=AWS_MSK_IAM
+   sasl.jaas.config=software.amazon.msk.auth.iam.IAMLoginModule required;
+   sasl.client.callback.handler.class=software.amazon.msk.auth.iam.IAMClientCallbackHandler
+   ```
+
+3. MSK IAM bootstrap endpoint(:9098)는 세션 환경변수 `MSK_BOOTSTRAP_SERVERS`에만 설정한다.
+   기존 `kitchen.sensor.raw`는 생성 완료됐으므로 재생성하지 않는다. 다음은 현재 상태를 조회하는
+   운영 명령 예시이며, 이번 문서 작업에서 실행하지 않았다.
+
+   ```sh
+   kafka-topics.sh --bootstrap-server "$MSK_BOOTSTRAP_SERVERS" \
+     --command-config client.properties --describe --topic kitchen.sensor.raw
+   ```
+
+`TopicAuthorizationException`이면 요청 도달 이후의 IAM action/resource scope를 먼저 확인한다.
+연결 timeout과 구분하며 cluster/topic/group resource에 필요한 권한만 적용한다.
+검증된 범위는 IAM Admin 요청과 topic 생성까지다. CLI/JAR 버전·설치 경로는 제공되지 않아
+신규 EC2 설치 절차는 아직 기록하지 않는다. SensorMetricEvent produce와 MSK → Bronze는 PENDING이다.
+
+## Job 실행 조건 (MSK 연결 준비 미완료)
+
+아래는 기존 Job의 실행 방식이다. 현재 코드에는 MSK IAM/Service Credential 연결 설정이 없어
+bootstrap 주소 변경만으로 MSK 실행 준비가 끝나지 않는다. 성공한 cloud E2E 절차로 해석하지 않는다.
 
 - 기존 `ktd-phase1-dev`와 `.venv-databricks`를 사용한다.
 - `DATABRICKS_CONFIG_PROFILE=ktd`, `DATABRICKS_CLUSTER_ID`는 로컬 환경에만 설정한다.

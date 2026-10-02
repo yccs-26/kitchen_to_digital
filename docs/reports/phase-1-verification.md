@@ -13,7 +13,7 @@ Phase 1 DoD 완료, PR, main 병합, 완료 tag는 아직 진행하지 않았다
 | Connect | Spark 4.0.0, range, catalog 조회 성공 |
 | Bronze table | `ktd.bronze.sensor_raw`, MANAGED / iceberg, 지정한 8개 컬럼 생성 성공 |
 | Managed Iceberg roundtrip | 외부 Iceberg JAR·extension 제거 후 CREATE·INSERT·SELECT 성공 |
-| MSK 인프라 | Serverless cluster 생성, VPC Peering Active·양방향 route·worker SG의 TCP 9098 허용 구성 완료. 실제 연결은 PENDING |
+| MSK 인프라 | Serverless cluster 생성, VPC Peering Active·양방향 route·worker SG의 TCP 9098 허용 구성 완료. Databricks의 실제 연결은 PENDING |
 | Service Credential | consumer Role·policy 연결, External ID trust·self-assume 구성 후 Validate 성공. 실제 MSK 인증·소비는 PENDING |
 | UC volume | `ktd.bronze.checkpoints` 생성 성공 |
 | native streaming sink | 파일 fixture로 bytes/null/headers 보존 및 동일 checkpoint 재실행 통과 |
@@ -36,9 +36,34 @@ query ID 유지/run ID 변경, 기존 행 불변, lineage별 1행을 확인했�
 
 ## 남은 조건
 
-- MSK의 `kitchen.sensor.raw` topic 생성, Producer IAM Role과 KTD VPC 내부 실행 환경 구성 및 실제 SensorEvent 발행. EC2 Kafka client는 검토 중이며 아직 생성하지 않았다.
+- Phase 0 SensorMetricEvent의 실제 MSK produce·Avro roundtrip·key=equipment_id 검증. 기존 Producer의 MSK/IAM 연결 방식과 cloud Schema Registry 사용 방식은 미확정이며 EC2를 장기 실행 환경으로 확정하지 않는다.
 - Job·preflight·통합 테스트의 MSK IAM 연결 설정과 Databricks Structured Streaming의 실제 접속·소비 검증. 기존 코드는 bootstrap 주소 변경만으로 준비가 끝난 상태가 아니다.
 - MSK → Bronze E2E 적재와 실제 offset/lineage 대조, duplicate event_id·corrupt payload·동일 checkpoint 재시작 검증. 파일 fixture 결과로 대체하지 않는다.
 - 실패 주입을 포함한 Phase 1 DoD 확인 후 PR·main 병합·tag 진행.
 
 계획의 `days(ingested_at)`는 Managed Iceberg 제약으로 미적용이며 초기 table은 무분할이다.
+
+## EC2 → MSK Producer client 검증
+
+아래는 2026-10-02 문서 갱신 시 사용자가 제공한 실제 실행 결과다. 이번 작업에서 AWS에
+접속하거나 명령·테스트를 재실행하지 않았으며, 원본 명령 출력과 실행 시각은 별도 제공되지 않았다.
+
+| 검증 | 실제 결과 |
+|---|---|
+| EC2 접속·identity | `ktd-kafka-client` Session Manager 접속 및 `aws sts get-caller-identity` 성공, `ktd-msk-producer-role` 사용 확인 |
+| Outbound internet | `curl` 성공. EC2 → public client subnet → Internet Gateway → Internet 경로 확인 |
+| Kafka IAM client | Kafka CLI와 MSK IAM authentication client 구성. SASL_SSL / AWS_MSK_IAM으로 private endpoint(:9098)에 Admin 요청 도달 |
+| 최초 topic 생성 | `kitchen.sensor.raw`, 3 partitions 생성 시 `TopicAuthorizationException: Authorization failed.` 발생. 네트워크 연결 실패가 아닌 CreateTopic resource-level authorization 거부 |
+| IAM scope 수정 후 재시도 | 해당 KTD MSK cluster의 topic resource 범위를 허용하도록 producer policy를 수정한 뒤 동일 생성 명령 성공 |
+| 생성 결과 | `kitchen.sensor.raw`, 3 partitions. Phase 1 기능/E2E 검증 초기값이며 성능 최적값 검증은 아님 |
+
+따라서 EC2 → MSK private endpoint의 네트워크·IAM 인증 및 topic 생성 권한까지 동작했다.
+WriteData 정책 구성은 메시지 발행 성공의 증거가 아니며, Databricks의 MSK 접속·consume과
+MSK → Bronze E2E는 여전히 PENDING이다. 실제 topic/partition/offset과 Bronze lineage 비교,
+duplicate event_id·corrupt payload·real Kafka checkpoint/restart 및 sink 저장 후 checkpoint 완료 전
+실패 검증도 미완료다. Phase 1 DoD·PR·main 병합·tag는 완료 처리하지 않는다.
+
+증빙 후보는 최초 CreateTopic authorization 실패와 IAM resource scope 수정 후 생성 성공 화면이다.
+현재 저장소에 `docs/evidence/phase-1/`와 해당 이미지가 없어 저장된 증빙으로 표시하지 않는다.
+향후 핵심 증빙은 MSK message → Databricks Structured Streaming → Bronze row에서
+topic/partition/offset/raw bytes가 대응하는 화면이다. 별도 보관 시 민감 값을 가린다.
