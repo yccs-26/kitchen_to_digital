@@ -1,5 +1,3 @@
-"""Job 1: preserve Kafka transport records in UC managed Iceberg."""
-
 import argparse
 import os
 import re
@@ -34,6 +32,7 @@ class IngestionConfig:
     topic: str = "kitchen.sensor.raw"
     starting_offsets: str = "earliest"
     max_offsets_per_trigger: int = 10000
+    service_credential: str | None = None
 
     def __post_init__(self) -> None:
         quoted_table(self.table)
@@ -74,19 +73,28 @@ def ensure_bronze_table(spark, table: str) -> None:
         raise ValueError(f"Bronze schema mismatch: {actual}; expected {expected}")
 
 
+def kafka_source_options(config: IngestionConfig) -> dict[str, str | int]:
+    """Build Kafka options without requiring Spark or cloud access."""
+    options: dict[str, str | int] = {
+        "kafka.bootstrap.servers": config.bootstrap_servers,
+        "subscribe": config.topic,
+        "includeHeaders": "true",
+        "startingOffsets": config.starting_offsets,
+        "failOnDataLoss": "true",
+        "maxOffsetsPerTrigger": config.max_offsets_per_trigger,
+        "kafka.default.api.timeout.ms": "15000",
+        "kafka.request.timeout.ms": "10000",
+    }
+    if config.service_credential:
+        options["databricks.serviceCredential"] = config.service_credential
+    return options
+
+
 def kafka_source(spark, config: IngestionConfig):
-    return (
-        spark.readStream.format("kafka")
-        .option("kafka.bootstrap.servers", config.bootstrap_servers)
-        .option("subscribe", config.topic)
-        .option("includeHeaders", "true")
-        .option("startingOffsets", config.starting_offsets)
-        .option("failOnDataLoss", "true")
-        .option("maxOffsetsPerTrigger", config.max_offsets_per_trigger)
-        .option("kafka.default.api.timeout.ms", "15000")
-        .option("kafka.request.timeout.ms", "10000")
-        .load()
-    )
+    reader = spark.readStream.format("kafka")
+    for name, value in kafka_source_options(config).items():
+        reader = reader.option(name, value)
+    return reader.load()
 
 
 def bronze_records(source):
@@ -140,8 +148,9 @@ def main() -> None:
         checkpoint=os.environ["KTD_BRONZE_CHECKPOINT"],
         table=os.getenv("KTD_BRONZE_TABLE", "ktd.bronze.sensor_raw"),
         starting_offsets=os.getenv("KTD_STARTING_OFFSETS", "earliest"),
+        service_credential=os.getenv("KTD_KAFKA_SERVICE_CREDENTIAL"),
     )
-    
+
     from databricks.connect import DatabricksSession
 
     spark = DatabricksSession.builder.getOrCreate()

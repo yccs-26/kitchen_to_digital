@@ -1,8 +1,10 @@
-"""Validate configuration without importing Spark or contacting the cloud."""
-
 import pytest
 
-from streaming.jobs.raw_ingestion import IngestionConfig, quoted_table
+from streaming.jobs.raw_ingestion import (
+    IngestionConfig,
+    kafka_source_options,
+    quoted_table,
+)
 
 
 @pytest.mark.parametrize(
@@ -35,6 +37,32 @@ def test_valid_config_preserves_table_and_checkpoint():
     config = IngestionConfig("broker:9092", path)
     assert config.checkpoint == path
     assert quoted_table(config.table) == "`ktd`.`bronze`.`sensor_raw`"
+    assert config.service_credential is None
+
+
+@pytest.mark.parametrize("credential", [None, "", "test-msk-consumer"])
+def test_kafka_source_options_with_optional_service_credential(credential):
+    config = IngestionConfig(
+        "broker:9092",
+        "/Volumes/ktd/bronze/checkpoints/job1",
+        topic="test.raw",
+        starting_offsets="latest",
+        max_offsets_per_trigger=123,
+        service_credential=credential,
+    )
+    expected = {
+        "kafka.bootstrap.servers": "broker:9092",
+        "subscribe": "test.raw",
+        "includeHeaders": "true",
+        "startingOffsets": "latest",
+        "failOnDataLoss": "true",
+        "maxOffsetsPerTrigger": 123,
+        "kafka.default.api.timeout.ms": "15000",
+        "kafka.request.timeout.ms": "10000",
+    }
+    if credential:
+        expected["databricks.serviceCredential"] = credential
+    assert kafka_source_options(config) == expected
 
 
 @pytest.mark.parametrize(
