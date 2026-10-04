@@ -31,7 +31,7 @@ Quarantine 급증은 Producer·계약·업무 품질 문제, DLQ 급증은 처�
 
 ## 장애 복구 Runbook 방향
 
-공통 기록 형식은 **탐지 → 진단 → 영향 억제 → 복구 → 검증**이다. 아래는 절차 설계이며 실제 장애 실험 결과는 추후 기록한다.
+공통 기록 형식은 **탐지 → 진단 → 영향 억제 → 복구 → 검증**이다. 아래는 전체 운영 절차 설계다. Phase 0 로컬 장애와 Phase 1 checkpoint 재시작·격리 failure-state 결과는 각각 [Phase 0](../reports/phase-0-verification.md)·[Phase 1](../reports/phase-1-verification.md)에 기록했다. Phase 1 실행 절차는 [runbook](../runbook.md)을 따른다.
 
 | 시나리오 | 진단과 복구 | 복구 검증 |
 |---|---|---|

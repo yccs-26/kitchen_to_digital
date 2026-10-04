@@ -28,10 +28,14 @@ Kafka key는 UTF-8 `equipment_id`이며 Producer가 payload와의 일치를 검�
 `event_id`는 같은 측정의 재전송·재처리에서 유지하는 설계다. 새 측정과 재시도를 구분해야 한다.
 매장 간 장비 ID의 전역 유일성은 아직 확인해야 한다.
 
-`event_time`은 발생 시각이고, 후속 수집 계층의 `ingested_at`은 도착 지연 관측용 시각이다.
-`ingested_at`, `processed_at`과 Kafka topic/partition/offset/timestamp는 현재 payload의 10개 필드에 포함되지 않는다.
-원본 수집 시각과 재처리 시각을 구분하며, 부여 위치·세부 의미는 ingestion 구현에서 확정한다.
-Bronze는 원본 bytes와 schema 식별 정보·운송 metadata를 보존하는 설계다.
+`event_time`은 payload의 발생 시각이다. Job 1은 Kafka `timestamp`를 `kafka_timestamp`로
+보존하고 Bronze 행을 만들 때 Spark `current_timestamp()`로 `ingested_at`을 부여한다.
+`ingested_at`, `processed_at`과 Kafka topic/partition/offset/timestamp는 Avro payload의 10개 필드에 포함되지 않는다.
+`processed_at`은 현재 Bronze 컬럼이 아니며 후속 처리·재처리 시각의 계약은 별도로 정한다.
+
+현재 Bronze는 raw key/value bytes, headers와 topic/partition/offset을 보존한다.
+Avro schema ID를 별도 컬럼으로 추출하지 않고 framing을 포함한 원본 value를 그대로 저장한다.
+이 경로는 Phase 1에서 구현·검증했다. payload를 해석하지 않으므로 corrupt bytes도 보존한다.
 
 ## 버전과 호환성 정책
 

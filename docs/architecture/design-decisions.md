@@ -15,6 +15,6 @@
 | checkpoint·reprocess·backfill | [복구](../operations/late-events-and-backfill.md) |
 | 측정 후 결정할 항목 | [실험 계획](../experiments/performance-plan.md) |
 
-Local-first와 Kafka 채택 ADR은 유지한다. 최신 플랫폼 방향은 Kafka + Databricks PySpark + S3/Iceberg + Glue Catalog이며, IoT Core/Kinesis는 필수 경로가 아니다. 현재 로컬 구현 범위와 후속 설계를 구분한다.
+Local-first와 Kafka 채택 ADR은 유지한다. 현재 Phase 1은 MSK Serverless + Databricks Structured Streaming + Unity Catalog Managed Iceberg이며, IoT Core/Kinesis는 필수 경로가 아니다. Phase 0·1은 구현·검증했고 Silver·Gold·현재 상태·경보는 후속 설계다.
 
-관측 지표와 운영 책임은 [운영 설계](kafka-design-followup.md)에 정리하며 경보 임계치·상세 Runbook은 미정이다. 우선 해결할 구현 쟁점은 Silver/Kafka 이중 쓰기, stateful late-event 재정렬, DynamoDB 동시 시각 처리, 계약 전환, streaming/backfill 동시 쓰기다.
+관측 지표와 운영 책임은 [운영 설계](kafka-design-followup.md)에 정리하며 후속 Job의 경보 임계치·상세 Runbook은 미정이다. Phase 1 절차는 [실행·복구 runbook](../runbook.md)에 있다. 우선 해결할 구현 쟁점은 Silver/Kafka 이중 쓰기, stateful late-event 재정렬, DynamoDB 동시 시각 처리, 계약 전환, streaming/backfill 동시 쓰기다.

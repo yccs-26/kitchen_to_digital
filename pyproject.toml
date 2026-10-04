@@ -14,6 +14,10 @@ dependencies = [
 dev = [
     "pytest>=9.1.1",
 ]
+msk = [
+    "aws-msk-iam-sasl-signer-python>=1.0.2",
+    "kafka-python>=2.3.2,<3",
+]
 
 [tool.pytest.ini_options]
 markers = ["integration: requires running Kafka and Schema Registry; writes test records"]
