@@ -2,7 +2,7 @@
 
 - 상태: Accepted
 - 날짜: 2026-08-15
-- 구현 상태: 현재 로컬 전송은 [Phase 0 보고서](../reports/phase-0-verification.md), 후속 토픽·복구 기능은 설계 문서를 따른다.
+- 현재 적용: 로컬 Kafka는 [Phase 0](../reports/phase-0-verification.md)에서 검증했다. Phase 1 cloud Kafka 경로에는 MSK Serverless를 실제 사용해 Databricks → Bronze 적재와 격리 failure-state recovery를 확인했다. [Phase 1 기록](../reports/phase-1-verification.md)을 참고한다. 아래 Context/Decision은 최초 선택 당시의 기록이다.
 
 ## Context
 
@@ -39,4 +39,4 @@ P3 외부 소비 데모의 전달·DLQ·재시도·장애 검증에도 이 기�
 토픽·보존 정책은 [Kafka 설계](../architecture/kafka-topics.md), 중복 방어는
 [멱등성](../streaming/delivery-and-idempotency.md), DLQ·재처리는
 [복구 설계](../operations/late-events-and-backfill.md)에서 상세화한다.
-lag·DLQ·재시도 관측, 호환성의 CI 연계와 상세 장애 Runbook은 후속 작업이다.
+lag·DLQ·재시도 관측과 호환성의 CI 연계는 후속 작업이다. Phase 1 실행·checkpoint 복구 절차는 [runbook](../runbook.md)에 기록했다.

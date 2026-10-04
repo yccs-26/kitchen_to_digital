@@ -1,6 +1,6 @@
 # DynamoDB·Iceberg 저장 및 유지보수
 
-상태: 최신 설계 방향 / 운영 수치는 초기안 · 2026-09-24
+Bronze는 Phase 1에서 구현·검증했다. Silver·Gold·DynamoDB와 유지보수 정책은 설계 단계다.
 
 ## DynamoDB current-state
 
@@ -10,16 +10,18 @@ Item 논리 필드: equipment_type, operational_state, health_status, state_star
 
 새 event time/version에 대한 conditional update로 stale write를 막는다. 동일 timestamp tie-breaker, 다중 metric별 최신 시각, 상태 버전 생성 방식은 미정이다. 단순 전체 item 시간 비교로 다른 metric의 정상 갱신을 잃지 않는지 검증한다. 일반 backfill은 여기 쓰지 않는다.
 
-## Iceberg 초기 partition
+## 현재 Bronze와 후속 Iceberg partition
 
-| 계층 | 최신 초기안 | 역할 |
+| 계층 | 현재 적용 / 설계안 | 역할 |
 |---|---|---|
-| Bronze | days(ingested_at) | 원본 bytes + topic/partition/offset/timestamp + schema metadata. 잘못된 원본과 중복도 보존 |
-| Silver | days(event_time) | 검증·정규화된 canonical event + 운송·처리 metadata |
-| Gold metric/state window | days(window_start) | window 사실 집계 |
-| Gold alert/transition | 해당 의미의 event time 기준 day | 업무 경보·상태 전이 이력 |
+| Bronze | `ktd.bronze.sensor_raw`, Unity Catalog Managed Iceberg, unpartitioned | raw key/value bytes, headers, topic/partition/offset, kafka_timestamp, ingested_at 보존 |
+| Silver (설계) | days(event_time) | 검증·정규화된 canonical event + 운송·처리 metadata |
+| Gold metric/state window (설계) | days(window_start) | window 사실 집계 |
+| Gold alert/transition (설계) | 해당 의미의 event time 기준 day | 업무 경보·상태 전이 이력 |
 
-이전 days(event_time) Bronze 및 day+bucket(16) Silver/Gold는 최신 단순 시작안으로 대체한다. equipment_id identity partition은 초기 사용하지 않는다. bucket(N,equipment_id)는 query scan·파일 수·크기 측정 후 실험한다. event_time을 해석 못 하는 원본도 Bronze에 보존할 수 있어야 한다.
+Bronze는 days(event_time)에서 days(ingested_at)으로 계획을 바꿨지만, Phase 1에서는 Managed Iceberg 제약으로 날짜 transform을 적용하지 않고 무분할로 검증했다. days(ingested_at)은 후속 재검토 항목이다. schema ID를 별도 컬럼으로 추출하지 않으며 Avro framing을 포함한 원본 bytes를 보존한다. 같은 event_id가 다른 offset이면 각각 저장하고 corrupt payload도 남긴다.
+
+Silver/Gold의 이전 day+bucket(16) 초기안은 위의 단순 시작안으로 대체한다. equipment_id identity partition은 초기 사용하지 않는다. bucket(N,equipment_id)는 query scan·파일 수·크기 측정 후 실험한다. event_time을 해석 못 하는 원본도 Bronze에 보존할 수 있어야 한다.
 
 Gold 물리 테이블·컬럼명은 DDL 전 확인한다. [Gold 논리 모델](gold-model.md)은 fact 중심이고, 로컬 개발 계획서는 equipment_metric_1m/5m 이름을 사용한다. 두 모델의 매핑과 물리 분리 여부는 아직 일치시키지 않았다.
 

@@ -11,7 +11,7 @@ Bronze는 `CREATE TABLE ... USING ICEBERG`로 생성하는 managed table이다.
 외부 LOCATION, GlueCatalog 직접 연결, 외부 Iceberg JAR,
 custom `spark.sql.catalog.*` 및 Iceberg extension 설정은 사용하지 않는다.
 외부 JAR·extension 제거 후에도 Managed Iceberg CREATE·INSERT·SELECT roundtrip이
-성공했다(2026-09-30 사용자 확인). Bronze table은 `ktd.bronze.sensor_raw`다.
+성공했다. Bronze table은 `ktd.bronze.sensor_raw`다.
 
 초기 `days(ingested_at)` 계획은 적용하지 않는다.
 [Managed Iceberg 공식 제약](https://docs.databricks.com/aws/en/iceberg/)상
@@ -36,12 +36,14 @@ uv pip install --python .venv-databricks/bin/python \
 
 Connect 연결 성공은 원격 Kafka 접근이나 streaming sink 성공을 의미하지 않는다.
 `localhost:9092` advertised listener는 원격 compute에서 로컬 Docker로 연결되지 않는다.
-Cloud 경로는 MSK Serverless로 전환 중이며 실제 연결·적재는 아직 미검증이다.
+Cloud 검증 경로는 MSK Serverless로 전환했다. IAM 연결과 Databricks MSK batch read,
+Job 1의 MSK → Bronze 적재를 확인했다. [실행 결과](reports/phase-1-verification.md)에
+fixture lineage와 정상 재시작·failure-state recovery 결과를 기록했다.
 실행 및 복구는 [runbook](runbook.md)을 따른다.
 
 ## MSK 접근 구성
 
-2026-09-30 사용자 확인 기준으로 `ktd-msk-serverless`는 KTD VPC의 두 private subnet에
+`ktd-msk-serverless`는 KTD VPC의 두 private subnet에
 생성됐다. Databricks VPC와의 peering·양방향 route 및 worker security groups에서
 MSK로의 TCP 9098 허용을 구성했다. 전체 인터넷에 broker를 공개하지 않고 private 접근을 사용한다.
 
@@ -53,5 +55,10 @@ Role에 연결한 consumer policy는 `kitchen.sensor.raw` 읽기에 필요한
 `kafka-cluster:Connect`, `kafka-cluster:DescribeTopic`, `kafka-cluster:ReadData`,
 `kafka-cluster:DescribeGroup`, `kafka-cluster:AlterGroup` 권한을 부여한다.
 Producer와 권한을 분리하기 위해 `CreateTopic`과 `WriteData`는 부여하지 않는다.
-현재 Job과 preflight에는 MSK IAM/Service Credential 연결 설정이 아직 없으며,
-Validate 성공만으로 실제 Kafka 인증·소비 성공을 판정하지 않는다.
+Job 1은 `KTD_KAFKA_SERVICE_CREDENTIAL`을 Kafka source의
+`databricks.serviceCredential`로 전달한다. Service Credential은 Validate뿐 아니라
+실제 consumer 연결에 사용됐고, MSK batch read와 Structured Streaming 적재가 성공했다.
+MSK IAM bootstrap(:9098)은 `KTD_KAFKA_BOOTSTRAP_SERVERS`로 전달한다.
+
+이 연결 검증으로 cloud Schema Registry 운영이나 장기 Producer 환경까지 확정한 것은 아니다.
+EC2 client는 Phase 1 fixture 검증에 사용했으며 장기 실행·배포 방식은 별도로 결정한다.

@@ -1,6 +1,6 @@
 # 실패 처리·Checkpoint·Replay·Backfill
 
-상태: 설계 기준, 상세 Runbook·임계값 미완성 · 2026-09-24
+Replay·Backfill·State Rebuild는 후속 설계이며 운영 임계값은 미정이다. Phase 1의 정상 재시작·격리 failure-state recovery는 검증했고, 실행 절차는 [runbook](../runbook.md)에 있다.
 
 ## 원인별 처리
 

@@ -28,5 +28,5 @@ AWS IoT Core, Kinesis, S3, DynamoDB, MWAA는 로컬 MVP 검증 후에 동일한 
 ## 현재 적용 범위
 
 위 Decision은 초기 전체 로컬 MVP 구상이다. 현재 Phase 0 범위는 로컬 Kafka·Registry·Simulator이며,
-후속 목표는 Databricks + S3/Iceberg + Glue, DynamoDB다. 전체 로컬 Spark·MinIO 등을 선행 필수로 해석하지 않는다.
+Phase 1은 MSK Serverless + Databricks + Unity Catalog Managed Iceberg로 구현·검증했다. DynamoDB 현재 상태는 후속 설계다. 전체 로컬 Spark·MinIO 등을 선행 필수로 해석하지 않는다.
 IoT Core/Kinesis 역시 현재 필수 수집 경로가 아니다. [현재 플랫폼 설계](../architecture/platform.md)를 따른다.

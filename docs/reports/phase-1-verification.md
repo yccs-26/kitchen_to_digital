@@ -1,87 +1,114 @@
-# Phase 1 검증 상태
+# Phase 1 검증 기록
 
-**부분 구현·검증 완료. 로컬 Kafka → Databricks는 BLOCKED, MSK → Bronze E2E는 PENDING.**
-Phase 1 DoD 완료, PR, main 병합, 완료 tag는 아직 진행하지 않았다.
-아래 테스트 결과는 기존 실행 기록이며 재실행하지 않았다.
+MSK에 발행한 실제 Avro fixture가 Job 1을 거쳐 Bronze에 저장됐고, 동일 checkpoint의
+정상 재시작과 격리된 failure-state recovery까지 확인했다. 이 문서는 실제
+Databricks 실행 결과와 최종 로컬 검증 결과를 기록한다. 아래 cloud 실행과 로컬 테스트는 각 검증 시점의 기록이다.
 
-| 검증 | 실제 결과 |
-|---|---|
-| 기존 Producer | 로컬 Docker Kafka `localhost:9092`, raw topic에 Confluent Avro 발행 |
-| 로컬 unit + Phase 0 Avro roundtrip | `KTD_RUN_INTEGRATION=1 uv run python -m pytest tests/unit tests/integration/test_avro_roundtrip.py -q`: 25 passed |
-| Connect 환경 unit | `.venv-databricks/bin/python -m pytest tests/unit -q`: 24 passed |
-| 기본 전체 수집 | `uv run python -m pytest -q`: 24 passed, opt-in integration 9 skipped |
-| Connect | Spark 4.0.0, range, catalog 조회 성공 |
-| Bronze table | `ktd.bronze.sensor_raw`, MANAGED / iceberg, 지정한 8개 컬럼 생성 성공 |
-| Managed Iceberg roundtrip | 외부 Iceberg JAR·extension 제거 후 CREATE·INSERT·SELECT 성공 |
-| MSK 인프라 | Serverless cluster 생성, VPC Peering Active·양방향 route·worker SG의 TCP 9098 허용 구성 완료. Databricks의 실제 연결은 PENDING |
-| Service Credential | consumer Role·policy 연결, External ID trust·self-assume 구성 후 Validate 성공. 실제 MSK 인증·소비는 PENDING |
-| UC volume | `ktd.bronze.checkpoints` 생성 성공 |
-| native streaming sink | 파일 fixture로 bytes/null/headers 보존 및 동일 checkpoint 재실행 통과 |
-| 기존 로컬 Kafka source | BLOCKED: `describeTopics` timeout. localhost advertised listener와 로컬 Mac으로의 네트워크 경로 부재 |
-| Kafka A/B/C/D | 테스트 코드 작성. 실제 Kafka → Bronze 정상·재발행·손상·재시작 결과는 미검증 |
-| sink commit 후 checkpoint 완료 전 실패 | 미검증. 정상 재시작 테스트로 대체 판정하지 않음 |
+## MSK에서 Bronze까지
 
-## Sink 검증의 범위
+처음에는 로컬 Docker Kafka를 Databricks에서 읽으려 했지만 `describeTopics`가 timeout으로
+끝났다. broker가 알리는 `localhost:9092`와 로컬 Mac으로 원격 compute가 접근할 경로가
+없었다. 이후 MSK Serverless의 private endpoint와 VPC Peering, IAM 인증으로 검증 경로를
+정했다. EC2 client의 topic 생성 과정에서는 `TopicAuthorizationException`이 발생했고,
+producer IAM policy의 topic resource scope를 수정한 뒤 생성에 성공했다.
 
-`test_native_iceberg_sink_restart_with_file_fixtures`가 실제 compute에서 통과했다.
-최종 검증 table:
-`ktd.bronze.sensor_raw_sink_test_27f12f607c164415ba0a38f10b0d1791`.
-Checkpoint:
-`/Volumes/ktd/bronze/checkpoints/job1-tests/27f12f607c164415ba0a38f10b0d1791/checkpoint`.
+Databricks에서는 외부 Iceberg JAR·extension 없이 Managed Iceberg CREATE/INSERT/SELECT를
+확인했다. 이어 MSK Serverless IAM 연결과 batch read가 성공했고, 실제 Avro fixture를
+MSK에 발행해 Job 1으로 Bronze에 저장했다. 앞서 수행한 파일 fixture sink 테스트와 달리,
+이번에는 Kafka의 실제 offset과 Bronze의 `(topic, partition, offset)`을 대조했다.
 
-첫 실행 4행 → 동일 checkpoint로 신규 1행 → 입력 없는 재실행 후 5행 유지.
-query ID 유지/run ID 변경, 기존 행 불변, lineage별 1행을 확인했다.
-이 fixture의 offset은 합성값이며 Kafka 수신 증빙이 아니다.
-실패·성공 실행의 테스트 table과 checkpoint는 삭제하지 않고 보존했다.
+`kitchen.sensor.raw`에서 사용한 fixture는 다음 세 건이다.
 
-## 남은 조건
+| Kafka 위치 | 입력 | Bronze에서 확인한 결과 |
+|---|---|---|
+| partition 1, offset 0 | 정상 Avro | 해당 lineage의 원본 보존 |
+| partition 1, offset 1 | offset 0과 동일 event_id를 재발행한 정상 Avro | 별도 offset의 원본으로 보존 |
+| partition 1, offset 2 | corrupt payload `0x0000` | Job 중단 없이 raw bytes `0000` 보존 |
 
-- Phase 0 SensorMetricEvent의 실제 MSK produce·Avro roundtrip·key=equipment_id 검증. 기존 Producer의 MSK/IAM 연결 방식과 cloud Schema Registry 사용 방식은 미확정이며 EC2를 장기 실행 환경으로 확정하지 않는다.
-- Job·preflight·통합 테스트의 MSK IAM 연결 설정과 Databricks Structured Streaming의 실제 접속·소비 검증. 기존 코드는 bootstrap 주소 변경만으로 준비가 끝난 상태가 아니다.
-- MSK → Bronze E2E 적재와 실제 offset/lineage 대조, duplicate event_id·corrupt payload·동일 checkpoint 재시작 검증. 파일 fixture 결과로 대체하지 않는다.
-- 실패 주입을 포함한 Phase 1 DoD 확인 후 PR·main 병합·tag 진행.
+Bronze는 Avro를 decode하거나 event_id로 dedup하지 않는다. 같은 event_id여도 offset이
+다르면 각각 남았고, 손상된 payload도 원본 그대로 저장됐다. 기존 checkpoint를 그대로
+사용한 정상 재시작에서는 기존 offset의 중복 적재가 없었다.
 
-계획의 `days(ingested_at)`는 Managed Iceberg 제약으로 미적용이며 초기 table은 무분할이다.
+초기 table은 무분할이다. Managed Iceberg 제약 때문에 `days(ingested_at)`은 적용하지 않았다.
 
-## EC2 → MSK Producer client 검증
+## 저장은 끝났지만 checkpoint commit이 없는 상태
 
-아래는 2026-10-02 문서 갱신 시 사용자가 제공한 실제 실행 결과다. 이번 작업에서 AWS에
-접속하거나 명령·테스트를 재실행하지 않았으며, 원본 명령 출력과 실행 시각은 별도 제공되지 않았다.
+Bronze에 데이터가 저장된 뒤 checkpoint 기록이 끝나지 않은 상황을 재현해봤다.
+실제 프로세스를 특정 시점에 kill한 것은 아니다. 격리된 test checkpoint 전체를 백업하고
+파일 내용을 비교한 뒤, sink 저장이 완료된 최신 data batch의 `commits/N`만 별도 경로로
+옮겼다. sink 결과와 `offsets/N`, query metadata는 남겨둔 채 같은 table/checkpoint/query
+설정으로 다시 시작했다.
 
-| 검증 | 실제 결과 |
-|---|---|
-| EC2 접속·identity | `ktd-kafka-client` Session Manager 접속 및 `aws sts get-caller-identity` 성공, `ktd-msk-producer-role` 사용 확인 |
-| Outbound internet | `curl` 성공. EC2 → public client subnet → Internet Gateway → Internet 경로 확인 |
-| Kafka IAM client | Kafka CLI와 MSK IAM authentication client 구성. SASL_SSL / AWS_MSK_IAM으로 private endpoint(:9098)에 Admin 요청 도달 |
-| 최초 topic 생성 | `kitchen.sensor.raw`, 3 partitions 생성 시 `TopicAuthorizationException: Authorization failed.` 발생. 네트워크 연결 실패가 아닌 CreateTopic resource-level authorization 거부 |
-| IAM scope 수정 후 재시도 | 해당 KTD MSK cluster의 topic resource 범위를 허용하도록 producer policy를 수정한 뒤 동일 생성 명령 성공 |
-| 생성 결과 | `kitchen.sensor.raw`, 3 partitions. Phase 1 기능/E2E 검증 초기값이며 성능 최적값 검증은 아님 |
+최종 clean run은 `732e5477deb54c4aab4f4e840b184178`이다.
 
-따라서 EC2 → MSK private endpoint의 네트워크·IAM 인증 및 topic 생성 권한까지 동작했다.
-WriteData 정책 구성은 메시지 발행 성공의 증거가 아니며, Databricks의 MSK 접속·consume과
-MSK → Bronze E2E는 여전히 PENDING이다. 실제 topic/partition/offset과 Bronze lineage 비교,
-duplicate event_id·corrupt payload·real Kafka checkpoint/restart 및 sink 저장 후 checkpoint 완료 전
-실패 검증도 미완료다. Phase 1 DoD·PR·main 병합·tag는 완료 처리하지 않는다.
+- Table: `ktd.bronze.sensor_raw_failure_test_732e5477deb54c4aab4f4e840b184178`
+- Checkpoint: `/Volumes/ktd/bronze/checkpoints/job1-failure-test/732e5477deb54c4aab4f4e840b184178/sensor_raw`
+- Harness evidence: `/Volumes/ktd/bronze/checkpoints/job1-failure-test/732e5477deb54c4aab4f4e840b184178/evidence/`
 
-증빙 후보는 최초 CreateTopic authorization 실패와 IAM resource scope 수정 후 생성 성공 화면이다.
-현재 저장소에 `docs/evidence/phase-1/`와 해당 이미지가 없어 저장된 증빙으로 표시하지 않는다.
-향후 핵심 증빙은 MSK message → Databricks Structured Streaming → Bronze row에서
-topic/partition/offset/raw bytes가 대응하는 화면이다. 별도 보관 시 민감 값을 가린다.
+최종 Databricks 실행 결과:
 
-## P1-5 failure-state reproduction 준비
+```text
+[PASS] isolated failure-state reproduction
+1 passed in 43.36s
+pytest result: 0
+```
 
-상태: **PENDING — 실제 MSK/Databricks failure-state 테스트 실행 전**.
-`tests/integration/test_bronze_failure_state.py`와
-`scripts/phase1_failure_state.py`에 별도 opt-in 절차를 구현했다.
-실행 방법과 제한은 [runbook](../runbook.md#p1-5-격리-failure-state-검증-실행-전)을 따른다.
+최종 harness는 재시작 전후 query ID가 같고 run ID는 다른지, 같은 batch N이 같은
+startOffset/endOffset으로 복구되는지 확인했다. `commits/N`이 다시 생성됐고 Kafka에서
+직접 읽은 expected lineage와 비교해 missing=0, duplicate=0, unexpected=0이었다.
+raw bytes·headers·timestamp도 유지됐으며, 신규 입력 없는 재실행 이후에도 결과가 같았다.
 
-run_id별 테스트 table/checkpoint에서 native sink 적재 후 최신 데이터 batch의
-`commits/N`만 전체 백업·검증 후 격리하고 동일 checkpoint로 재시작한다.
-운영 복구나 실제 crash 주입이 아닌 sink commit 후 checkpoint commit 전 **상태 재현**이다.
-canonical 자원을 사용하지 않으며 offsets 파일과 query identity를 유지한다.
+### numInputRows에 대한 가정을 바꾼 이유
 
-판정에는 동일 batch/start/end offset의 재시도 progress, commit 재생성,
-Kafka expected lineage와 before/after count·missing·duplicate 비교,
-partition 1 offset 2의 `0000` 보존이 모두 필요하다. 단순 row count로 PASS하지 않는다.
-DBR checkpoint layout 차이와 Kafka retention으로 입력이 없는 경우 실패로 기록한다.
-실제 실행 결과·PASS 증빙은 아직 없으며 development plan DoD도 완료 처리하지 않는다.
+처음에는 recovery 시 `numInputRows > 0`이어야 한다고 가정했다. 이전 관찰 run
+`b3429e0538db42009f3cb09287f3168d`에서는 같은 batch N=2와 같은 start/end offset으로
+복구됐지만 `numInputRows`는 0이었다. query ID는 유지되고 run ID는 바뀌었으며,
+`commits/2`도 다시 생성됐다. 수동으로 Bronze를 조회하니 partition 1의 offset 0/1/2가
+각각 한 행씩 남아 있었고, duplicate·missing lineage는 없었다. offset 2의
+`value_hex=0000`, `value_bytes=2`도 확인했다.
+
+그래서 입력 행 수가 양수라는 조건을 제거하고, checkpoint 복구와 최종 lineage의
+중복·누락을 직접 비교하도록 테스트를 바꿨다. `assert_progress_boundaries()`는 유지했다.
+`numInputRows`는 progress와 최종 result evidence에 실제 값으로 남기며, 0 이상의 정수인지
+검사한다. 필드 누락, 음수, bool을 포함한 잘못된 타입은 실패한다. 수정한 harness로 새 UUID를
+사용해 실행한 결과가 위 최종 clean run이다. `numInputRows=0`의 상세 관찰은 이전 run의
+기록이며, 각 run의 실제 값은 해당 progress와 result evidence에서 확인한다.
+
+이 결과만으로 Databricks Managed Iceberg가 어떤 metadata나 transaction mechanism으로
+replay를 처리했는지는 알 수 없다. 확인한 범위는 이번 fixture와 failure-state 조건에서
+`(topic, partition, offset)` 중복·누락이 없었다는 것이다. 일반적인 exactly-once 보장이나
+throughput/latency 수치를 검증한 결과는 아니다.
+
+## Harness 로컬 검증
+
+최종 로컬 검증 기록은 다음과 같다. 외부 연동 opt-in을 끈 일반 테스트 결과이며,
+위 Databricks clean run 결과와 구분한다.
+
+```text
+uv run --offline python -m pytest tests/unit tests/integration
+124 passed, 10 skipped
+기존 dependency warning 1건
+```
+
+수정 파일 Ruff와 `git diff --check`도 통과했다. 회귀 테스트는 `numInputRows=0` evidence
+보존, 누락·음수·잘못된 타입 거부, 0이어도 batch/offset 불일치를 거부하는 동작을 확인한다.
+
+## 남은 정리와 증빙
+
+정상 재시작은 기존 checkpoint의 offset/query state를 이어가는 절차다. 이번 commit 격리는
+전체 checkpoint 유실 복구 실험이 아니다. 유실 시에는 Kafka retention과 Bronze lineage를
+먼저 대조해야 하며, retention 밖으로 사라진 원본은 checkpoint만으로 복구할 수 없다.
+구체적인 실행·복구 절차는 [runbook](../runbook.md#재시작과-복구)에 남겼다.
+
+PENDING으로 남은 것은 증빙 파일 정리와 Phase 1 DoD 최종 검토 후 PR·main 병합이다.
+MSK 연결·Bronze 적재·정상 재시작·failure-state clean run은 더 이상 PENDING으로 두지 않는다.
+장기 Producer 운영 환경과 cloud Schema Registry 운영 방식은 이번 fixture 검증으로 확정하지 않았다.
+
+아래 이미지는 문서 갱신 시 로컬 저장소에 없어 **TODO — 증빙 후보 경로**로 남긴다.
+
+- `docs/evidence/phase-1/checkpoint-recovery-result.png`: 최종 run의 PASS 출력과 식별 정보
+- `docs/evidence/phase-1/checkpoint-recovery-lineage-no-duplicates.png`: lineage별 한 행과 중복·누락 대사
+- `docs/evidence/phase-1/checkpoint-recovery-corrupt-bytes-preserved.png`: offset 2의 `0000`과 2 bytes
+
+UC Volume의 harness evidence와 위 저장소 이미지 경로는 별개다. 이미지를 저장할 때는
+원본 실행과 연결되는 run ID를 확인하고 비밀값을 가린다.

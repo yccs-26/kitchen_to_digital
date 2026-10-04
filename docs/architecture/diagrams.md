@@ -1,10 +1,10 @@
 # KTD 목표 구조와 처리 흐름
 
-후속 논리 구조를 표시한다. 구현 완료나 분산 트랜잭션 보장을 뜻하지 않는다. Job 2 입력 경로의 결정 상태는 [플랫폼](platform.md)을 참고한다.
+Job 1의 MSK → Databricks → Managed Iceberg Bronze는 구현·검증했다. 아래는 Job 2~4와 Backfill까지 포함한 목표 구조이며, 이 후속 경로는 미구현이다. Job 2 입력 경로의 결정 상태는 [플랫폼](platform.md)을 참고한다.
 
 Mermaid를 지원하지 않는 뷰어에서는 [전체 아키텍처 SVG](../diagrams/ktd-architecture.svg)를 연다. 아래 코드 블록은 편집 가능한 도식 원본이다.
 
-[PNG 이미지](../diagrams/ktd-architecture.png)도 함께 제공한다.
+[PNG 이미지](../diagrams/ktd-architecture.png)도 함께 제공한다. 정적 이미지는 기존 목표 설계이며, Phase 1의 현재 catalog·checkpoint 구성은 아래 본문을 기준으로 읽는다.
 
 ![KTD architecture](../diagrams/ktd-architecture.png)
 
@@ -15,14 +15,14 @@ flowchart TB
   P[Sensor Simulator / Producer] -->|Avro event| R[kitchen.sensor.raw]
   SR[Schema Registry] -. 계약 조회·호환성 .-> P
   SR -. 역직렬화 schema .-> J2
-  R --> J1[Job 1 · Raw Ingestion]
-  R --> J2[Job 2 · Validation / Dedup]
+  R --> J1[Job 1 · Raw Ingestion · 검증 완료]
+  R --> J2[Job 2 · Validation / Dedup · 계획]
   J1 --> B[(Iceberg Bronze · 원본)]
   J2 -->|품질 실패| Q[kitchen.sensor.quarantine]
   J2 -->|trusted history| S[(Iceberg Silver)]
   J2 -->|trusted stream| V[kitchen.sensor.validated]
-  V --> J3[Job 3 · Metric Aggregation]
-  V --> J4[Job 4 · State Machine / Alert]
+  V --> J3[Job 3 · Metric Aggregation · 계획]
+  V --> J4[Job 4 · State Machine / Alert · 계획]
   J3 --> G[(Iceberg Gold · 집계·상태·경보 이력)]
   J4 --> G
   J4 --> D[(DynamoDB · Current Twin)]
@@ -31,13 +31,13 @@ flowchart TB
   B --> BF[Airflow + Spark Batch · Backfill]
   BF --> S
   BF --> G
-  CP[(query별 S3 checkpoint)] -. 복구 .-> J1
+  CP[("query별 영속 checkpoint<br/>Job 1: UC Volume")] -. 복구 .-> J1
   CP -. 복구 .-> J2
   CP -. 복구 .-> J3
   CP -. 복구 .-> J4
 ```
 
-Iceberg 데이터는 S3, catalog는 Glue, 목표 Spark 실행 환경은 Databricks다. Registry는 데이터가 통과하는 브로커가 아니라 계약 관리 서비스다. Silver와 validated는 Job 2의 두 출력이며 원자적 이중 쓰기 보장은 미정이다. 일반 backfill은 DynamoDB와 실시간 알림을 건드리지 않는다.
+Phase 1은 Databricks에서 실행하며 S3 managed storage와 Unity Catalog Managed Iceberg를 사용한다. GlueCatalog 직접 연결은 사용하지 않는다. Registry는 데이터가 통과하는 브로커가 아니라 계약 관리 서비스다. Silver와 validated는 Job 2의 두 출력이며 원자적 이중 쓰기 보장은 미정이다. 일반 backfill은 DynamoDB와 실시간 알림을 건드리지 않는다.
 
 ## 2. 검증·실패·재처리
 
