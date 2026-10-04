@@ -5,6 +5,46 @@ from collections import Counter
 from pathlib import Path
 
 
+def normalize_progress_offset(value, field):
+    """Decode a progress offset and require a Kafka topic/partition mapping."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"Progress {field}: malformed JSON") from error
+    if not isinstance(value, dict):
+        raise TypeError(
+            f"Progress {field}: expected a JSON object or dict, "
+            f"got {type(value).__name__}"
+        )
+    if not value or any(
+        not isinstance(topic, str)
+        or not isinstance(partitions, dict)
+        or not partitions
+        or any(
+            not isinstance(partition, str)
+            or not partition.isdigit()
+            or type(offset) is not int
+            or offset < 0
+            for partition, offset in partitions.items()
+        )
+        for topic, partitions in value.items()
+    ):
+        raise ValueError(f"Progress {field}: invalid Kafka offset mapping")
+    return value
+
+
+def assert_progress_boundaries(source, start, end):
+    """Compare decoded progress boundaries with checkpoint dictionaries."""
+    for field, expected in (("startOffset", start), ("endOffset", end)):
+        actual = normalize_progress_offset(source[field], field)
+        if actual != expected:
+            raise AssertionError(
+                f"Batch N retry {field} differs from checkpoint: "
+                f"expected={expected}, actual={actual}"
+            )
+
+
 def guard_resources(table, checkpoint, run_id):
     if not __debug__:
         raise RuntimeError(

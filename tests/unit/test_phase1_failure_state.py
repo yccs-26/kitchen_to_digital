@@ -26,6 +26,49 @@ def layout():
     }
 
 
+@pytest.mark.parametrize("as_string", [True, False])
+def test_progress_boundaries_accept_json_string_and_dict(as_string):
+    _, _, start, end = failure.checkpoint_batch(layout(), "kitchen.sensor.raw")
+    source = {
+        "startOffset": json.dumps(start, indent=2) if as_string else start,
+        "endOffset": json.dumps(end) if as_string else end,
+    }
+    failure.assert_progress_boundaries(source, start, end)
+
+
+def test_progress_offset_rejects_malformed_json():
+    with pytest.raises(ValueError, match="startOffset: malformed JSON"):
+        failure.normalize_progress_offset(
+            '{"kitchen.sensor.raw":', "startOffset"
+        )
+
+
+@pytest.mark.parametrize("value", [None, [], 3, "null", "[]", "3"])
+def test_progress_offset_rejects_unexpected_type(value):
+    with pytest.raises(TypeError, match="endOffset: expected a JSON object"):
+        failure.normalize_progress_offset(value, "endOffset")
+
+
+@pytest.mark.parametrize(
+    "value",
+    [{}, {"t": []}, {"t": {"1": True}}, '{"t":{"1":"3"}}'],
+)
+def test_progress_offset_rejects_invalid_mapping(value):
+    with pytest.raises(ValueError, match="invalid Kafka offset mapping"):
+        failure.normalize_progress_offset(value, "endOffset")
+
+
+@pytest.mark.parametrize("field", ["startOffset", "endOffset"])
+def test_progress_boundaries_reject_different_offset(field):
+    _, _, start, end = failure.checkpoint_batch(layout(), "kitchen.sensor.raw")
+    source = {"startOffset": json.dumps(start), "endOffset": json.dumps(end)}
+    source[field] = '{"kitchen.sensor.raw":{"1":99}}'
+    with pytest.raises(
+        AssertionError, match=f"{field} differs from checkpoint"
+    ):
+        failure.assert_progress_boundaries(source, start, end)
+
+
 @pytest.mark.parametrize(
     "table,path",
     [

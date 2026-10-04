@@ -7,6 +7,7 @@ import pytest
 
 from scripts.phase1_failure_state import (
     assert_audit,
+    assert_progress_boundaries,
     audit_lineage,
     checkpoint_batch,
     guard_resources,
@@ -195,9 +196,7 @@ def test_msk_native_sink_failure_state():
         progress = matches[0]
         assert len(progress["sources"]) == 1, "Expected one Kafka source"
         source = progress["sources"][0]
-        assert source["startOffset"] == start and source["endOffset"] == end, (
-            "Batch N retry offset boundaries differ from checkpoint"
-        )
+        assert_progress_boundaries(source, start, end)
         assert source["numInputRows"] > 0, "No data-batch retry evidence"
         return progress
 
