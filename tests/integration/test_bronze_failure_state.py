@@ -222,8 +222,10 @@ def test_msk_native_sink_failure_state():
         },
     )
     assert audit("after-injection") == before, "Injection changed sink results"
+    
     second = run("restart-progress")
     assert second["id"] == first["id"] and second["runId"] != first["runId"]
+
     batch_progress(second)
     assert (root / "commits" / str(batch)).is_file(), (
         "commits/N not regenerated"
@@ -232,11 +234,13 @@ def test_msk_native_sink_failure_state():
         f"offsets/{batch}"
     ]
     assert (root / "metadata").read_bytes() == original["metadata"]
+
     checkpoint_batch(snapshot_tree(root), config.topic)
     assert audit("after-restart") == before, "Restart changed existing rows"
     assert source_records() == expected, (
         "MSK source changed/expired during restart"
     )
+
     run("no-input-progress")
     assert audit("after-no-input") == before
     save(
