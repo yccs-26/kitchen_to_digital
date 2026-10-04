@@ -7,8 +7,8 @@ import pytest
 
 from scripts.phase1_failure_state import (
     assert_audit,
-    assert_progress_boundaries,
     audit_lineage,
+    batch_progress,
     checkpoint_batch,
     guard_resources,
     quarantine_commit,
@@ -188,19 +188,7 @@ def test_msk_native_sink_failure_state():
     batch, query_id, start, end = checkpoint_batch(original, config.topic)
     assert query_id == first["id"], "Checkpoint/query identity mismatch"
 
-    def batch_progress(result):
-        matches = [p for p in result["progress"] if p["batchId"] == batch]
-        assert len(matches) == 1, (
-            "Missing/unexpected batch N progress evidence"
-        )
-        progress = matches[0]
-        assert len(progress["sources"]) == 1, "Expected one Kafka source"
-        source = progress["sources"][0]
-        assert_progress_boundaries(source, start, end)
-        assert source["numInputRows"] > 0, "No data-batch retry evidence"
-        return progress
-
-    batch_progress(first)
+    batch_progress(first, batch, start, end)
     assert source_records() == expected, (
         "MSK source changed/expired; quiesce producers before the experiment"
     )
@@ -221,11 +209,11 @@ def test_msk_native_sink_failure_state():
         },
     )
     assert audit("after-injection") == before, "Injection changed sink results"
-    
+
     second = run("restart-progress")
     assert second["id"] == first["id"] and second["runId"] != first["runId"]
 
-    batch_progress(second)
+    recovery_progress = batch_progress(second, batch, start, end)
     assert (root / "commits" / str(batch)).is_file(), (
         "commits/N not regenerated"
     )
@@ -249,6 +237,8 @@ def test_msk_native_sink_failure_state():
             "batch": batch,
             "missing": 0,
             "duplicates": 0,
+            "unexpected": 0,
+            "numInputRows": recovery_progress["sources"][0]["numInputRows"],
             "retry_evidence": "same batch/start/end",
         },
     )

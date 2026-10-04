@@ -176,3 +176,62 @@ def test_backup_mismatch_prevents_move(monkeypatch, tmp_path):
             lambda: False,
         )
     move.assert_not_called()
+
+
+def recovery_evidence(rows=0):
+    start = {"kitchen.sensor.raw": {"1": 2}}
+    end = {"kitchen.sensor.raw": {"1": 3}}
+    progress = {
+        "batchId": 2,
+        "sources": [{
+            "startOffset": json.dumps(start),
+            "endOffset": json.dumps(end),
+            "numInputRows": rows,
+        }],
+    }
+    return {"progress": [progress]}, start, end
+
+
+@pytest.mark.parametrize("rows", [0, 1])
+def test_recovery_progress_preserves_non_negative_input_rows(rows):
+    result, start, end = recovery_evidence(rows)
+    progress = failure.batch_progress(result, 2, start, end)
+    assert progress is result["progress"][0]
+    saved = json.loads(json.dumps(progress))
+    assert saved["sources"][0]["numInputRows"] == rows
+
+
+@pytest.mark.parametrize("rows", [None, True, False, 0.0, "0", [], {}])
+def test_recovery_progress_rejects_invalid_input_rows_type(rows):
+    result, start, end = recovery_evidence(rows)
+    with pytest.raises(TypeError, match="numInputRows: expected"):
+        failure.batch_progress(result, 2, start, end)
+
+
+def test_recovery_progress_rejects_negative_input_rows():
+    result, start, end = recovery_evidence(-1)
+    with pytest.raises(ValueError, match="numInputRows: must be non-negative"):
+        failure.batch_progress(result, 2, start, end)
+
+
+def test_recovery_progress_rejects_missing_input_rows():
+    result, start, end = recovery_evidence()
+    del result["progress"][0]["sources"][0]["numInputRows"]
+    with pytest.raises(ValueError, match="numInputRows: missing required field"):
+        failure.batch_progress(result, 2, start, end)
+
+
+@pytest.mark.parametrize("field", ["startOffset", "endOffset"])
+def test_zero_input_recovery_still_rejects_changed_boundaries(field):
+    result, start, end = recovery_evidence()
+    result["progress"][0]["sources"][0][field] = {
+        "kitchen.sensor.raw": {"1": 99}
+    }
+    with pytest.raises(AssertionError, match=f"{field} differs"):
+        failure.batch_progress(result, 2, start, end)
+
+
+def test_zero_input_recovery_still_requires_same_batch():
+    result, start, end = recovery_evidence()
+    with pytest.raises(AssertionError, match="batch N progress evidence"):
+        failure.batch_progress(result, 3, start, end)

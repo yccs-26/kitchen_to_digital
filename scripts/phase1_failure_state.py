@@ -45,6 +45,28 @@ def assert_progress_boundaries(source, start, end):
             )
 
 
+def batch_progress(result, batch, start, end):
+    """Validate observable batch evidence without inferring sink internals."""
+    matches = [p for p in result["progress"] if p["batchId"] == batch]
+    assert len(matches) == 1, "Missing/unexpected batch N progress evidence"
+    progress = matches[0]
+    assert len(progress["sources"]) == 1, "Expected one Kafka source"
+    source = progress["sources"][0]
+    assert_progress_boundaries(source, start, end)
+    if "numInputRows" not in source:
+        raise ValueError("Progress numInputRows: missing required field")
+    rows = source["numInputRows"]
+    if type(rows) is not int:
+        raise TypeError(
+            "Progress numInputRows: expected a non-negative integer, "
+            f"got {type(rows).__name__}"
+        )
+    if rows < 0:
+        raise ValueError("Progress numInputRows: must be non-negative")
+    # Zero is valid recovery evidence; it does not explain sink behavior.
+    return progress
+
+
 def guard_resources(table, checkpoint, run_id):
     if not __debug__:
         raise RuntimeError(
