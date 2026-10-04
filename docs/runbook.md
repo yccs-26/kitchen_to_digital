@@ -1,5 +1,87 @@
 # Phase 1 — Kafka 원본 적재 운영
 
+## P1-5 격리 failure-state 검증 (실행 전)
+
+`tests/integration/test_bronze_failure_state.py`는 **운영 복구 절차가 아니다**.
+sink commit 성공 후 checkpoint commit 전 장애의 영속 상태를 재현한다.
+실제 프로세스 crash를 주입했다고 표현하지 않는다. production Job 코드는 그대로 사용한다.
+
+Spark의 동기식 micro-batch 순서는 `offsets/N → sink commit → commits/N`이다.
+종료한 테스트 query의 `commits/N`만 격리하면 sink 결과와 `offsets/N`은 남고
+최신 완료 batch가 N−1이 되어 동일 batch N을 재시도할 조건이 된다.
+[Spark 4.0.0 구현](https:b//github.com/apache/spark/blob/v4.0.0/sql/core/src/main/scala/org/apache/spark/sql/execution/streaming/MicroBatchExecution.scala)을
+기준으로 하며 DBR layout이 다르면 수정·추측하지 않고 파일 목록과 함께 실패한다.
+
+실행 조건:
+
+- DBR notebook driver에서 저장소 checkout과 `pytest`를 사용할 수 있어야 한다.
+  로컬 Connect 실행용 테스트가 아니다. `/Volumes` 파일 접근 권한과 Managed Iceberg 생성 권한이 필요하다.
+- MSK IAM bootstrap(:9098)과 consumer Service Credential이 필요하다.
+- `kitchen.sensor.raw`의 partition 1 offset 0/1/2가 Kafka에 남아 있고 offset 2가 `0000`이어야 한다.
+  테스트는 발행하지 않는다. producer를 정지한 검증 시간대에 실행한다.
+- 원본은 최대 1,000행의 소규모 fixture로 제한한다. Kafka에서 직접 expected를 읽는다.
+  retention으로 필수 offset이 사라지면 명시적으로 실패하며 Bronze로 대체하지 않는다.
+- 해당 Spark session은 실행 중인 query가 없어야 한다. 다른 query는 자동 중단하지 않는다.
+  이 테스트에 대한 job 자동 재시도·동시 실행도 사용하지 않는다.
+
+다음은 **향후 수동 실행 명령**이다. notebook Python 셀에서 실행한다.
+환경값은 세션에 설정하고 저장소에 비밀값을 넣지 않는다.
+
+```python
+import os
+import sys
+import pytest
+
+os.chdir("/Workspace/<실제 저장소 경로>/kitchen_to_digital")
+sys.path.insert(0, os.getcwd())
+# KTD_KAFKA_BOOTSTRAP_SERVERS와 KTD_KAFKA_SERVICE_CREDENTIAL은 세션에 미리 설정
+os.environ["KTD_RUN_BRONZE_FAILURE_STATE"] = "1"
+try:
+    result = pytest.main([
+        "tests/integration/test_bronze_failure_state.py",
+        "-q", "-s", "-p", "no:cacheprovider",
+    ])
+    assert result == 0, result
+finally:
+    os.environ.pop("KTD_RUN_BRONZE_FAILURE_STATE", None)
+```
+
+일반 `KTD_RUN_BRONZE_INTEGRATION=1`만으로는 실행되지 않는다.
+전용 opt-in을 켜면 아래 격리 이동까지 수행하므로 단순 read-only 점검으로 실행하지 않는다.
+
+자원은 UUID hex `<run_id>`로 생성하며 기존 자원은 재사용하지 않는다.
+
+- Table: `ktd.bronze.sensor_raw_failure_test_<run_id>`
+- Checkpoint: `/Volumes/ktd/bronze/checkpoints/job1-failure-test/<run_id>/sensor_raw`
+- Evidence: 같은 `<run_id>` 아래 `evidence/`
+
+정확한 table/checkpoint 쌍과 run_id를 검사한다. canonical table/checkpoint,
+다른 경로, symlink는 거부한다. 모든 자원은 성공·실패 후 보존하며 자동 삭제하지 않는다.
+
+실행 순서:
+
+1. Kafka expected 원본 확보 → 별도 자원으로 AvailableNow 실행.
+2. lineage별 count와 bytes 대사 → 최신 offsets/commits N과 N−1, 데이터 batch progress 확인.
+3. checkpoint 전체를 `evidence/checkpoint-backup/`에 복사하고 모든 파일 bytes 비교.
+4. 종료 상태를 재확인한 뒤 **`sensor_raw/commits/N` 한 파일만**
+   `evidence/quarantined/commit-N`으로 이동한다. `offsets/N`과 나머지 파일은 그대로 둔다.
+5. 동일 query 설정으로 재시작 → query ID 유지/run ID 변경, batch N의 동일 start/end offset과
+   입력 처리 progress, `commits/N` 재생성 확인.
+6. before/after-injection/after-restart의 모든 lineage count=1, missing=0,
+   unexpected=0, bytes/headers/timestamps 보존을 대사한다. offset 2의 `0000`도 검증한다.
+7. 신규 입력 없는 재실행으로 결과 불변을 확인한 뒤에만 `result.json`에 PASS를 기록한다.
+
+마지막 batch가 비어 있거나 progress가 없거나 checkpoint sidecar/버전이 예상과 다르면
+성공으로 간주하지 않는다. commit을 옮긴 뒤 실패하면 그대로 증빙을 보존한다.
+백업을 자동 복원하거나 다른 commit을 제거하지 말고 실패 지점을 검토한다.
+원본·lineage·progress·layout JSON은 evidence에 남으므로 공유 전 민감 정보를 확인한다.
+
+정상 재시작은 동일 checkpoint로 진행을 복구한다. checkpoint 유실 복구는 query identity와
+기존 sink 기록의 관계가 달라질 수 있어 별도 대사·복구 설계가 필요하다.
+새 checkpoint의 earliest/latest를 정상 재시작 대용으로 사용하지 않는다.
+Kafka retention 밖의 원본은 checkpoint만으로 복원되지 않는다.
+이 테스트의 commit 격리는 전체 checkpoint 유실 복구를 검증하지 않는다.
+
 Job 1은 `streaming/jobs/raw_ingestion.py`다. Kafka key/value는 BINARY,
 headers는 `ARRAY<STRUCT<key: STRING, value: BINARY>>`로 보존한다.
 배열을 map으로 바꾸지 않아 header 순서와 중복 이름도 유지한다.

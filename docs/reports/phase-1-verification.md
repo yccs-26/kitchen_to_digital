@@ -67,3 +67,21 @@ duplicate event_id·corrupt payload·real Kafka checkpoint/restart 및 sink 저�
 현재 저장소에 `docs/evidence/phase-1/`와 해당 이미지가 없어 저장된 증빙으로 표시하지 않는다.
 향후 핵심 증빙은 MSK message → Databricks Structured Streaming → Bronze row에서
 topic/partition/offset/raw bytes가 대응하는 화면이다. 별도 보관 시 민감 값을 가린다.
+
+## P1-5 failure-state reproduction 준비
+
+상태: **PENDING — 실제 MSK/Databricks failure-state 테스트 실행 전**.
+`tests/integration/test_bronze_failure_state.py`와
+`scripts/phase1_failure_state.py`에 별도 opt-in 절차를 구현했다.
+실행 방법과 제한은 [runbook](../runbook.md#p1-5-격리-failure-state-검증-실행-전)을 따른다.
+
+run_id별 테스트 table/checkpoint에서 native sink 적재 후 최신 데이터 batch의
+`commits/N`만 전체 백업·검증 후 격리하고 동일 checkpoint로 재시작한다.
+운영 복구나 실제 crash 주입이 아닌 sink commit 후 checkpoint commit 전 **상태 재현**이다.
+canonical 자원을 사용하지 않으며 offsets 파일과 query identity를 유지한다.
+
+판정에는 동일 batch/start/end offset의 재시도 progress, commit 재생성,
+Kafka expected lineage와 before/after count·missing·duplicate 비교,
+partition 1 offset 2의 `0000` 보존이 모두 필요하다. 단순 row count로 PASS하지 않는다.
+DBR checkpoint layout 차이와 Kafka retention으로 입력이 없는 경우 실패로 기록한다.
+실제 실행 결과·PASS 증빙은 아직 없으며 development plan DoD도 완료 처리하지 않는다.
