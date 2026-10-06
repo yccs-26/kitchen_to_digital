@@ -9,8 +9,8 @@ from confluent_kafka.schema_registry import RegisteredSchema, Schema
 from confluent_kafka.schema_registry.error import SchemaRegistryError
 
 from simulator import producer as producer_module
-from streaming.validation.decoder import decode_sensor_event, parse_confluent_frame
-from streaming.validation.timestamps import normalize_event_time
+from streaming.validation.avro_decoder import decode_sensor_event, parse_confluent_frame
+from streaming.validation.event_time_normalizer import normalize_event_time
 
 
 @pytest.fixture

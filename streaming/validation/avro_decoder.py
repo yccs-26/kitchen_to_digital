@@ -5,7 +5,7 @@ from fastavro import parse_schema, schemaless_reader
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.error import SchemaRegistryError
 
-from streaming.validation.timestamps import normalize_event_time
+from streaming.validation.event_time_normalizer import normalize_event_time
 
 
 def parse_confluent_frame(value: bytes) -> tuple[int, bytes]:
