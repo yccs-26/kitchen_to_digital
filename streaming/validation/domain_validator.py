@@ -75,24 +75,38 @@ def _as_utc(value: object) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def _validate_event_time(
+def validate_event_time(
     value: object,
+    *,
     reference_time: datetime,
     max_future_skew: timedelta,
-    errors: list[ValidationError],
-) -> None:
+) -> ValidationResult:
+    """공유 시각 유효성 규칙. 오래된 이벤트도 domain 규칙상 유효하다.
+
+    설정 오류는 ValueError를 발생시킨다. 잘못된 이벤트 시각은
+    validate_domain_event에서 사용하는 것과 같은 구조화된 오류를 반환한다.
+    """
+    try:
+        reference_utc = _as_utc(reference_time)
+    except (ValueError, OverflowError) as exc:
+        raise ValueError(
+            "reference_time must be UTC-convertible and aware."
+        ) from exc
+    if max_future_skew < timedelta(0):
+        raise ValueError("max_future_skew must be non-negative.")
+
     try:
         event_time = _as_utc(value)
     except (ValueError, OverflowError) as exc:
-        errors.append(ValidationError(
+        return ValidationResult((ValidationError(
             "INVALID_EVENT_TIME", "event_time", str(exc)
-        ))
-        return
-    if event_time - reference_time > max_future_skew:
-        errors.append(ValidationError(
+        ),))
+    if event_time - reference_utc > max_future_skew:
+        return ValidationResult((ValidationError(
             "FUTURE_EVENT_TIME", "event_time",
             f"Event exceeds the allowed future skew of {max_future_skew}."
-        ))
+        ),))
+    return ValidationResult(())
 
 
 def _validate_metric_value(
@@ -191,14 +205,11 @@ def validate_domain_event(
     max_future_skew: timedelta,
 ) -> ValidationResult:
 
-    try:
-        reference_utc = _as_utc(reference_time)
-    except (ValueError, OverflowError) as exc:
-        raise ValueError(
-            "reference_time must be UTC-convertible and aware."
-        ) from exc
-    if max_future_skew < timedelta(0):
-        raise ValueError("max_future_skew must be non-negative.")
+    time_validation = validate_event_time(
+        event.get("event_time"),
+        reference_time=reference_time,
+        max_future_skew=max_future_skew,
+    )
 
     errors: list[ValidationError] = []
     usable = _validate_required_fields(event, errors)
@@ -209,9 +220,7 @@ def validate_domain_event(
                 "Schema version is not supported by the supplied rules."
             ))
     if "event_time" in usable:
-        _validate_event_time(
-            event["event_time"], reference_utc, max_future_skew, errors
-        )
+        errors.extend(time_validation.errors)
     if "metric_value" in usable:
         _validate_metric_value(event["metric_value"], errors)
     _validate_equipment(
