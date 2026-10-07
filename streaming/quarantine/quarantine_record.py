@@ -1,11 +1,11 @@
-"""Build one immutable Quarantine record per failed Kafka source record.
+"""검증에 실패한 Kafka 원본 레코드마다 불변 Quarantine 레코드 하나를 생성한다.
 
-Domain failures reuse ValidationResult unchanged. Callers may also supply
-explicitly classified decode failures through the same type, using
-INVALID_CONFLUENT_FRAME/raw_value, AVRO_DECODE_FAILED/raw_value, or
-UNKNOWN_SCHEMA_ID/schema_id. These are contract codes, not automatic exception
-mapping: the current decoder raises ValueError for several different causes.
-Registry outages and other system failures must not be classified here.
+도메인 검증 실패는 ValidationResult를 그대로 재사용한다. 호출자가 명시적으로
+분류한 디코딩 실패도 같은 타입으로 전달할 수 있으며, code/field 조합은
+INVALID_CONFLUENT_FRAME/raw_value, AVRO_DECODE_FAILED/raw_value,
+UNKNOWN_SCHEMA_ID/schema_id를 사용한다. 이는 계약상 오류 코드이며 예외를
+자동으로 매핑하는 규칙이 아니다. 현재 디코더는 여러 원인에 대해 ValueError를
+발생시킨다. Registry 장애와 그 밖의 시스템 실패는 여기서 분류하면 안 된다.
 """
 
 from dataclasses import dataclass
@@ -20,12 +20,13 @@ from streaming.validation.domain_validator import (
 
 @dataclass(frozen=True)
 class QuarantineRecord:
-    """Transport lineage and failures, without a copy of the raw value.
+    """원본 value 사본 없이 Kafka 원본 위치와 오류 정보를 보관한다.
 
-    raw_value_sha256 is None for a Kafka null value, distinct from empty bytes.
-    A hash verifies bytes but cannot reconstruct them. Source recovery depends
-    on Kafka retention or separately retained raw bytes matching the lineage.
-    This builder does not guarantee that Bronze already contains that record.
+    Kafka null value의 raw_value_sha256은 None이며 빈 bytes의 해시와 구별된다.
+    해시는 bytes의 일치 여부를 확인할 수 있지만 원본을 복원하지는 못한다.
+    원본 복구에는 Kafka 보존 기간 내 데이터 또는 같은 lineage에 대응하여
+    별도로 보관한 원본 bytes가 필요하다. 이 생성 함수는 해당 레코드가
+    Bronze에 이미 저장되어 있음을 보장하지 않는다.
     """
 
     quarantine_id: str
@@ -51,12 +52,12 @@ def _quarantine_id(
     event_id: str | None,
     errors: tuple[ValidationError, ...],
 ) -> str:
-    """Versioned identity: lineage, optional event ID, and failure locations.
+    """lineage, 선택적 event ID, 오류 위치로 버전이 명시된 식별자를 생성한다.
 
-    Order, repeated errors, and diagnostic wording do not change identity.
-    Field participates because MISSING_FIELD on two different fields describes
-    different failures. Schema ID, key, and payload hash are metadata, not ID
-    material: lineage identifies the source within this KTD Kafka source.
+    오류의 순서, 중복, 진단 문구는 식별자에 영향을 주지 않는다.
+    서로 다른 필드의 MISSING_FIELD는 별개의 실패이므로 field도 생성에 사용한다.
+    Schema ID, key, payload 해시는 메타데이터이며 식별자 생성에 사용하지 않는다.
+    이 KTD Kafka 소스 내에서는 lineage가 원본 레코드를 식별한다.
     """
     material = [
         "ktd-quarantine-v1",
@@ -83,13 +84,13 @@ def build_quarantine_record(
     event_id: str | None = None,
     schema_id: int | None = None,
 ) -> QuarantineRecord:
-    """Build from a failed result without I/O, mutation, or inferred identity.
+    """I/O, 입력 변경, 식별자 추정 없이 검증 실패 결과로 레코드를 생성한다.
 
-    Invalid builder arguments are programmer errors and raise ValueError.
-    Pass event_id only when decoded as a string (even if domain-invalid), or
-    None when unavailable. No event, equipment, or timestamp is inferred.
-    All original errors, including duplicates and their order, are preserved;
-    only the identity material is canonicalized.
+    잘못된 생성 인자는 프로그래밍 오류로 간주하여 ValueError를 발생시킨다.
+    event_id는 문자열로 디코딩된 경우에만 전달한다. 도메인 규칙에 맞지 않는
+    문자열도 전달할 수 있으며, 값을 얻을 수 없으면 None을 전달한다.
+    이벤트, 장비, 시각은 추정하지 않는다. 원본 오류의 중복과 순서를 모두 보존하며,
+    식별자 생성에 사용하는 데이터만 정규화한다.
     """
     if not isinstance(source_topic, str) or not source_topic.strip():
         raise ValueError("source_topic must be a non-blank string.")

@@ -1,5 +1,3 @@
-"""Pure contract checks for decoded sensor events (no I/O or mutation)."""
-
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -31,7 +29,8 @@ class ValidationError:
     field: str
     details: str
 
-
+# 검증 결과 저장 객체
+# ! 오류가 있지만 valid한 값이 있을 수 있어 상태 꼬임 방지
 @dataclass(frozen=True)
 class ValidationResult:
     errors: tuple[ValidationError, ...]
@@ -99,6 +98,7 @@ def _validate_event_time(
 def _validate_metric_value(
     value: object, errors: list[ValidationError]
 ) -> None:
+    # bool은 int의 subclass라서 (int, float)만 검사하면 bool도 통과해서 True, False도 정상 숫자로 통과하기에 먼저 막아야 한다
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         errors.append(ValidationError(
             "INVALID_METRIC_VALUE", "metric_value",
@@ -139,7 +139,7 @@ def _validate_equipment(
     if {"equipment_type", "metric_name"} <= usable:
         allowed = metric_units.get(cast(str, event["equipment_type"]), {})
         metric = cast(str, event["metric_name"])
-        if metric not in allowed:
+        if metric not in allowed: 
             errors.append(ValidationError(
                 "UNSUPPORTED_METRIC", "metric_name",
                 "Metric is not configured for the payload equipment type."
