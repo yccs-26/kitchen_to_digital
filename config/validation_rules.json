@@ -1,0 +1,41 @@
+{
+  "supported_schema_versions": [
+    "1.0.0"
+  ],
+  "equipment_registry": [
+    {
+      "equipment_id": "fridge-001",
+      "store_id": "store-001",
+      "equipment_type": "refrigerator"
+    },
+    {
+      "equipment_id": "freezer-001",
+      "store_id": "store-001",
+      "equipment_type": "freezer"
+    },
+    {
+      "equipment_id": "fryer-001",
+      "store_id": "store-001",
+      "equipment_type": "fryer"
+    },
+    {
+      "equipment_id": "hood-001",
+      "store_id": "store-001",
+      "equipment_type": "hood"
+    }
+  ],
+  "metric_units": {
+    "refrigerator": {
+      "temperature_celsius": "celsius"
+    },
+    "freezer": {
+      "temperature_celsius": "celsius"
+    },
+    "fryer": {
+      "oil_temperature_celsius": "celsius"
+    },
+    "hood": {
+      "fan_rpm": "rpm"
+    }
+  }
+}

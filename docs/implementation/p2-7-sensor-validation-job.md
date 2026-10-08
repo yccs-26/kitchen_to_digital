@@ -129,3 +129,7 @@ Silver는 `streaming/sinks/delta_silver.py`의 `DeltaSilverStorage`를 사용한
 P2의 영속 멱등성과 canonical 보존을 위해 Delta target에 공식 지원되는 MERGE를
 선택했다. Bronze는 기존 UC Managed Iceberg를 유지한다. 이 선택과 로컬 회귀는
 실제 Delta 테이블 생성·MERGE·재시작 검증 완료를 뜻하지 않는다.
+
+P2-8A에서 비밀값 없는 JSON + Databricks secret/service credential 참조 진입점을
+추가했다. 기존 환경 변수 API는 유지하며 새 실행 경로와 미검증 항목은
+[p2-8a-runtime-config.md](p2-8a-runtime-config.md)를 따른다.

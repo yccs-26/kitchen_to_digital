@@ -1,0 +1,30 @@
+{
+  "kafka": {
+    "bootstrap_servers": "",
+    "security_protocol": "SASL_SSL",
+    "mechanism": "AWS_MSK_IAM",
+    "region": "ap-northeast-2",
+    "source_service_credential": "ktd-msk-consumer",
+    "producer_service_credential": ""
+  },
+  "registry": {
+    "provider": "",
+    "url": "",
+    "auth_mode": "basic",
+    "credentials": {
+      "scope": "ktd-job2",
+      "key": "schema-registry-basic-auth"
+    }
+  },
+  "topics": {
+    "raw": "kitchen.sensor.raw",
+    "validated": "kitchen.sensor.validated",
+    "quarantine": "kitchen.sensor.quarantine"
+  },
+  "silver_table": "ktd.silver.sensor_validated",
+  "checkpoint": "",
+  "processing_version": "",
+  "rules_path": "validation_rules.json",
+  "starting_offsets": "earliest",
+  "max_offsets_per_trigger": 1000
+}

@@ -265,17 +265,22 @@ def process_batch(batch, batch_id: int, **dependencies) -> dict[str, int]:
 
 def make_batch_handler(
     config: ValidationJobConfig, rules: ValidationRules, *,
-    registry_config: Mapping[str, object],
-    producer_config: Mapping[str, object],
+    registry_config: Mapping[str, object] | None = None,
+    producer_config: Mapping[str, object] | None = None,
+    client_config_factory=None,
 ):
     """직렬화 가능한 설정만 캡처하고 클라이언트는 배치 실행 위치에서 생성한다."""
     schema = (Path(__file__).resolve().parents[2]
               / "schemas/avro/sensor_metric_event.avsc").read_text(
                   encoding="utf-8"
               )
-    registry_settings = dict(registry_config)
+    if client_config_factory is not None and (
+        registry_config is not None or producer_config is not None
+    ):
+        raise ValueError("Use either config references or resolved configs")
+    registry_settings = dict(registry_config or {})
     producer_settings = {
-        **producer_config,
+        **(producer_config or {}),
         "acks": "all", "delivery.report.only.error": False,
         "allow.auto.create.topics": False,
     }
@@ -284,7 +289,21 @@ def make_batch_handler(
 
     def handle_batch(batch, batch_id):
         # SparkSession과 native producer를 closure에 캡처하지 않는다.
-        with SchemaRegistryClient(registry_settings) as registry:
+        if client_config_factory is None:
+            batch_registry = registry_settings
+            batch_producer = producer_settings
+        else:
+            # 비밀값은 foreachBatch 실행 위치에서 조회하며 closure에 넣지 않는다.
+            resolved = client_config_factory(batch.sparkSession)
+            batch_registry = resolved.registry
+            batch_producer = {
+                **resolved.producer,
+                "acks": "all", "delivery.report.only.error": False,
+                "allow.auto.create.topics": False,
+            }
+            if "transactional.id" in batch_producer:
+                raise ValueError("Transactional producers are not supported")
+        with SchemaRegistryClient(batch_registry) as registry:
             serializer = AvroSerializer(
                 registry, schema,
                 conf={
@@ -298,8 +317,8 @@ def make_batch_handler(
                 silver=SilverSink(DeltaSilverStorage(
                     spark=batch.sparkSession, table_name=config.silver_table,
                 )),
-                quarantine_producer=Producer(producer_settings),
-                validated_producer=Producer(producer_settings),
+                quarantine_producer=Producer(batch_producer),
+                validated_producer=Producer(batch_producer),
                 serializer=serializer, config=config, rules=rules,
                 reference_time=datetime.now(timezone.utc),
             )
@@ -309,16 +328,22 @@ def make_batch_handler(
 
 def start_validation(
     spark, config: ValidationJobConfig, rules: ValidationRules, *,
-    registry_config: Mapping[str, object],
-    producer_config: Mapping[str, object],
+    registry_config: Mapping[str, object] | None = None,
+    producer_config: Mapping[str, object] | None = None,
+    client_config_factory=None,
+    source_options: Mapping[str, object] | None = None,
     available_now: bool = False,
 ):
     """raw를 독립 소비하고 Spark의 전용 checkpoint에 진행 상태를 맡긴다."""
     handler = make_batch_handler(
         config, rules, registry_config=registry_config,
         producer_config=producer_config,
+        client_config_factory=client_config_factory,
     )
-    source = kafka_source(spark, config.source)
+    if source_options is None:
+        source = kafka_source(spark, config.source)
+    else:
+        source = spark.readStream.format("kafka").options(**source_options).load()
     writer = (
         source.writeStream.outputMode("append")
         .option("checkpointLocation", config.source.checkpoint)
@@ -335,8 +360,35 @@ def start_validation(
 def load_rules(path: str) -> ValidationRules:
     """명시된 JSON 설정만 읽으며 simulator 목록을 운영 규칙으로 추정하지 않는다."""
     values = json.loads(Path(path).read_text(encoding="utf-8"))
+    # 잘못된 규칙 구조가 배치 처리 중 드러나지 않도록 파일 경계에서 검사한다.
+    def nonblank(value):
+        return isinstance(value, str) and bool(value.strip())
+
+    if not isinstance(values, dict):
+        raise ValueError("Rules must be a JSON object")
+    versions = values.get("supported_schema_versions")
+    entries = values.get("equipment_registry")
+    units = values.get("metric_units")
+    if (not isinstance(versions, list) or not versions
+            or not all(nonblank(version) for version in versions)):
+        raise ValueError("Invalid supported schema versions")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("Invalid equipment registry")
+    if not isinstance(units, dict) or not units:
+        raise ValueError("Invalid metric units")
+    for equipment_type, metrics in units.items():
+        if (not nonblank(equipment_type) or not isinstance(metrics, dict)
+                or not metrics
+                or not all(nonblank(k) and nonblank(v)
+                           for k, v in metrics.items())):
+            raise ValueError("Invalid metric units")
     equipment = {}
-    for item in values["equipment_registry"]:
+    for item in entries:
+        if (not isinstance(item, dict)
+                or not all(nonblank(item.get(key)) for key in (
+                    "equipment_id", "store_id", "equipment_type",
+                )) or item["equipment_type"] not in units):
+            raise ValueError("Invalid equipment registry entry")
         equipment_id = item["equipment_id"]
         if equipment_id in equipment:
             raise ValueError("equipment_id must be globally unique in rules")
@@ -353,8 +405,27 @@ def main() -> None:
     """환경 설정을 읽은 뒤에만 세션을 만들며 소유한 query만 종료한다."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--available-now", action="store_true")
+    parser.add_argument("--runtime-config")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
+    if args.runtime_config:
+        from streaming.jobs.runtime_config import (
+            load_runtime_config, start_configured_validation,
+        )
+        # 파일 누락과 계약 오류는 세션 생성 전에 드러낸다.
+        load_runtime_config(args.runtime_config)
+        from databricks.connect import DatabricksSession
+
+        spark = DatabricksSession.builder.getOrCreate()
+        query = start_configured_validation(
+            spark, args.runtime_config, available_now=args.available_now,
+        )
+        try:
+            query.awaitTermination()
+        finally:
+            if query.isActive:
+                query.stop()
+        return
     config = ValidationJobConfig(
         source=IngestionConfig(
             bootstrap_servers=os.environ["KTD_KAFKA_BOOTSTRAP_SERVERS"],
