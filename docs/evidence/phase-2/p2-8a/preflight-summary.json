@@ -1,0 +1,21 @@
+{
+  "observed_at": "2026-10-08T04:58:50.981456+00:00",
+  "head": "fade5d49eb5b359ccda6a3504c95b35fa2b89474",
+  "status": "BLOCKED_NOT_COMPLETE",
+  "event_id": "493b91c6-1e96-477b-a6c3-babd07f672eb",
+  "published": false,
+  "fixture_avro_offline_round_trip": true,
+  "fixture_domain_check": true,
+  "equipment_count": 6,
+  "store_count": 1,
+  "cross_store_id_collisions": {},
+  "global_equipment_uniqueness": "NOT_PROVEN",
+  "databricks_auth": "INVALID_REFRESH_TOKEN",
+  "aws_sts": "SUCCESS",
+  "msk_control_plane": "ACTIVE_SERVERLESS_IAM_BOOTSTRAP_PRESENT",
+  "kafka_data_plane": "NOT_VERIFIED",
+  "ec2_client": "STOPPED",
+  "registry": "RUNTIME_CONFIG_MISSING",
+  "silver": "NOT_VERIFIED",
+  "checkpoint": "NOT_VERIFIED"
+}

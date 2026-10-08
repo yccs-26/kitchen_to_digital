@@ -19,7 +19,7 @@ flowchart TB
   R --> J2[Job 2 · Validation / Dedup · 계획]
   J1 --> B[(Iceberg Bronze · 원본)]
   J2 -->|품질 실패| Q[kitchen.sensor.quarantine]
-  J2 -->|trusted history| S[(Iceberg Silver)]
+  J2 -->|trusted history| S[(Delta Silver)]
   J2 -->|trusted stream| V[kitchen.sensor.validated]
   V --> J3[Job 3 · Metric Aggregation · 계획]
   V --> J4[Job 4 · State Machine / Alert · 계획]

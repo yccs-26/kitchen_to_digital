@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from streaming.sinks.iceberg_silver import (
-    IcebergSilverStorage,
+from streaming.sinks.delta_silver import (
+    DeltaSilverStorage,
     SilverStorageInvariantError,
 )
 from streaming.sinks.silver import SilverSink, SilverStorage, SilverWriteStatus
@@ -36,7 +36,7 @@ class FakeResult:
 
 
 class FakeSpark:
-    """응답을 순서대로 반환하며 SQL이나 Iceberg 동작은 재구현하지 않는다."""
+    """응답을 순서대로 반환하며 SQL이나 Delta 동작은 재구현하지 않는다."""
 
     def __init__(self, *responses):
         self.responses = list(responses)
@@ -81,7 +81,7 @@ def stored_row(event):
 
 
 def adapter(spark):
-    return IcebergSilverStorage(spark=spark, table_name="ktd.silver.sensor")
+    return DeltaSilverStorage(spark=spark, table_name="ktd.silver.sensor")
 
 
 @pytest.mark.parametrize("name", [
@@ -91,7 +91,7 @@ def adapter(spark):
 def test_invalid_identifier_fails_before_io(name):
     spark = FakeSpark()
     with pytest.raises(ValueError):
-        IcebergSilverStorage(spark=spark, table_name=name)
+        DeltaSilverStorage(spark=spark, table_name=name)
     assert spark.calls == []
 
 
@@ -260,7 +260,7 @@ def test_same_input_produces_same_sql_and_arguments(event):
 
 
 def test_single_writer_limit_is_documented():
-    assert "single writer assumption" in IcebergSilverStorage.__doc__
+    assert "single writer assumption" in DeltaSilverStorage.__doc__
     assert "concurrent multi-writer behavior not verified" in (
-        IcebergSilverStorage.__doc__
+        DeltaSilverStorage.__doc__
     )

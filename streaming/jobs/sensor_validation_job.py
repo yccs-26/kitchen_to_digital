@@ -32,7 +32,7 @@ from streaming.quarantine.quarantine_publisher import (
 from streaming.quarantine.quarantine_record import (
     QuarantineRecord, build_quarantine_record,
 )
-from streaming.sinks.iceberg_silver import IcebergSilverStorage
+from streaming.sinks.delta_silver import DeltaSilverStorage
 from streaming.sinks.silver import (
     SilverSink, SilverWriteResult, SilverWriteStatus,
 )
@@ -295,7 +295,7 @@ def make_batch_handler(
             )
             return process_batch(
                 batch, batch_id, registry_client=registry,
-                silver=SilverSink(IcebergSilverStorage(
+                silver=SilverSink(DeltaSilverStorage(
                     spark=batch.sparkSession, table_name=config.silver_table,
                 )),
                 quarantine_producer=Producer(producer_settings),

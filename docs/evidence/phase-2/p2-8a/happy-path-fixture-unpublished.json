@@ -1,0 +1,12 @@
+{
+  "event_id": "493b91c6-1e96-477b-a6c3-babd07f672eb",
+  "event_time": "2026-10-08T04:58:50.981456+00:00",
+  "store_id": "store-001",
+  "equipment_id": "fridge-001",
+  "equipment_type": "refrigerator",
+  "metric_name": "temperature_celsius",
+  "metric_value": 4.25,
+  "unit": "celsius",
+  "schema_version": "1.0.0",
+  "source": "simulator"
+}

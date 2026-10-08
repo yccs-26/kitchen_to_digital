@@ -1,7 +1,7 @@
 """Silver canonical 이벤트의 영속 멱등 쓰기 계약.
 
 운영은 단일 writer를 전제로 한다. 저장 어댑터는 별도로 주입하며,
-이 모듈에는 Iceberg 구현이나 프로세스 내부 중복 캐시가 없다.
+이 모듈에는 특정 저장소 구현이나 프로세스 내부 중복 캐시가 없다.
 """
 
 from collections.abc import Mapping
@@ -22,7 +22,7 @@ class SilverStorage(Protocol):
     event_id당 최대 한 행을 영속 보존하며 기존 행을 수정하거나 삭제하지 않는다.
     조회는 완료된 삽입을 볼 수 있어야 한다. 입력 mapping도 수정하지 않는다.
     단일 writer 전제에서도 조회 후 삽입을 무조건 append로 구현하면 안 된다.
-    실제 Iceberg 어댑터의 지원성과 원자성은 후속 runtime 검증 대상이다.
+    실제 저장소 어댑터의 원자성은 후속 runtime 검증 대상이다.
     """
 
     def lookup(self, event_id: str) -> Mapping[str, object] | None:

@@ -1,7 +1,7 @@
 # P2-7 Job 2 연결 계약
 
 이번 구현은 오프라인 컴포넌트 연결과 Spark API 호출 구조까지다.
-Kafka, Registry, Databricks, UC Iceberg MERGE, checkpoint 재시작은 실행하지 않았다.
+Kafka, Registry, Databricks, UC Managed Delta insert-only MERGE, checkpoint 재시작은 실행하지 않았다.
 
 ## 처리와 완료 기준
 
@@ -115,7 +115,7 @@ JSON 규칙 구조 예시이며 전체 운영 장비 목록이 아니다:
 생성/삭제/초기화하지 않으며 Spark가 실행 중 자체 checkpoint를 기록한다.
 
 P2-8에서는 패키지/설정 전달, callback 실행 위치의 Registry·Kafka 연결과 인증,
-UC Iceberg 지원·단일 writer, query별 checkpoint 분리, 재시작 및 부분 실패,
+UC Managed Delta insert-only MERGE·단일 writer, query별 checkpoint 분리, 재시작 및 부분 실패,
 장비 ID 유일성, input lineage와 각 sink 계수를 실제로 대조해야 한다.
 계수는 성공한 배치 시도별 received/validated/quarantine/conflict/duplicate/late이며
 재시도 간 고유 누계가 아니다. 실패한 배치의 성공 계수는 출력하지 않는다.
@@ -124,3 +124,8 @@ UC Iceberg 지원·단일 writer, query별 checkpoint 분리, 재시작 및 부�
 [toLocalIterator 메모리 계약](https://spark.apache.org/docs/3.5.6/api/python/reference/pyspark.sql/api/pyspark.sql.DataFrame.toLocalIterator.html).
 
 conflict 계수는 Quarantine ACK를 받은 충돌 수로 quarantine 계수의 부분집합이다.
+
+Silver는 `streaming/sinks/delta_silver.py`의 `DeltaSilverStorage`를 사용한다.
+P2의 영속 멱등성과 canonical 보존을 위해 Delta target에 공식 지원되는 MERGE를
+선택했다. Bronze는 기존 UC Managed Iceberg를 유지한다. 이 선택과 로컬 회귀는
+실제 Delta 테이블 생성·MERGE·재시작 검증 완료를 뜻하지 않는다.

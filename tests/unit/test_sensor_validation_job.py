@@ -307,7 +307,7 @@ def test_publish_failure_never_completes(
 
 @pytest.mark.parametrize("operation", ["lookup", "insert_if_absent"])
 def test_silver_failure_propagates(event, dependencies, operation):
-    failure = OSError("Iceberg failed")
+    failure = OSError("Silver storage failed")
     setattr(
         dependencies["silver"]._storage, operation, Mock(side_effect=failure),
     )
@@ -469,7 +469,7 @@ def test_handler_creates_clients_at_execution_and_uses_batch_session(
     producers = [FakeProducer(), FakeProducer()]
     producer_factory = Mock(side_effect=producers)
     monkeypatch.setattr(job, "SchemaRegistryClient", registry_factory)
-    monkeypatch.setattr(job, "IcebergSilverStorage", storage_factory)
+    monkeypatch.setattr(job, "DeltaSilverStorage", storage_factory)
     monkeypatch.setattr(job, "Producer", producer_factory)
     handler = job.make_batch_handler(
         config, rules, registry_config={"url": "http://unused"},
@@ -568,7 +568,7 @@ def test_load_rules_checks_equipment_uniqueness(tmp_path, duplicate):
         }
 
 
-def test_real_iceberg_adapter_is_called_before_publish(event, dependencies):
+def test_real_delta_adapter_is_called_before_publish(event, dependencies):
     calls = []
     canonical = {**event, "event_time": int(NOW.timestamp()) * 1_000_000}
     responses = [[], [], [], [Mock(asDict=Mock(return_value=canonical))]]
@@ -579,7 +579,7 @@ def test_real_iceberg_adapter_is_called_before_publish(event, dependencies):
         return Mock(collect=Mock(return_value=responses.pop(0)))
 
     spark = Mock(sql=Mock(side_effect=sql))
-    dependencies["silver"] = SilverSink(job.IcebergSilverStorage(
+    dependencies["silver"] = SilverSink(job.DeltaSilverStorage(
         spark=spark, table_name="ktd.silver.sensor",
     ))
     result = job.process_record(raw_record(event), **dependencies)
@@ -589,10 +589,10 @@ def test_real_iceberg_adapter_is_called_before_publish(event, dependencies):
     assert len(dependencies["validated_producer"].calls) == 1
 
 
-def test_iceberg_sql_failure_is_not_quarantined(event, dependencies):
+def test_delta_sql_failure_is_not_quarantined(event, dependencies):
     error = RuntimeError("MERGE unavailable")
     spark = Mock(sql=Mock(side_effect=error))
-    dependencies["silver"] = SilverSink(job.IcebergSilverStorage(
+    dependencies["silver"] = SilverSink(job.DeltaSilverStorage(
         spark=spark, table_name="ktd.silver.sensor",
     ))
     with pytest.raises(RuntimeError) as caught:

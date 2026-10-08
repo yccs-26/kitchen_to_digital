@@ -1,8 +1,8 @@
-"""주입된 SparkSession으로 기존 Iceberg Silver 테이블을 읽고 쓴다.
+"""주입된 SparkSession으로 기존 UC Managed Delta Silver 테이블을 읽고 쓴다.
 
 테이블 생성과 세션 설정은 호출자의 책임이다. 대상은 canonical 10개 필드,
 event_time TIMESTAMP(LTZ), metric_value DOUBLE 및 나머지 STRING을 전제로 한다.
-UC Iceberg에서의 MERGE 지원과 원자적 커밋은 실제 runtime 검증이 필요하다.
+Delta의 insert-only MERGE를 사용하며 실제 runtime 동작은 검증이 필요하다.
 지원하지 않는 환경의 오류를 append 등의 대안으로 우회하지 않는다.
 """
 
@@ -22,7 +22,7 @@ class SilverStorageInvariantError(RuntimeError):
     """canonical 행의 유일성 또는 쓰기 완료 확인이 깨진 경우다."""
 
 
-class IcebergSilverStorage:
+class DeltaSilverStorage:
     """SilverStorage의 단일 writer 구현이며 호출도 순차적으로 수행한다.
 
     단일 writer 가정(single writer assumption)을 유지한다.

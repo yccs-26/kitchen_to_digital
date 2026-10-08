@@ -1,0 +1,22 @@
+{
+  "observed_at": "2026-10-08T05:08:31.142681+00:00",
+  "status": "AWAITING_DDL_APPROVAL_NOT_COMPLETE",
+  "databricks_auth": "SUCCESS",
+  "cluster_configured_runtime": "17.3.x-scala2.13",
+  "cluster_last_observed_state": "PENDING: Starting Spark",
+  "spark_read_attempt": "INTERRUPTED_LOCALLY_WHILE_WAITING_FOR_VERSION",
+  "silver_schema": "NOT_FOUND",
+  "proposed_table": "ktd.silver.sensor_validated",
+  "ddl_executed": false,
+  "registry_producer_rules_config_created": false,
+  "bronze_uc_api_type": "MANAGED",
+  "bronze_uc_api_format": "DELTA",
+  "bronze_spark_provider": "NOT_VERIFIED",
+  "checkpoint_volume_entries": [
+    "job1",
+    "job1-tests",
+    "job1-failure-test"
+  ],
+  "remote_job2_deployed": false,
+  "kafka_registry_silver_e2e": "NOT_VERIFIED"
+}

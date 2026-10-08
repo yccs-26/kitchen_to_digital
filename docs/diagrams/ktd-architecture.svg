@@ -31,7 +31,7 @@
 <text x="1008" y="467" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">시스템 실패 → Retry → DLQ</text>
 <polyline points="880,430 990,430" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
 <rect x="990" y="550" width="340" height="90" rx="14" fill="#e3f4ee" stroke="#449779" stroke-width="2"/>
-<text x="1008" y="581" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Iceberg Silver</text>
+<text x="1008" y="581" font-family="Apple SD Gothic Neo, sans-serif" font-size="20" fill="#19354b" font-weight="bold">Delta Silver</text>
 <text x="1008" y="608" font-family="Apple SD Gothic Neo, sans-serif" font-size="17" fill="#19354b" font-weight="normal">영속 canonical history</text>
 <polyline points="780,475 780,505 1160,505 1160,550" fill="none" stroke="#60758a" stroke-width="2.5" marker-end="url(#arr)"/>
 <rect x="470" y="550" width="410" height="90" rx="14" fill="#fff3d9" stroke="#c3983b" stroke-width="2"/>

@@ -29,6 +29,10 @@ EC2 client에서 `kitchen.sensor.raw`(3 partitions)에 실제 Avro fixture를 �
 
 Spark query마다 독립된 영속 checkpoint를 둔다. 표의 group은 논리적 독립 소비 의도이며 Spark가 자동 생성하는 group ID를 무조건 고정값으로 덮어쓰라는 설정 명세가 아니다.
 
+Phase 2 Silver의 저장 형식은 UC Managed Delta로 결정했다. Delta target의
+insert-only MERGE 공식 지원과 영속 멱등성·canonical 보존이 선택 이유다.
+Bronze는 기존 UC Managed Iceberg를 유지하며, Silver 실제 생성·쓰기 검증은 미완료다.
+
 Silver는 영속 canonical history, validated는 실시간 canonical interface다. Job 2가 둘에 쓰는 것은 분산 원자적 트랜잭션으로 확정되지 않았다. 한쪽 성공 후 장애가 발생했을 때 재전달·대사·누락 복구를 어떻게 할지는 구현 전 해결할 쟁점이다. 다이어그램의 분기는 이 두 출력을 표현한다.
 
 Job 4는 초기에는 validated에서 자체 stateful alert를 계산한다. Job 3 집계를 재사용할 필요가 생기면 metric interface를 추가 검토한다. kitchen.metrics 토픽은 현재 도입하지 않는다.
