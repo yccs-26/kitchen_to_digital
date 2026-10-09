@@ -82,9 +82,10 @@ class KafkaSettings:
 
     def spark_options(self, source):
         options = kafka_source_options(source)
-        options['kafka.security.protocol'] = self.security_protocol
+        # 서비스 자격 증명이 있으면 Job 1처럼 JVM 인증 옵션을 DBR에 맡긴다.
+        if not source.service_credential:
+            options['kafka.security.protocol'] = self.security_protocol
         options['kafka.allow.auto.create.topics'] = 'false'
-        # MSK IAM의 JVM 인증은 기존 Databricks service credential에 맡긴다.
         return options
 
     def producer_options(self, dbutils):

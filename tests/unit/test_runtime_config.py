@@ -11,6 +11,7 @@ import pytest
 
 from streaming.jobs import runtime_config as runtime
 from streaming.jobs import sensor_validation_job as job
+from streaming.jobs.raw_ingestion import kafka_source_options
 
 
 @pytest.fixture
@@ -144,6 +145,7 @@ def test_job1_checkpoint_cannot_be_reused(config_file):
 def test_spark_and_producer_configs_have_distinct_apis(
     config_file, monkeypatch,
 ):
+    original_file = config_file.read_bytes()
     settings = runtime.load_runtime_config(config_file)
     original = deepcopy(settings)
     callback = Mock()
@@ -153,16 +155,56 @@ def test_spark_and_producer_configs_have_distinct_apis(
     spark = settings.kafka.spark_options(settings.job.source)
     producer = settings.kafka.producer_options(Mock())
     assert spark['kafka.bootstrap.servers'] == producer['bootstrap.servers']
-    assert spark['kafka.security.protocol'] == producer['security.protocol']
+    assert 'kafka.security.protocol' not in spark
     assert spark['databricks.serviceCredential'] == 'reader'
     assert 'sasl.mechanism' not in spark
     assert 'kafka.sasl.jaas.config' not in spark
+    assert 'kafka.sasl.mechanism' not in spark
     assert producer['sasl.mechanism'] == 'OAUTHBEARER'
     assert producer['oauth_cb'] is callback
     assert 'databricks.serviceCredential' not in producer
     assert producer['acks'] == 'all'
     assert producer['allow.auto.create.topics'] is False
+    assert producer == {
+        'bootstrap.servers': 'broker.example:9098',
+        'security.protocol': 'SASL_SSL',
+        'acks': 'all',
+        'delivery.report.only.error': False,
+        'allow.auto.create.topics': False,
+        'sasl.mechanism': 'OAUTHBEARER',
+        'oauth_cb': callback,
+    }
     assert settings == original
+    assert config_file.read_bytes() == original_file
+
+
+def test_service_credential_source_matches_job1_options(config_file):
+    settings = runtime.load_runtime_config(config_file)
+    expected = kafka_source_options(settings.job.source)
+    expected['kafka.allow.auto.create.topics'] = 'false'
+    assert settings.kafka.spark_options(settings.job.source) == expected
+
+
+@pytest.mark.parametrize('protocol', ['PLAINTEXT', 'SSL'])
+def test_source_without_service_credential_keeps_protocol(
+    config_file, protocol,
+):
+    change(config_file, ('kafka',), {
+        'bootstrap_servers': 'broker.example:9092',
+        'security_protocol': protocol, 'mechanism': 'NONE',
+    })
+    settings = runtime.load_runtime_config(config_file)
+    options = settings.kafka.spark_options(settings.job.source)
+    assert options['kafka.security.protocol'] == protocol
+    assert 'databricks.serviceCredential' not in options
+    assert options['kafka.allow.auto.create.topics'] == 'false'
+
+
+@pytest.mark.parametrize('protocol', ['PLAINTEXT', 'SSL'])
+def test_msk_config_still_requires_sasl_ssl(config_file, protocol):
+    change(config_file, ('kafka', 'security_protocol'), protocol)
+    with pytest.raises(runtime.RuntimeConfigError, match='requires SASL_SSL'):
+        runtime.load_runtime_config(config_file)
 
 
 def test_registry_secret_retrieval_and_repr_masking(
