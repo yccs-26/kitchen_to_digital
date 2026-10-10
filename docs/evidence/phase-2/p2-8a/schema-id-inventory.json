@@ -1,0 +1,865 @@
+{
+  "format_version": 2,
+  "observed_at": "2026-10-10T02:34:36.499734+00:00",
+  "branch": "feat/phase2-validation-silver",
+  "head": "55e0e50c19bf90fc777d4c5ebf15fbb1f79d3603",
+  "status": "COMPLETE_FOR_CURRENT_KAFKA_AND_BRONZE_SNAPSHOT",
+  "read_only": true,
+  "remote_attempt": {
+    "started_at": "2026-10-10T02:30:31.550232+00:00",
+    "data_access_read_only": true,
+    "existing_services_started": false,
+    "local_fixture": {
+      "path": "tmp/phase1/avro-fixture.json",
+      "length": 161,
+      "schema_id": 1,
+      "magic_valid": true
+    },
+    "compute": {
+      "name": "ktd-phase1-dev",
+      "state": "RUNNING",
+      "runtime": "17.3.x-scala2.13"
+    },
+    "spark_version": "4.0.0",
+    "kafka_options": {
+      "subscribe": "kitchen.sensor.raw",
+      "includeHeaders": "true",
+      "startingOffsets": "earliest",
+      "failOnDataLoss": "true",
+      "maxOffsetsPerTrigger": 10000,
+      "kafka.default.api.timeout.ms": "15000",
+      "kafka.request.timeout.ms": "10000",
+      "databricks.serviceCredential": "ktd-msk-consumer",
+      "kafka.allow.auto.create.topics": "false",
+      "endingOffsets": "latest"
+    },
+    "raw_scan_started_at": "2026-10-10T02:30:35.839778+00:00",
+    "raw": [
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "framing": "VALID_HEADER",
+        "schema_id": 1,
+        "count": 1,
+        "first_offset": 1,
+        "last_offset": 1,
+        "key_example": "fridge-001",
+        "exact_fixture_matches": 1,
+        "header_only_count": 0
+      },
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "framing": "TOO_SHORT",
+        "schema_id": null,
+        "count": 1,
+        "first_offset": 2,
+        "last_offset": 2,
+        "key_example": "fridge-001",
+        "exact_fixture_matches": 0,
+        "header_only_count": 0
+      }
+    ],
+    "raw_scan_status": "PASS",
+    "raw_scan_finished_at": "2026-10-10T02:31:04.382707+00:00",
+    "bronze_snapshot_version": 3,
+    "bronze_columns": {
+      "topic": "string",
+      "partition": "int",
+      "offset": "bigint",
+      "kafka_timestamp": "timestamp",
+      "key": "binary",
+      "value": "binary",
+      "headers": "array<struct<key:string,value:binary>>",
+      "ingested_at": "timestamp"
+    },
+    "bronze": [
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "framing": "VALID_HEADER",
+        "schema_id": 1,
+        "count": 2,
+        "first_offset": 0,
+        "last_offset": 1,
+        "key_example": "fridge-001",
+        "exact_fixture_matches": 2,
+        "header_only_count": 0
+      },
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "framing": "TOO_SHORT",
+        "schema_id": null,
+        "count": 1,
+        "first_offset": 2,
+        "last_offset": 2,
+        "key_example": "fridge-001",
+        "exact_fixture_matches": 0,
+        "header_only_count": 0
+      }
+    ],
+    "bronze_scan_status": "PASS",
+    "status": "COMPLETED",
+    "finished_at": "2026-10-10T02:31:30.871995+00:00"
+  },
+  "raw_inventory": {
+    "status": "PASS",
+    "topic": "kitchen.sensor.raw",
+    "scope": "All broker-enumerated partitions; explicit beginning/end offsets captured before assign/seek/poll; start inclusive/end exclusive; no group ID, no commit, no auto topic creation",
+    "scan_started_at": "2026-10-10T02:33:13.401405+00:00",
+    "scan_finished_at": "2026-10-10T02:33:14.655203+00:00",
+    "partitions_scanned": [
+      0,
+      1,
+      2
+    ],
+    "start_offsets": {
+      "0": 0,
+      "1": 1,
+      "2": 0
+    },
+    "end_offsets_exclusive": {
+      "0": 0,
+      "1": 3,
+      "2": 0
+    },
+    "final_positions": {
+      "0": 0,
+      "1": 3,
+      "2": 0
+    },
+    "start_offsets_after": {
+      "1": 1,
+      "2": 0,
+      "0": 0
+    },
+    "end_offsets_after": {
+      "2": 0,
+      "0": 0,
+      "1": 3
+    },
+    "offset_bounds_stable_during_scan": true,
+    "count_equals_sum_of_offset_spans_this_scan": true,
+    "independent_spark_batch_counts_match": true,
+    "metadata_and_scan_command_id": "5fa19b692f6a87eca3e3c947b9e70b74",
+    "observed_schema_ids": [
+      1
+    ],
+    "counts_by_schema_id": {
+      "1": 1
+    },
+    "message_count": 2,
+    "framing_counts": {
+      "VALID_HEADER": 1,
+      "TOO_SHORT": 1,
+      "NON_CONFLUENT_MAGIC": 0,
+      "NULL_VALUE": 0
+    },
+    "corrupt_framing_count": 1,
+    "partition_framing_id_groups": [
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "framing": "VALID_HEADER",
+        "schema_id": 1,
+        "count": 1,
+        "first_offset": 1,
+        "last_offset": 1,
+        "exact_fixture_matches": 1,
+        "header_only_count": 0
+      },
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "framing": "TOO_SHORT",
+        "schema_id": null,
+        "count": 1,
+        "first_offset": 2,
+        "last_offset": 2,
+        "exact_fixture_matches": 0,
+        "header_only_count": 0
+      }
+    ],
+    "coverage_limits": [
+      "Expired Kafka offsets excluded; no claim about all-time history",
+      "Messages arriving after the captured end offsets excluded",
+      "Header inventory does not validate every Avro body or domain field",
+      "Offset span equals record count in this scan, not a universal Kafka invariant"
+    ]
+  },
+  "framing_rules": {
+    "NULL_VALUE": "value is null",
+    "TOO_SHORT": "length < 5; no ID extraction",
+    "NON_CONFLUENT_MAGIC": "length >= 5 and byte 0 != 0; no decode",
+    "VALID_HEADER": "length >= 5 and byte 0 == 0; ID=int.from_bytes(value[1:5], big); body starts at 5",
+    "header_only": "length 5 has a parseable header but body decode is unverified",
+    "schema_id_validity": "Parsing a 4-byte number does not prove that ID is registered"
+  },
+  "local_fixture": {
+    "path": "tmp/phase1/avro-fixture.json",
+    "scope": "One existing local artifact, NOT a live MSK sample",
+    "observed_schema_ids": [
+      1
+    ],
+    "record_count": 1,
+    "payload_length": 161,
+    "magic_byte_valid": true,
+    "schema_id_parseable": true,
+    "key_example": "fridge-001",
+    "payload_saved": false
+  },
+  "local_registry": {
+    "endpoint": "http://localhost:8081",
+    "status": "GET_VERIFIED",
+    "observed_at": "2026-10-10T02:30:49.135721+00:00",
+    "get_results": {
+      "subjects?deleted=true": [
+        "kitchen.sensor.raw-value"
+      ],
+      "subjects/kitchen.sensor.raw-value/versions?deleted=true": [
+        1,
+        2
+      ],
+      "subjects/kitchen.sensor.raw-value/versions/1?deleted=true": {
+        "subject": "kitchen.sensor.raw-value",
+        "version": 1,
+        "id": 1,
+        "guid": "498cab76-b620-69f2-69d6-eb8304588433",
+        "schemaType": "AVRO",
+        "schema": "{\"type\":\"record\",\"name\":\"SensorMetricEvent\",\"namespace\":\"ktd.sensor\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_time\",\"type\":\"string\"},{\"name\":\"store_id\",\"type\":\"string\"},{\"name\":\"equipment_id\",\"type\":\"string\"},{\"name\":\"equipment_type\",\"type\":\"string\"},{\"name\":\"metric_name\",\"type\":\"string\"},{\"name\":\"metric_value\",\"type\":\"double\"},{\"name\":\"unit\",\"type\":\"string\"},{\"name\":\"schema_version\",\"type\":\"string\"},{\"name\":\"source\",\"type\":\"string\"}]}",
+        "ts": 1790526081349,
+        "deleted": false
+      },
+      "subjects/kitchen.sensor.raw-value/versions/2?deleted=true": {
+        "subject": "kitchen.sensor.raw-value",
+        "version": 2,
+        "id": 2,
+        "guid": "dd377f91-b281-42b9-713f-c63eb83634ee",
+        "schemaType": "AVRO",
+        "schema": "{\"type\":\"record\",\"name\":\"SensorMetricEvent\",\"namespace\":\"ktd.sensor\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_time\",\"type\":\"string\"},{\"name\":\"store_id\",\"type\":\"string\"},{\"name\":\"equipment_id\",\"type\":\"string\"},{\"name\":\"equipment_type\",\"type\":\"string\"},{\"name\":\"metric_name\",\"type\":\"string\"},{\"name\":\"metric_value\",\"type\":\"double\"},{\"name\":\"unit\",\"type\":\"string\"},{\"name\":\"schema_version\",\"type\":\"string\"},{\"name\":\"source\",\"type\":\"string\"},{\"name\":\"firmware_version\",\"type\":[\"null\",\"string\"],\"default\":null}]}",
+        "ts": 1790526449665,
+        "deleted": false
+      },
+      "config/kitchen.sensor.raw-value?defaultToGlobal=true": {
+        "compatibilityLevel": "BACKWARD"
+      },
+      "config": {
+        "compatibilityLevel": "BACKWARD"
+      },
+      "schemas/ids/1": {
+        "subject": "kitchen.sensor.raw-value",
+        "version": 1,
+        "guid": "498cab76-b620-69f2-69d6-eb8304588433",
+        "schemaType": "AVRO",
+        "schema": "{\"type\":\"record\",\"name\":\"SensorMetricEvent\",\"namespace\":\"ktd.sensor\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_time\",\"type\":\"string\"},{\"name\":\"store_id\",\"type\":\"string\"},{\"name\":\"equipment_id\",\"type\":\"string\"},{\"name\":\"equipment_type\",\"type\":\"string\"},{\"name\":\"metric_name\",\"type\":\"string\"},{\"name\":\"metric_value\",\"type\":\"double\"},{\"name\":\"unit\",\"type\":\"string\"},{\"name\":\"schema_version\",\"type\":\"string\"},{\"name\":\"source\",\"type\":\"string\"}]}",
+        "ts": 1790526081349,
+        "deleted": false
+      },
+      "schemas/ids/1/versions?deleted=true": [
+        {
+          "subject": "kitchen.sensor.raw-value",
+          "version": 1
+        }
+      ],
+      "schemas/ids/2": {
+        "subject": "kitchen.sensor.raw-value",
+        "version": 2,
+        "guid": "dd377f91-b281-42b9-713f-c63eb83634ee",
+        "schemaType": "AVRO",
+        "schema": "{\"type\":\"record\",\"name\":\"SensorMetricEvent\",\"namespace\":\"ktd.sensor\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_time\",\"type\":\"string\"},{\"name\":\"store_id\",\"type\":\"string\"},{\"name\":\"equipment_id\",\"type\":\"string\"},{\"name\":\"equipment_type\",\"type\":\"string\"},{\"name\":\"metric_name\",\"type\":\"string\"},{\"name\":\"metric_value\",\"type\":\"double\"},{\"name\":\"unit\",\"type\":\"string\"},{\"name\":\"schema_version\",\"type\":\"string\"},{\"name\":\"source\",\"type\":\"string\"},{\"name\":\"firmware_version\",\"type\":[\"null\",\"string\"],\"default\":null}]}",
+        "ts": 1790526449665,
+        "deleted": false
+      },
+      "schemas/ids/2/versions?deleted=true": [
+        {
+          "subject": "kitchen.sensor.raw-value",
+          "version": 2
+        }
+      ]
+    },
+    "subjects_and_versions_include_deleted": true,
+    "containers_started": false,
+    "containers_recreated": false,
+    "volumes_reset": false,
+    "secret_accessed": false
+  },
+  "mapping": [
+    {
+      "schema_id": 1,
+      "subject": "kitchen.sensor.raw-value",
+      "version": 1,
+      "writer_schema": "schemas/avro/sensor_metric_event.avsc",
+      "writer_schema_definition": {
+        "type": "record",
+        "name": "SensorMetricEvent",
+        "namespace": "ktd.sensor",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "string"
+          },
+          {
+            "name": "event_time",
+            "type": "string"
+          },
+          {
+            "name": "store_id",
+            "type": "string"
+          },
+          {
+            "name": "equipment_id",
+            "type": "string"
+          },
+          {
+            "name": "equipment_type",
+            "type": "string"
+          },
+          {
+            "name": "metric_name",
+            "type": "string"
+          },
+          {
+            "name": "metric_value",
+            "type": "double"
+          },
+          {
+            "name": "unit",
+            "type": "string"
+          },
+          {
+            "name": "schema_version",
+            "type": "string"
+          },
+          {
+            "name": "source",
+            "type": "string"
+          }
+        ]
+      },
+      "writer_schema_source_text": "{\"type\":\"record\",\"name\":\"SensorMetricEvent\",\"namespace\":\"ktd.sensor\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_time\",\"type\":\"string\"},{\"name\":\"store_id\",\"type\":\"string\"},{\"name\":\"equipment_id\",\"type\":\"string\"},{\"name\":\"equipment_type\",\"type\":\"string\"},{\"name\":\"metric_name\",\"type\":\"string\"},{\"name\":\"metric_value\",\"type\":\"double\"},{\"name\":\"unit\",\"type\":\"string\"},{\"name\":\"schema_version\",\"type\":\"string\"},{\"name\":\"source\",\"type\":\"string\"}]}",
+      "writer_schema_source_text_sha256": "f1ee995b812fe2e1d7e78d0a001d545b0506330124a8e2e22ab7cf315d702938",
+      "schema_type": "AVRO",
+      "references": [],
+      "artifact_definition_matches_registry": true,
+      "comparison": "JSON structural equality; object key order/whitespace ignored",
+      "confidence": "CONFIRMED_LIVE_REGISTRY_AND_ARTIFACT",
+      "observed_in_raw": true,
+      "raw_observation_count": 1,
+      "observed_in_bronze": true,
+      "bronze_observation_count": 2,
+      "raw_partition_offset_examples": [
+        {
+          "topic": "kitchen.sensor.raw",
+          "partition": 1,
+          "framing": "VALID_HEADER",
+          "schema_id": 1,
+          "count": 1,
+          "first_offset": 1,
+          "last_offset": 1,
+          "exact_fixture_matches": 1,
+          "header_only_count": 0
+        }
+      ],
+      "bronze_partition_offset_examples": [
+        {
+          "topic": "kitchen.sensor.raw",
+          "partition": 1,
+          "framing": "VALID_HEADER",
+          "schema_id": 1,
+          "count": 2,
+          "first_offset": 0,
+          "last_offset": 1,
+          "key_example": "fridge-001",
+          "exact_fixture_matches": 2,
+          "header_only_count": 0
+        }
+      ],
+      "evidence": [
+        "GET /schemas/ids/1",
+        "GET /schemas/ids/1/versions?deleted=true",
+        "GET /subjects/kitchen.sensor.raw-value/versions/1?deleted=true"
+      ]
+    },
+    {
+      "schema_id": 2,
+      "subject": "kitchen.sensor.raw-value",
+      "version": 2,
+      "writer_schema": "schemas/avro/compatibility/sensor_metric_event_v2_compatible.avsc",
+      "writer_schema_definition": {
+        "type": "record",
+        "name": "SensorMetricEvent",
+        "namespace": "ktd.sensor",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "string"
+          },
+          {
+            "name": "event_time",
+            "type": "string"
+          },
+          {
+            "name": "store_id",
+            "type": "string"
+          },
+          {
+            "name": "equipment_id",
+            "type": "string"
+          },
+          {
+            "name": "equipment_type",
+            "type": "string"
+          },
+          {
+            "name": "metric_name",
+            "type": "string"
+          },
+          {
+            "name": "metric_value",
+            "type": "double"
+          },
+          {
+            "name": "unit",
+            "type": "string"
+          },
+          {
+            "name": "schema_version",
+            "type": "string"
+          },
+          {
+            "name": "source",
+            "type": "string"
+          },
+          {
+            "name": "firmware_version",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          }
+        ]
+      },
+      "writer_schema_source_text": "{\"type\":\"record\",\"name\":\"SensorMetricEvent\",\"namespace\":\"ktd.sensor\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_time\",\"type\":\"string\"},{\"name\":\"store_id\",\"type\":\"string\"},{\"name\":\"equipment_id\",\"type\":\"string\"},{\"name\":\"equipment_type\",\"type\":\"string\"},{\"name\":\"metric_name\",\"type\":\"string\"},{\"name\":\"metric_value\",\"type\":\"double\"},{\"name\":\"unit\",\"type\":\"string\"},{\"name\":\"schema_version\",\"type\":\"string\"},{\"name\":\"source\",\"type\":\"string\"},{\"name\":\"firmware_version\",\"type\":[\"null\",\"string\"],\"default\":null}]}",
+      "writer_schema_source_text_sha256": "648dbf02f037e3412d1b1780841716c5072877c3d3376f15bf34e1079459a521",
+      "schema_type": "AVRO",
+      "references": [],
+      "artifact_definition_matches_registry": true,
+      "comparison": "JSON structural equality; object key order/whitespace ignored",
+      "confidence": "CONFIRMED_LIVE_REGISTRY_AND_ARTIFACT",
+      "observed_in_raw": false,
+      "raw_observation_count": 0,
+      "observed_in_bronze": false,
+      "bronze_observation_count": 0,
+      "raw_partition_offset_examples": [],
+      "bronze_partition_offset_examples": [],
+      "evidence": [
+        "GET /schemas/ids/2",
+        "GET /schemas/ids/2/versions?deleted=true",
+        "GET /subjects/kitchen.sensor.raw-value/versions/2?deleted=true"
+      ]
+    }
+  ],
+  "schema_artifacts": [
+    {
+      "path": "schemas/avro/sensor_metric_event.avsc",
+      "sha256": "bf106104ac9a200889711649299bffacba4a7279ca1672d8e2c011fc51dfb75e",
+      "schema": {
+        "type": "record",
+        "name": "SensorMetricEvent",
+        "namespace": "ktd.sensor",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "string"
+          },
+          {
+            "name": "event_time",
+            "type": "string"
+          },
+          {
+            "name": "store_id",
+            "type": "string"
+          },
+          {
+            "name": "equipment_id",
+            "type": "string"
+          },
+          {
+            "name": "equipment_type",
+            "type": "string"
+          },
+          {
+            "name": "metric_name",
+            "type": "string"
+          },
+          {
+            "name": "metric_value",
+            "type": "double"
+          },
+          {
+            "name": "unit",
+            "type": "string"
+          },
+          {
+            "name": "schema_version",
+            "type": "string"
+          },
+          {
+            "name": "source",
+            "type": "string"
+          }
+        ]
+      },
+      "last_change_commit": "d66a5cfd3e05b44f20d7221bdab7b4f89c8acc43"
+    },
+    {
+      "path": "schemas/avro/compatibility/sensor_metric_event_v2_compatible.avsc",
+      "sha256": "e904089360d18655dec59bf18bd37a8f74c2ed1061acd8222f503cd7933670f6",
+      "schema": {
+        "type": "record",
+        "name": "SensorMetricEvent",
+        "namespace": "ktd.sensor",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "string"
+          },
+          {
+            "name": "event_time",
+            "type": "string"
+          },
+          {
+            "name": "store_id",
+            "type": "string"
+          },
+          {
+            "name": "equipment_id",
+            "type": "string"
+          },
+          {
+            "name": "equipment_type",
+            "type": "string"
+          },
+          {
+            "name": "metric_name",
+            "type": "string"
+          },
+          {
+            "name": "metric_value",
+            "type": "double"
+          },
+          {
+            "name": "unit",
+            "type": "string"
+          },
+          {
+            "name": "schema_version",
+            "type": "string"
+          },
+          {
+            "name": "source",
+            "type": "string"
+          },
+          {
+            "name": "firmware_version",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          }
+        ]
+      },
+      "last_change_commit": "d66a5cfd3e05b44f20d7221bdab7b4f89c8acc43"
+    }
+  ],
+  "historical_evidence": {
+    "phase0": "IDs 1/2 registered under kitchen.sensor.raw-value versions 1/2; BACKWARD; v2 adds nullable firmware_version default null. Not proof of current MSK IDs.",
+    "phase1": {
+      "source": "docs/reports/phase-1-verification.md:20-28",
+      "records": [
+        {
+          "partition": 1,
+          "offset": 0,
+          "kind": "normal Avro"
+        },
+        {
+          "partition": 1,
+          "offset": 1,
+          "kind": "duplicate normal Avro"
+        },
+        {
+          "partition": 1,
+          "offset": 2,
+          "kind": "corrupt too-short value, length 2"
+        }
+      ],
+      "current_retention_presence": "Partition 1 offset 0 absent from Kafka retention, present in Bronze v3; offsets 1 and 2 present in both."
+    },
+    "id2": "Live Registry ID=2/version=2 confirmed; 0 observations in current Kafka and Bronze version 3. Registration does not prove publication.",
+    "other_ids": "No additional ID observed in the current Kafka range and Bronze v3; expired/deleted data and earlier Bronze versions are outside coverage.",
+    "retention": "Kafka scan cannot establish IDs in expired records, old fixtures or historical Bronze versions"
+  },
+  "bronze": {
+    "status": "PASS",
+    "table": "ktd.bronze.sensor_raw",
+    "scope": "Full versionAsOf=3 snapshot, no LIMIT or date filter",
+    "snapshot_version": 3,
+    "scan_time_window_utc": [
+      "2026-10-10T02:31:04.382707+00:00",
+      "2026-10-10T02:31:30.871995+00:00"
+    ],
+    "columns": {
+      "topic": "string",
+      "partition": "int",
+      "offset": "bigint",
+      "kafka_timestamp": "timestamp",
+      "key": "binary",
+      "value": "binary",
+      "headers": "array<struct<key:string,value:binary>>",
+      "ingested_at": "timestamp"
+    },
+    "value_binary_preserved": true,
+    "table_history_time_travel": "Version 3 only; earlier snapshots not scanned",
+    "observed_schema_ids": [
+      1
+    ],
+    "counts_by_schema_id": {
+      "1": 2
+    },
+    "message_count": 3,
+    "framing_counts": {
+      "VALID_HEADER": 2,
+      "TOO_SHORT": 1,
+      "NON_CONFLUENT_MAGIC": 0,
+      "NULL_VALUE": 0
+    },
+    "corrupt_framing_count": 1,
+    "partition_framing_id_groups": [
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "framing": "VALID_HEADER",
+        "schema_id": 1,
+        "count": 2,
+        "first_offset": 0,
+        "last_offset": 1,
+        "key_example": "fridge-001",
+        "exact_fixture_matches": 2,
+        "header_only_count": 0
+      },
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "framing": "TOO_SHORT",
+        "schema_id": null,
+        "count": 1,
+        "first_offset": 2,
+        "last_offset": 2,
+        "key_example": "fridge-001",
+        "exact_fixture_matches": 0,
+        "header_only_count": 0
+      }
+    ],
+    "only_in_bronze_ids": [],
+    "lineage_outside_current_kafka_retention": [
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 0,
+        "schema_id": 1,
+        "count": 1,
+        "basis": "Bronze ID 1 count=2 at offsets 0..1; Kafka beginning offset=1"
+      }
+    ]
+  },
+  "validated_schema": {
+    "subject": "kitchen.sensor.validated-value",
+    "artifact": "schemas/avro/sensor_metric_event.avsc",
+    "canonical_field_names_match": true,
+    "same_schema_as_raw_v1": true,
+    "same_schema_as_raw_v2": false,
+    "differences_from_v2": [
+      "firmware_version absent"
+    ],
+    "event_time": "Internal timezone-aware datetime is serialized to UTC ISO8601 string",
+    "same_schema_does_not_mean_same_event_bytes": true,
+    "same_id_under_different_subject": "Expected for same schema within same Registry context; verify returned ID. Subject version is independent.",
+    "runtime_registration_performed": false
+  },
+  "migration_manifest": {
+    "status": "FINAL_SOURCE_VERIFIED_DESTINATION_PREFLIGHT_PENDING",
+    "destination_context": ". (default; existing decoder uses get_schema(id) without custom context routing)",
+    "entries": [
+      {
+        "subject": "kitchen.sensor.raw-value",
+        "source_schema_id": 1,
+        "source_subject_version": 1,
+        "writer_schema_artifact": "schemas/avro/sensor_metric_event.avsc",
+        "writer_schema_sha256": "bf106104ac9a200889711649299bffacba4a7279ca1672d8e2c011fc51dfb75e",
+        "schemaType": "AVRO",
+        "references": [],
+        "compatibility": "BACKWARD",
+        "compatibility_evidence": "Live GET /config/kitchen.sensor.raw-value?defaultToGlobal=true and /config both return BACKWARD",
+        "id_preservation_required_for_existing_framed_records": true,
+        "migration_order": 1,
+        "eligible_for_execution": false,
+        "gate": "Separate cloud/import authorization and destination permissions, default-context ID/subject/deleted-history conflict preflight required",
+        "conflict_check": "Default context: inspect destination subjects/versions/IDs including deleted entries; same ID with different schema or nonempty incompatible subject -> STOP; no delete/overwrite/force",
+        "source_mapping_verified": true,
+        "raw_count": 1,
+        "bronze_count": 2,
+        "include_reason": "Preserve source Registry versions, IDs and replay compatibility; retain registered v2 even though it was not observed in this scan",
+        "proposed_import_request": {
+          "id": 1,
+          "version": 1,
+          "schemaType": "AVRO",
+          "references": [],
+          "schema": "{\"type\":\"record\",\"name\":\"SensorMetricEvent\",\"namespace\":\"ktd.sensor\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_time\",\"type\":\"string\"},{\"name\":\"store_id\",\"type\":\"string\"},{\"name\":\"equipment_id\",\"type\":\"string\"},{\"name\":\"equipment_type\",\"type\":\"string\"},{\"name\":\"metric_name\",\"type\":\"string\"},{\"name\":\"metric_value\",\"type\":\"double\"},{\"name\":\"unit\",\"type\":\"string\"},{\"name\":\"schema_version\",\"type\":\"string\"},{\"name\":\"source\",\"type\":\"string\"}]}"
+        },
+        "source_schema_text_sha256": "f1ee995b812fe2e1d7e78d0a001d545b0506330124a8e2e22ab7cf315d702938"
+      },
+      {
+        "subject": "kitchen.sensor.raw-value",
+        "source_schema_id": 2,
+        "source_subject_version": 2,
+        "writer_schema_artifact": "schemas/avro/compatibility/sensor_metric_event_v2_compatible.avsc",
+        "writer_schema_sha256": "e904089360d18655dec59bf18bd37a8f74c2ed1061acd8222f503cd7933670f6",
+        "schemaType": "AVRO",
+        "references": [],
+        "compatibility": "BACKWARD",
+        "compatibility_evidence": "Live GET /config/kitchen.sensor.raw-value?defaultToGlobal=true and /config both return BACKWARD",
+        "id_preservation_required_for_existing_framed_records": true,
+        "migration_order": 2,
+        "eligible_for_execution": false,
+        "gate": "Separate cloud/import authorization and destination permissions, default-context ID/subject/deleted-history conflict preflight required",
+        "conflict_check": "Default context: inspect destination subjects/versions/IDs including deleted entries; same ID with different schema or nonempty incompatible subject -> STOP; no delete/overwrite/force",
+        "source_mapping_verified": true,
+        "raw_count": 0,
+        "bronze_count": 0,
+        "include_reason": "Preserve source Registry versions, IDs and replay compatibility; retain registered v2 even though it was not observed in this scan",
+        "proposed_import_request": {
+          "id": 2,
+          "version": 2,
+          "schemaType": "AVRO",
+          "references": [],
+          "schema": "{\"type\":\"record\",\"name\":\"SensorMetricEvent\",\"namespace\":\"ktd.sensor\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\"},{\"name\":\"event_time\",\"type\":\"string\"},{\"name\":\"store_id\",\"type\":\"string\"},{\"name\":\"equipment_id\",\"type\":\"string\"},{\"name\":\"equipment_type\",\"type\":\"string\"},{\"name\":\"metric_name\",\"type\":\"string\"},{\"name\":\"metric_value\",\"type\":\"double\"},{\"name\":\"unit\",\"type\":\"string\"},{\"name\":\"schema_version\",\"type\":\"string\"},{\"name\":\"source\",\"type\":\"string\"},{\"name\":\"firmware_version\",\"type\":[\"null\",\"string\"],\"default\":null}]}"
+        },
+        "source_schema_text_sha256": "648dbf02f037e3412d1b1780841716c5072877c3d3376f15bf34e1079459a521"
+      },
+      {
+        "subject": "kitchen.sensor.validated-value",
+        "source_schema_id": null,
+        "writer_schema_artifact": "schemas/avro/sensor_metric_event.avsc",
+        "writer_schema_sha256": "bf106104ac9a200889711649299bffacba4a7279ca1672d8e2c011fc51dfb75e",
+        "version": null,
+        "compatibility": "BACKWARD (proposed)",
+        "id_preservation_required_for_existing_framed_records": false,
+        "migration_order": 3,
+        "eligible_for_execution": false,
+        "registration_plan": "After raw ID-preserving import is complete, register the same v1 schema under the distinct validated subject. Record returned ID/version; do not invent an ID or blindly import raw v2.",
+        "gate": "Separate cloud/import authorization and destination permissions, default-context ID/subject/deleted-history conflict preflight required"
+      }
+    ],
+    "procedure": [
+      "DONE: Source ID/version/schema GET exports match both local Avro artifacts",
+      "DONE: Kafka all partitions and Bronze v3 scanned; observed UNKNOWN IDs=[]",
+      "After separate authorization: inspect empty destination/default-context and conflicting IDs; do not overwrite or delete existing schemas",
+      "Use supported subject IMPORT mode for empty/nonexistent subject; submit explicit id/version/schemaType/schema after confirmation",
+      "Import raw versions in ascending source version order; preserve references/dependencies first if discovered",
+      "Restore READWRITE and set/verify BACKWARD; verify GET schema by ID and subject version",
+      "Only then register validated v1 under its separate subject; record actual returned ID/version",
+      "Keep auto.register.schemas=false; perform authorized read-only lookup/decode verification before E2E"
+    ],
+    "cloud_id_preservation": {
+      "documented": true,
+      "tested_on_actual_destination": false,
+      "sources": [
+        "https://docs.confluent.io/cloud/current/ccloud/update-mode/",
+        "https://docs.confluent.io/cloud/current/ccloud/register/",
+        "https://docs.confluent.io/platform/current/schema-registry/installation/migrate.html"
+      ],
+      "notes": [
+        "Cloud API lists IMPORT mode and registration request id/version fields",
+        "Platform migration guide describes subject-level import and collision restrictions, and migration to Confluent Cloud",
+        "Do not assume a Cloud server properties file or set mode.mutability there",
+        "No USM deployment, exporter creation, force mode or schema deletion is proposed for this two-version source-verified manifest"
+      ],
+      "source_documents_rechecked_at": "2026-10-10T02:34:36.499734+00:00"
+    },
+    "execution_authorized": false,
+    "source_inventory_blockers": []
+  },
+  "privacy": {
+    "payload_exported": false,
+    "sensitive_values_exported": false,
+    "key_policy": "Only known simulator equipment keys; redact all other examples"
+  },
+  "remaining_blockers": [
+    "Confluent Cloud provisioning is not authorized in this task; target environment/region/endpoint/auth preparation remains a separate unit",
+    "After provisioning, verify destination default-context IDs/subjects/deleted entries and import permissions before schema mutation",
+    "Cloud ID-preserving import and validated registration, executor lookup/decode and Kafka E2E remain unexecuted"
+  ],
+  "next_step": "Review final source manifest; handle Confluent Cloud provisioning and destination preflight as a separately authorized task. Do not auto-import.",
+  "previous_attempts": [
+    {
+      "observed_at": "2026-10-09T16:38:35.238689+00:00",
+      "status": "INCOMPLETE_BLOCKED",
+      "reason": [
+        "Databricks compute TERMINATED",
+        "Local Registry localhost:8081 connection refused"
+      ],
+      "remote_attempt": {
+        "started_at": "2026-10-09T16:36:32.577468+00:00",
+        "read_only": true,
+        "local_fixture": {
+          "path": "tmp/phase1/avro-fixture.json",
+          "length": 161,
+          "schema_id": 1,
+          "magic_valid": true
+        },
+        "compute": {
+          "name": "ktd-phase1-dev",
+          "state": "TERMINATED",
+          "runtime": "17.3.x-scala2.13"
+        },
+        "status": "BLOCKED_COMPUTE_NOT_RUNNING",
+        "finished_at": "2026-10-09T16:36:33.792181+00:00"
+      }
+    }
+  ],
+  "operation_scope": {
+    "data_access": "READ_ONLY",
+    "compute_initial_state": "RUNNING",
+    "local_containers_initial_state": "ALREADY_RUNNING",
+    "compute_or_containers_started": false,
+    "temporary_execution_context_created": true,
+    "temporary_reader_dependencies": "Existing local kafka-python and AWS MSK signer packages copied to a session temporary ZIP; no persistent cluster library installation",
+    "existing_service_credential_used": "ktd-msk-consumer",
+    "secret_values_logged_or_exported": false,
+    "secret_created_or_changed": false,
+    "schema_import_or_register": false,
+    "cloud_registry_created": false,
+    "publish": false,
+    "checkpoint_change": false,
+    "consumer_group_commit": false,
+    "iam_change": false,
+    "data_or_volume_initialization": false,
+    "git_index_or_history_change": false,
+    "temporary_reader_zip_removed": true,
+    "temporary_execution_context_destroyed": true
+  },
+  "unknown_ids": [],
+  "unknown_id_policy": "Any observed ID outside verified v1/v2 stays UNKNOWN; never infer schema from ID number",
+  "source_inventory_blockers": [],
+  "verification": {
+    "json_parse": "PASS",
+    "all_partition_end_positions_reached": "PASS",
+    "broker_boundaries_before_after_equal": "PASS",
+    "spark_and_bounded_consumer_aggregates_equal": "PASS",
+    "registry_id_version_schema_artifact_consistency": "PASS",
+    "scope": "Live read-only inventory; not full Avro/domain decode or Job 2 E2E"
+  }
+}
