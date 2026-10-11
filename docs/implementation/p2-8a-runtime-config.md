@@ -1,5 +1,9 @@
 # P2-8A Job 2 runtime 설정 연결
 
+> 아래는 2026-10-09 당시 기록이다. 2026-10-12에 제공된 클라우드 식별자를
+> 예제 설정에 반영했으며, 현재 Databricks 실행 절차는
+> [P2 Job 2 Databricks 실행 준비](p2-8b-job2-databricks-run.md)를 따른다.
+
 2026-10-09 기준 설정 코드와 offline unit 검증이다. 실제 secret 생성·조회,
 Registry 요청, Kafka publish, Job 2 query 실행, checkpoint 변경은 수행하지 않았다.
 기존 Delta storage smoke 증빙과 이번 인증 wiring의 runtime 검증은 별개다.

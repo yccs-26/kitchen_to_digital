@@ -401,12 +401,23 @@ def load_rules(path: str) -> ValidationRules:
     )
 
 
-def main() -> None:
+def _connect_session():
+    """로컬 CLI의 기존 Databricks Connect 실행 경로를 유지한다."""
+    from databricks.connect import DatabricksSession
+
+    return DatabricksSession.builder.getOrCreate()
+
+
+def main(argv=None, *, spark_factory=None) -> None:
     """환경 설정을 읽은 뒤에만 세션을 만들며 소유한 query만 종료한다."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--available-now", action="store_true")
     parser.add_argument("--runtime-config")
-    args = parser.parse_args()
+    parser.add_argument("--check-config", action="store_true")
+    args = parser.parse_args(argv)
+    if args.check_config and not args.runtime_config:
+        parser.error("--check-config requires --runtime-config")
+    create_session = spark_factory or _connect_session
     logging.basicConfig(level=logging.INFO)
     if args.runtime_config:
         from streaming.jobs.runtime_config import (
@@ -414,9 +425,10 @@ def main() -> None:
         )
         # 파일 누락과 계약 오류는 세션 생성 전에 드러낸다.
         load_runtime_config(args.runtime_config)
-        from databricks.connect import DatabricksSession
-
-        spark = DatabricksSession.builder.getOrCreate()
+        if args.check_config:
+            LOGGER.info("Job 2 config OK (offline; cloud access not checked)")
+            return
+        spark = create_session()
         query = start_configured_validation(
             spark, args.runtime_config, available_now=args.available_now,
         )
@@ -456,9 +468,7 @@ def main() -> None:
     registry_config = json.loads(os.environ["KTD_SCHEMA_REGISTRY_CONFIG_JSON"])
     producer_config = json.loads(os.environ["KTD_PRODUCER_CONFIG_JSON"])
 
-    from databricks.connect import DatabricksSession
-
-    spark = DatabricksSession.builder.getOrCreate()
+    spark = create_session()
     query = start_validation(
         spark, config, rules, registry_config=registry_config,
         producer_config=producer_config, available_now=args.available_now,
