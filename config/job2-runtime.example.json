@@ -22,8 +22,8 @@
     "quarantine": "kitchen.sensor.quarantine"
   },
   "silver_table": "ktd.silver.sensor_validated",
-  "checkpoint": "",
-  "processing_version": "",
+  "checkpoint": "/Volumes/ktd/silver/checkpoints/job2/sensor-validation",
+  "processing_version": "git:a5b8f56",
   "rules_path": "validation_rules.json",
   "starting_offsets": "earliest",
   "max_offsets_per_trigger": 1000

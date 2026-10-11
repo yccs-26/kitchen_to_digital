@@ -1,6 +1,6 @@
 # P2 Job 2 Databricks 실행 준비
 
-2026-10-12: 코드/config/offline 테스트만 수행했다. 아래 업로드, 라이브러리 설치,
+코드/config/offline 테스트만 수행했다. 아래 업로드, 라이브러리 설치,
 읽기 preflight, Job 실행 명령은 사용자가 이후 실행할 절차이며 이번에는 실행하지 않았다.
 기존 미커밋 Registry 이관 코드와 Phase 2 보고서/증빙은 수정하지 않았다.
 
