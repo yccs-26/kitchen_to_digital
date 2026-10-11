@@ -4,7 +4,32 @@ from pathlib import Path
 import sys
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+def resolve_repo_root() -> Path:
+    """실행 코드의 filename을 우선 사용하고 실제 repo 파일 구조를 확인한다."""
+    # exec(compile(source, filename, "exec"))도 코드 객체에 filename을 남긴다.
+    # 공유 globals의 __file__이나 argv[0]은 실행 wrapper를 가리킬 수 있다.
+    candidates = (
+        resolve_repo_root.__code__.co_filename,
+        globals().get("__file__"),
+        sys.argv[0] if sys.argv else None,
+    )
+    for candidate in candidates:
+        if not isinstance(candidate, str) or not candidate:
+            continue
+        path = Path(candidate).resolve()
+        if (path.name != "run_job2_databricks.py"
+                or path.parent.name != "scripts" or not path.is_file()):
+            continue
+        root = path.parent.parent
+        if (root / "streaming/jobs/sensor_validation_job.py").is_file():
+            return root
+    raise RuntimeError(
+        "Cannot locate Job 2 repository: compile filename or sys.argv[0] "
+        "must identify scripts/run_job2_databricks.py in the deployed repo"
+    )
+
+
+REPO_ROOT = resolve_repo_root()
 
 
 def runtime_session():

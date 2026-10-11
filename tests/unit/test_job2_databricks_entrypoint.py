@@ -57,6 +57,58 @@ def test_script_imports_from_other_cwd_without_pythonpath(
     assert "config OK (offline" in result.stderr
 
 
+@pytest.mark.parametrize("filename_source", ["compiled", "argv"])
+def test_exec_without_file_imports_from_other_cwd(
+    deployed_repo, tmp_path, filename_source,
+):
+    root, _ = deployed_repo
+    script = root / "scripts/run_job2_databricks.py"
+    harness = """
+from pathlib import Path
+import sys
+
+script, filename_source = sys.argv[1:]
+source = Path(script).read_text()
+filename = script if filename_source == 'compiled' else '<databricks-exec>'
+sys.argv = [
+    '/runtime/python-task-wrapper.py' if filename_source == 'compiled'
+    else script,
+    '--runtime-config', 'config/job2-runtime.json', '--check-config',
+]
+namespace = {'__name__': '__main__'}
+exec(compile(source, filename, 'exec'), namespace)
+assert '__file__' not in namespace
+assert namespace['REPO_ROOT'] == Path(script).parent.parent
+"""
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", harness, str(script), filename_source],
+        cwd=tmp_path, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "config OK (offline" in result.stderr
+
+
+def test_exec_does_not_guess_repo_from_cwd(deployed_repo, monkeypatch):
+    root, _ = deployed_repo
+    source = (root / "scripts/run_job2_databricks.py").read_text()
+    monkeypatch.chdir(root)
+    monkeypatch.setattr(sys, "argv", ["/runtime/python-task-wrapper.py"])
+    with pytest.raises(RuntimeError, match="Cannot locate Job 2 repository"):
+        exec(compile(source, "<databricks-exec>", "exec"),
+             {"__name__": "job2_exec_test"})
+
+
+def test_compiled_filename_precedes_wrapper_file(deployed_repo, monkeypatch):
+    root, _ = deployed_repo
+    script = root / "scripts/run_job2_databricks.py"
+    monkeypatch.setattr(sys, "argv", [str(launcher.__file__)])
+    namespace = {
+        "__name__": "job2_exec_test", "__file__": str(launcher.__file__),
+    }
+    exec(compile(script.read_text(), str(script), "exec"), namespace)
+    assert namespace["REPO_ROOT"] == root
+
+
 def test_example_routes_distinct_credentials(deployed_repo, monkeypatch):
     _, config = deployed_repo
     settings = runtime.load_runtime_config(config)

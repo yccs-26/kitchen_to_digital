@@ -358,9 +358,18 @@ def test_batch_resolves_references_at_execution(config_file, monkeypatch):
     assert registry_client is registry.__enter__.return_value
 
 
-def test_example_requires_explicit_runtime_values():
+@pytest.mark.parametrize('missing', ['checkpoint', 'processing_version'])
+def test_example_requires_explicit_runtime_values(tmp_path, missing):
+    # 사용자가 예제 값을 채워도 필수값 검증은 독립적으로 재현한다.
+    values = json.loads(Path('config/job2-runtime.example.json').read_text())
+    values['checkpoint'] = '/Volumes/ktd/bronze/checkpoints/job2/unit'
+    values['processing_version'] = 'unit-only'
+    values['rules_path'] = str(Path('config/validation_rules.json').resolve())
+    values[missing] = ''
+    path = tmp_path / 'runtime.json'
+    path.write_text(json.dumps(values))
     with pytest.raises(runtime.RuntimeConfigError):
-        runtime.load_runtime_config('config/job2-runtime.example.json')
+        runtime.load_runtime_config(path)
 
 
 def test_rules_match_current_numeric_simulator_contract():
