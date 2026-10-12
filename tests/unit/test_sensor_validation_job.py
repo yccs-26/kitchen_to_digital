@@ -453,8 +453,9 @@ def test_partial_batch_retry_republishes_completed_records(
     assert len(dependencies["validated_producer"].calls) == 2
 
 
+@pytest.mark.parametrize("record_count", [1, 3])
 def test_handler_creates_clients_at_execution_and_uses_batch_session(
-    event, config, rules, monkeypatch,
+    event, config, rules, monkeypatch, record_count,
 ):
     monkeypatch.setattr(job, "datetime", Mock(now=Mock(return_value=NOW)))
     registry = MagicMock()
@@ -477,8 +478,10 @@ def test_handler_creates_clients_at_execution_and_uses_batch_session(
     )
     registry_factory.assert_not_called()
     producer_factory.assert_not_called()
-    batch = FakeBatch(raw_record(event))
-    assert handler(batch, 1)["validated"] == 1
+    batch = FakeBatch(*[
+        raw_record(event, offset=index) for index in range(record_count)
+    ])
+    assert handler(batch, 1)["validated"] == record_count
     storage_factory.assert_called_once_with(
         spark=batch.sparkSession, table_name="ktd.silver.sensor",
     )

@@ -263,6 +263,47 @@ def process_batch(batch, batch_id: int, **dependencies) -> dict[str, int]:
     return counts
 
 
+def _execute_batch(
+    batch, batch_id, *, config, rules, schema, registry_settings,
+    producer_settings, client_config_factory,
+):
+    """worker가 import한 모듈에서 배치당 클라이언트를 만들고 처리한다."""
+    # SparkSession과 native producer를 closure에 캡처하지 않는다.
+    if client_config_factory is None:
+        batch_registry = registry_settings
+        batch_producer = producer_settings
+    else:
+        # 비밀값은 foreachBatch 실행 위치에서 조회하며 closure에 넣지 않는다.
+        resolved = client_config_factory(batch.sparkSession)
+        batch_registry = resolved.registry
+        batch_producer = {
+            **resolved.producer,
+            "acks": "all", "delivery.report.only.error": False,
+            "allow.auto.create.topics": False,
+        }
+        if "transactional.id" in batch_producer:
+            raise ValueError("Transactional producers are not supported")
+    with SchemaRegistryClient(batch_registry) as registry:
+        serializer = AvroSerializer(
+            registry, schema,
+            conf={
+                "auto.register.schemas": False,
+                "use.latest.version": False,
+                "subject.name.strategy": topic_subject_name_strategy,
+            },
+        )
+        return process_batch(
+            batch, batch_id, registry_client=registry,
+            silver=SilverSink(DeltaSilverStorage(
+                spark=batch.sparkSession, table_name=config.silver_table,
+            )),
+            quarantine_producer=Producer(batch_producer),
+            validated_producer=Producer(batch_producer),
+            serializer=serializer, config=config, rules=rules,
+            reference_time=datetime.now(timezone.utc),
+        )
+
+
 def make_batch_handler(
     config: ValidationJobConfig, rules: ValidationRules, *,
     registry_config: Mapping[str, object] | None = None,
@@ -288,40 +329,16 @@ def make_batch_handler(
         raise ValueError("Transactional producers are not supported")
 
     def handle_batch(batch, batch_id):
-        # SparkSession과 native producer를 closure에 캡처하지 않는다.
-        if client_config_factory is None:
-            batch_registry = registry_settings
-            batch_producer = producer_settings
-        else:
-            # 비밀값은 foreachBatch 실행 위치에서 조회하며 closure에 넣지 않는다.
-            resolved = client_config_factory(batch.sparkSession)
-            batch_registry = resolved.registry
-            batch_producer = {
-                **resolved.producer,
-                "acks": "all", "delivery.report.only.error": False,
-                "allow.auto.create.topics": False,
-            }
-            if "transactional.id" in batch_producer:
-                raise ValueError("Transactional producers are not supported")
-        with SchemaRegistryClient(batch_registry) as registry:
-            serializer = AvroSerializer(
-                registry, schema,
-                conf={
-                    "auto.register.schemas": False,
-                    "use.latest.version": False,
-                    "subject.name.strategy": topic_subject_name_strategy,
-                },
-            )
-            return process_batch(
-                batch, batch_id, registry_client=registry,
-                silver=SilverSink(DeltaSilverStorage(
-                    spark=batch.sparkSession, table_name=config.silver_table,
-                )),
-                quarantine_producer=Producer(batch_producer),
-                validated_producer=Producer(batch_producer),
-                serializer=serializer, config=config, rules=rules,
-                reference_time=datetime.now(timezone.utc),
-            )
+        # callback 전역 참조로 C-extension 클래스까지 pickle하지 않도록
+        # 배치 처리 구현을 worker 실행 시 import한다.
+        from streaming.jobs.sensor_validation_job import _execute_batch
+
+        return _execute_batch(
+            batch, batch_id, config=config, rules=rules, schema=schema,
+            registry_settings=registry_settings,
+            producer_settings=producer_settings,
+            client_config_factory=client_config_factory,
+        )
 
     return handle_batch
 

@@ -12,6 +12,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "cloudpickle==3.1.1",
     "pytest>=9.1.1",
 ]
 msk = [
