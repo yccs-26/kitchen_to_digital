@@ -360,6 +360,61 @@ def test_worker_auth_refresh_without_dbutils(monkeypatch):
     assert 'private' not in str(error.value)
 
 
+@pytest.mark.parametrize('stage,exception,reason', [
+    ('service_credentials_import', ImportError('private-value'),
+     'dependency_import_failed'),
+    ('service_credentials_provider', Exception(
+        'getServiceCredentialsProvider can only be called in a Python UDF '
+        'private-value',
+    ), 'python_udf_context_required'),
+    ('service_credentials_provider', PermissionError('private-value'),
+     'permission_denied'),
+    ('service_credentials_provider', RuntimeError('private-value'),
+     'unclassified_error_message_redacted'),
+    ('oauth_callback_setup', ModuleNotFoundError('private-value'),
+     'dependency_import_failed'),
+    ('oauth_callback_setup', AttributeError('private-value'),
+     'unclassified_error_message_redacted'),
+])
+def test_worker_setup_diagnostic_is_secret_safe(
+    monkeypatch, capsys, stage, exception, reason,
+):
+    import builtins
+    import traceback
+
+    service = ModuleType('databricks.service_credentials')
+    service.getServiceCredentialsProvider = Mock()
+    monkeypatch.setitem(sys.modules, service.__name__, service)
+    build = Mock()
+    monkeypatch.setattr(runtime, '_msk_callback_from_session', build)
+    if stage == 'service_credentials_import':
+        original_import = builtins.__import__
+
+        def fail_import(name, *args, **kwargs):
+            if name == service.__name__:
+                raise exception
+            return original_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, '__import__', fail_import)
+    elif stage == 'service_credentials_provider':
+        service.getServiceCredentialsProvider.side_effect = exception
+    else:
+        build.side_effect = exception
+
+    with pytest.raises(runtime.RuntimeConfigError) as caught:
+        runtime.runtime_producer_options({
+            'ktd.msk.credential': 'writer', 'ktd.msk.region': 'region',
+        })
+    assert str(caught.value) == (
+        'MSK worker credential setup failed '
+        f'[stage={stage}; type={type(exception).__name__}; reason={reason}]'
+    )
+    rendered = ''.join(traceback.format_exception(caught.value))
+    assert 'private-value' not in rendered
+    assert caught.value.__suppress_context__
+    assert capsys.readouterr() == ('', '')
+
+
 @pytest.mark.parametrize('missing', ['checkpoint', 'processing_version'])
 def test_example_requires_explicit_runtime_values(tmp_path, missing):
     # 사용자가 예제 값을 채워도 필수값 검증은 독립적으로 재현한다.

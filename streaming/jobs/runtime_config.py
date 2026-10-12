@@ -153,16 +153,29 @@ def runtime_producer_options(options):
     credential = options.pop('ktd.msk.credential', None)
     region = options.pop('ktd.msk.region', None)
     if credential is not None:
+        stage = 'service_credentials_import'
         try:
             from databricks.service_credentials import (
                 getServiceCredentialsProvider,
             )
 
+            stage = 'service_credentials_provider'
             session = getServiceCredentialsProvider(credential)
+            stage = 'oauth_callback_setup'
             options['oauth_cb'] = _msk_callback_from_session(session, region)
-        except Exception:
+        except Exception as error:
+            # 원문에는 credential/token이 섞일 수 있어 허용된 원인만 전달한다.
+            reason = 'unclassified_error_message_redacted'
+            if isinstance(error, ImportError):
+                reason = 'dependency_import_failed'
+            elif 'can only be called in a Python UDF' in str(error):
+                reason = 'python_udf_context_required'
+            elif isinstance(error, PermissionError):
+                reason = 'permission_denied'
             raise RuntimeConfigError(
-                'MSK worker credential setup failed',
+                'MSK worker credential setup failed '
+                f'[stage={stage}; type={type(error).__name__}; '
+                f'reason={reason}]',
             ) from None
     return options
 
