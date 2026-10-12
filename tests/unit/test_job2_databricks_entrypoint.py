@@ -198,3 +198,214 @@ def test_invalid_config_does_not_create_native_session(tmp_path):
             spark_factory=factory,
         )
     factory.assert_not_called()
+
+
+@pytest.mark.parametrize('failure_stage', [None, 'setup', 'producer', 'metadata'])
+def test_metadata_diagnostic_reuses_auth_without_publishing(
+    monkeypatch, capsys, failure_stage,
+):
+    import confluent_kafka
+
+    private = 'private-key private-secret private-session private-oauth'
+    settings = Mock()
+    source_options = {'bootstrap.servers': 'unused', 'ktd.msk.credential': 'test'}
+    settings.kafka.producer_options.return_value = source_options
+    resolved = {'bootstrap.servers': 'unused', 'oauth_cb': Mock()}
+    resolve = Mock(return_value=resolved)
+    monkeypatch.setattr(runtime, 'load_runtime_config', Mock(return_value=settings))
+    monkeypatch.setattr(runtime, 'runtime_producer_options', resolve)
+    utility = Mock()
+    monkeypatch.setattr(runtime, 'get_dbutils', Mock(return_value=utility))
+    producer = Mock()
+    factory = Mock(return_value=producer)
+    monkeypatch.setattr(confluent_kafka, 'Producer', factory)
+    error = confluent_kafka.KafkaException(confluent_kafka.KafkaError(
+        confluent_kafka.KafkaError._TRANSPORT, private,
+    ))
+    if failure_stage == 'setup':
+        resolve.side_effect = RuntimeError(private)
+    elif failure_stage == 'producer':
+        factory.side_effect = error
+    elif failure_stage == 'metadata':
+        producer.list_topics.side_effect = error
+    spark = Mock()
+    before = runtime.LOGGER.disabled
+    result = launcher.check_kafka_metadata('unused.json', spark)
+    assert runtime.LOGGER.disabled == before
+    settings.kafka.producer_options.assert_called_once_with(utility)
+    resolve.assert_called_once_with(source_options, spark=spark)
+    settings.resolve_clients.assert_not_called()
+    settings.registry.resolve.assert_not_called()
+    producer.produce.assert_not_called()
+    producer.flush.assert_not_called()
+    if failure_stage is None:
+        assert result == {'metadata_lookup': 'succeeded'}
+    else:
+        assert result['metadata_lookup'] == 'failed'
+        assert result['error_type'] == (
+            'RuntimeError' if failure_stage == 'setup' else 'KafkaException'
+        )
+        if failure_stage != 'setup':
+            assert result['code'] == confluent_kafka.KafkaError._TRANSPORT
+            assert result['name'] == '_TRANSPORT'
+    if failure_stage not in ('setup', 'producer'):
+        producer.list_topics.assert_called_once_with(timeout=10)
+    if failure_stage != 'setup':
+        assert factory.call_args.args[0]['oauth_cb'] is resolved['oauth_cb']
+        assert factory.call_args.args[0]['log_level'] == 0
+    assert all(value not in str(result) for value in private.split())
+    assert capsys.readouterr() == ('', '')
+
+
+@pytest.mark.parametrize('success', [True, False])
+def test_metadata_cli_never_starts_stream(monkeypatch, capsys, success):
+    spark = Mock()
+    monkeypatch.setattr(launcher, 'runtime_session', Mock(return_value=spark))
+    result = {'metadata_lookup': 'succeeded' if success else 'failed'}
+    diagnose = Mock(return_value=result)
+    monkeypatch.setattr(launcher, 'check_kafka_metadata', diagnose)
+    start = Mock()
+    monkeypatch.setattr(job, 'main', start)
+    args = ['--runtime-config', 'config/job2-runtime.json',
+            '--check-kafka-metadata']
+    if success:
+        launcher.main(args)
+    else:
+        with pytest.raises(SystemExit) as caught:
+            launcher.main(args)
+        assert caught.value.code == 1
+    diagnose.assert_called_once_with(
+        str(launcher.REPO_ROOT / 'config/job2-runtime.json'), spark,
+    )
+    start.assert_not_called()
+    assert json.loads(capsys.readouterr().out) == result
+
+
+@pytest.mark.parametrize('outcome', ['success', 'missing', 'duplicate',
+                                    'delivery_error', 'timeout'])
+def test_produce_probe_reads_silver_and_publishes_once(
+    monkeypatch, capsys, outcome,
+):
+    from io import BytesIO
+    from types import SimpleNamespace
+
+    import confluent_kafka
+    import confluent_kafka.schema_registry as sr
+    from fastavro import schemaless_reader
+
+    event_id = '30008ab5-8a00-43d9-bc4a-94493ceaaea7'
+    row = {
+        'event_id': event_id, 'event_time': 1700000000000000,
+        'store_id': 'from-silver', 'equipment_id': 'silver-equipment',
+        'equipment_type': 'refrigerator', 'metric_name': 'temperature_celsius',
+        'metric_value': 4.2, 'unit': 'celsius', 'schema_version': '1.0.0',
+        'source': 'simulator',
+    }
+    spark = Mock()
+    silver_row = Mock()
+    silver_row.asDict.return_value = row
+    spark.sql.return_value.collect.return_value = (
+        [] if outcome == 'missing' else
+        [silver_row] * (2 if outcome == 'duplicate' else 1)
+    )
+    settings = Mock()
+    settings.job.silver_table = 'ktd.silver.sensor_validated'
+    settings.job.validated_topic = 'kitchen.sensor.validated'
+    settings.resolve_clients.return_value = SimpleNamespace(
+        producer={'ktd.msk.credential': 'writer'}, registry={'url': 'unused'},
+    )
+    monkeypatch.setattr(runtime, 'load_runtime_config', Mock(return_value=settings))
+    monkeypatch.setattr(runtime, 'get_dbutils', Mock())
+    resolve = Mock(return_value={'oauth_cb': Mock()})
+    monkeypatch.setattr(runtime, 'runtime_producer_options', resolve)
+    schema_text = (REPO_ROOT / 'schemas/avro/sensor_metric_event.avsc').read_text()
+    registry = Mock()
+    registry.lookup_schema.return_value = sr.RegisteredSchema(
+        schema_id=1, guid=None, schema=sr.Schema(schema_text, 'AVRO'),
+        subject='kitchen.sensor.validated-value', version=1,
+    )
+    context = Mock()
+    context.__enter__ = Mock(return_value=registry)
+    context.__exit__ = Mock(return_value=False)
+    registry_factory = Mock(return_value=context)
+    monkeypatch.setattr(sr, 'SchemaRegistryClient', registry_factory)
+    producer = Mock()
+    factory = Mock(return_value=producer)
+    monkeypatch.setattr(confluent_kafka, 'Producer', factory)
+    message = Mock()
+    message.partition.return_value = 1
+    message.offset.return_value = 42
+
+    def flush(timeout):
+        assert timeout == 15.0
+        if outcome == 'timeout':
+            return 1
+        error = None
+        if outcome == 'delivery_error':
+            error = confluent_kafka.KafkaError(
+                confluent_kafka.KafkaError.TOPIC_AUTHORIZATION_FAILED,
+                'private-token private-secret',
+            )
+        producer.produce.call_args.kwargs['on_delivery'](error, message)
+        return 0
+
+    producer.flush.side_effect = flush
+    result = launcher.check_kafka_produce('unused.json', spark)
+    spark.sql.assert_called_once()
+    sql = spark.sql.call_args.args[0]
+    assert sql.startswith('SELECT ') and 'LIMIT 2' in sql
+    assert 'unix_micros(`event_time`)' in sql
+    assert spark.sql.call_args.kwargs['args'] == {'event_id': event_id}
+    if outcome in ('missing', 'duplicate'):
+        factory.assert_not_called()
+        settings.resolve_clients.assert_not_called()
+        assert result['produce_probe'] == 'failed'
+    else:
+        resolve.assert_called_once_with(
+            settings.resolve_clients.return_value.producer, spark=spark,
+        )
+        assert factory.call_args.args[0]['log_level'] == 0
+        producer.produce.assert_called_once()
+        producer.flush.assert_called_once_with(15.0)
+        record = producer.produce.call_args.kwargs
+        assert record['topic'] == 'kitchen.sensor.validated'
+        assert record['key'] == b'silver-equipment'
+        assert record['value'][:5] == b'\x00\x00\x00\x00\x01'
+        payload = schemaless_reader(BytesIO(record['value'][5:]),
+                                    json.loads(schema_text))
+        assert payload == dict(row, event_time='2023-11-14T22:13:20.000000+00:00')
+        registry.register_schema.assert_not_called()
+        registry.register_schema_full_response.assert_not_called()
+    if outcome == 'success':
+        assert result == {
+            'produce_probe': 'succeeded', 'topic': 'kitchen.sensor.validated',
+            'partition': 1, 'offset': 42, 'event_id': event_id,
+        }
+    elif outcome == 'delivery_error':
+        assert result['name'] == 'TOPIC_AUTHORIZATION_FAILED'
+        assert result['error_type'] == 'KafkaException'
+    elif outcome == 'timeout':
+        assert result['timeout'] is True
+        assert result['callback_received'] is False
+        assert result['remaining'] == 1
+    assert 'private' not in json.dumps(result)
+    assert capsys.readouterr() == ('', '')
+
+
+def test_produce_probe_cli_is_exclusive_and_does_not_start_job(monkeypatch, capsys):
+    spark = Mock()
+    monkeypatch.setattr(launcher, 'runtime_session', Mock(return_value=spark))
+    probe = Mock(return_value={'produce_probe': 'succeeded'})
+    monkeypatch.setattr(launcher, 'check_kafka_produce', probe)
+    start = Mock()
+    monkeypatch.setattr(job, 'main', start)
+    args = ['--runtime-config=config/job2-runtime.json', '--check-kafka-produce']
+    launcher.main(args)
+    probe.assert_called_once_with(
+        str(REPO_ROOT / 'config/job2-runtime.json'), spark,
+    )
+    assert json.loads(capsys.readouterr().out) == {'produce_probe': 'succeeded'}
+    start.assert_not_called()
+    with pytest.raises(SystemExit):
+        launcher.main(args + ['--check-kafka-metadata'])
+    assert probe.call_count == 1

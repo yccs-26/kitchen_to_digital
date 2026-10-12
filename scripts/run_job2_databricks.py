@@ -73,6 +73,78 @@ def check_kafka_metadata(path, spark):
         runtime.LOGGER.disabled = disabled
 
 
+def check_kafka_produce(path, spark):
+    """기존 Silver recovery 행 한 건만 정상 validated 계약으로 발행한다."""
+    import re
+
+    from confluent_kafka import KafkaError, KafkaException, Producer
+    from confluent_kafka.schema_registry import (
+        SchemaRegistryClient, topic_subject_name_strategy,
+    )
+    from confluent_kafka.schema_registry.avro import AvroSerializer
+    from streaming.jobs import runtime_config as runtime
+    from streaming.sinks.delta_silver import DeltaSilverStorage
+    from streaming.sinks.validated_publisher import publish_validated_event
+
+    event_id = '30008ab5-8a00-43d9-bc4a-94493ceaaea7'
+    disabled = runtime.LOGGER.disabled
+    runtime.LOGGER.disabled = True
+    producer = None
+    try:
+        settings = runtime.load_runtime_config(path)
+        if settings.job.validated_topic != 'kitchen.sensor.validated':
+            raise ValueError()
+        event = DeltaSilverStorage(
+            spark=spark, table_name=settings.job.silver_table,
+        ).lookup(event_id)
+        if event is None or event['event_id'] != event_id:
+            raise LookupError()
+        resolved = settings.resolve_clients(runtime.get_dbutils(spark))
+        options = runtime.runtime_producer_options(resolved.producer, spark=spark)
+        options['log_level'] = 0
+        schema = (REPO_ROOT / 'schemas/avro/sensor_metric_event.avsc').read_text()
+        with SchemaRegistryClient(resolved.registry) as registry:
+            serializer = AvroSerializer(registry, schema, conf={
+                'auto.register.schemas': False,
+                'use.latest.version': False,
+                'subject.name.strategy': topic_subject_name_strategy,
+            })
+            producer = Producer(options)
+            message = publish_validated_event(
+                event, producer, serializer, topic=settings.job.validated_topic,
+            )
+        return {
+            'produce_probe': 'succeeded', 'topic': settings.job.validated_topic,
+            'partition': message.partition(), 'offset': message.offset(),
+            'event_id': event_id,
+        }
+    except Exception as error:
+        result = {
+            'produce_probe': 'failed', 'error_type': type(error).__name__,
+            'code': None, 'name': None,
+        }
+        if (isinstance(error, KafkaException) and error.args
+                and isinstance(error.args[0], KafkaError)):
+            code = error.args[0].code()
+            result.update(code=code, name=KafkaError(code).name())
+        elif isinstance(error, TimeoutError):
+            result['timeout'] = True
+            state = re.search(
+                r'\[callback_received=(True|False); remaining=(\d+|unknown); '
+                r'delivery_error=not_observed\]', str(error),
+            )
+            if state:
+                result['callback_received'] = state[1] == 'True'
+                result['remaining'] = (
+                    int(state[2]) if state[2] != 'unknown' else None
+                )
+                result['delivery_error'] = 'not_observed'
+        return result
+    finally:
+        del producer
+        runtime.LOGGER.disabled = disabled
+
+
 def main(argv=None) -> None:
     """CWD와 무관하게 repo import와 상대 runtime config 경로를 해석한다."""
     sys.path.insert(0, str(REPO_ROOT))
@@ -94,17 +166,22 @@ def main(argv=None) -> None:
     else:
         if "--help" not in args and "-h" not in args:
             raise SystemExit("--runtime-config is required")
-    if '--check-kafka-metadata' in args:
+    if '--check-kafka-metadata' in args or '--check-kafka-produce' in args:
         import argparse
         import json
 
         parser = argparse.ArgumentParser()
         parser.add_argument('--runtime-config', required=True)
-        parser.add_argument('--check-kafka-metadata', action='store_true')
+        probe = parser.add_mutually_exclusive_group(required=True)
+        probe.add_argument('--check-kafka-metadata', action='store_true')
+        probe.add_argument('--check-kafka-produce', action='store_true')
         parsed = parser.parse_args(args)
-        result = check_kafka_metadata(parsed.runtime_config, runtime_session())
+        if parsed.check_kafka_produce:
+            result = check_kafka_produce(parsed.runtime_config, runtime_session())
+        else:
+            result = check_kafka_metadata(parsed.runtime_config, runtime_session())
         print(json.dumps(result))
-        if result['metadata_lookup'] == 'failed':
+        if result.get('metadata_lookup', result.get('produce_probe')) == 'failed':
             raise SystemExit(1)
         return
     run_job(args, spark_factory=runtime_session)
