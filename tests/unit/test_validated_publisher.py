@@ -314,3 +314,46 @@ def test_noncanonical_time_rejected(event, value):
 def test_invalid_equipment_key_rejected(event, value):
     with pytest.raises(ValueError, match="equipment_id"):
         serialize_validated_event({**event, "equipment_id": value}, Mock())
+
+
+@pytest.mark.parametrize('stage', ['produce', 'flush', 'delivery_callback'])
+@pytest.mark.parametrize('code', [
+    KafkaError.SASL_AUTHENTICATION_FAILED,
+    KafkaError.TOPIC_AUTHORIZATION_FAILED,
+    KafkaError._TRANSPORT,
+    KafkaError._MSG_TIMED_OUT,
+])
+def test_kafka_diagnostic_preserves_code_without_secret(event, stage, code):
+    import traceback
+
+    private = 'private-access-key private-secret private-session private-token'
+    original = KafkaError(code, private, fatal=True, retriable=True,
+                          txn_requires_abort=True)
+    producer = FakeProducer(error=original, remaining=1)
+    if stage != 'delivery_callback':
+        setattr(producer, stage, Mock(side_effect=KafkaException(original)))
+    with pytest.raises(KafkaException) as caught:
+        publish_validated_event(event, producer, Mock(return_value=b'avro'))
+    error = caught.value.args[0]
+    assert error.code() == code
+    assert error.fatal() == original.fatal()
+    assert error.retriable() == original.retriable()
+    assert error.txn_requires_abort() == original.txn_requires_abort()
+    assert f'stage={stage}' in str(error)
+    assert f'reason={KafkaError(code).name()}' in str(error)
+    rendered = ''.join(traceback.format_exception(caught.value))
+    for value in private.split():
+        assert value not in rendered
+
+
+@pytest.mark.parametrize('callback,remaining', [(False, 0), (False, 1), (True, 1)])
+def test_timeout_reports_only_observed_delivery_state(event, callback, remaining):
+    producer = FakeProducer(callback=callback, remaining=remaining)
+    with pytest.raises(TimeoutError) as caught:
+        publish_validated_event(event, producer, Mock(return_value=b'avro'))
+    text = str(caught.value)
+    assert f'callback_received={callback}' in text
+    assert f'remaining={remaining}' in text
+    assert 'delivery_error=not_observed' in text
+    assert producer.timeouts == [15.0]
+    assert len(producer.calls) == 1

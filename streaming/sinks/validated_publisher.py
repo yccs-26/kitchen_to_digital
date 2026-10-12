@@ -37,6 +37,18 @@ ValueSerializer = Callable[
 ]
 
 
+def _safe_kafka_exception(error: KafkaError, stage: str) -> KafkaException:
+    """broker 원문 대신 코드에서 얻은 공식 오류명만 전달한다."""
+    code = error.code()
+    reason = KafkaError(code).name()
+    return KafkaException(KafkaError(
+        code,
+        f"Validated publish failed [stage={stage}; reason={reason}]",
+        fatal=error.fatal(), retriable=error.retriable(),
+        txn_requires_abort=error.txn_requires_abort(),
+    ))
+
+
 @dataclass(frozen=True)
 class ValidatedDeliveryResult:
     """충돌은 message가 없으며, 나머지는 ACK 확인 후에만 반환한다."""
@@ -100,21 +112,34 @@ def publish_validated_event(
     key, value = serialize_validated_event(event, serializer, topic=topic)
     delivered: Message | None = None
     delivery_error: KafkaError | None = None
+    callback_received = False
 
     def on_delivery(error: KafkaError | None, message: Message) -> None:
-        nonlocal delivered, delivery_error
+        nonlocal delivered, delivery_error, callback_received
+        callback_received = True
         delivered = message
         delivery_error = error
 
-    producer.produce(
-        topic=topic, key=key, value=value, on_delivery=on_delivery,
-    )
-    remaining = producer.flush(timeout)
+    stage = "produce"
+    try:
+        producer.produce(
+            topic=topic, key=key, value=value, on_delivery=on_delivery,
+        )
+        stage = "flush"
+        remaining = producer.flush(timeout)
+    except KafkaException as error:
+        detail = error.args[0] if error.args else None
+        if not isinstance(detail, KafkaError):
+            detail = KafkaError(KafkaError._FAIL)
+        raise _safe_kafka_exception(detail, stage) from None
     if delivery_error is not None:
-        raise KafkaException(delivery_error)
+        raise _safe_kafka_exception(delivery_error, "delivery_callback") from None
     if remaining or delivered is None:
+        pending = remaining if type(remaining) is int else "unknown"
         raise TimeoutError(
-            "Validated delivery was not confirmed before timeout"
+            "Validated delivery was not confirmed before timeout "
+            f"[callback_received={callback_received}; remaining={pending}; "
+            "delivery_error=not_observed]"
         )
     offset = delivered.offset()
     if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:

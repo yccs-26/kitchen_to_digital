@@ -282,6 +282,9 @@ def test_msk_token_refresh_uses_uc_session_and_seconds(monkeypatch):
     )
     utility = Mock()
     session = utility.credentials.getServiceCredentialsProvider.return_value
+    session.get_credentials.return_value = SimpleNamespace(
+        access_key='private-key', secret_key='private-secret',
+    )
     callback = runtime.make_msk_oauth_callback(utility, 'writer', 'region')
     assert callback(None) == ('token1', 1700000000.0)
     assert callback(None) == ('token2', 1700000001.0)
@@ -673,3 +676,135 @@ def test_driver_credential_failure_never_starts_query(
         )
     assert 'private-credential' not in str(error.value)
     start.assert_not_called()
+
+
+@pytest.mark.parametrize('case,reason', [
+    ('dependency', 'signer_dependency_unavailable'),
+    ('api', 'signer_api_mismatch'),
+    ('session', 'credential_object_invalid'),
+    ('missing', 'credential_refresh_failed'),
+    ('object', 'credential_object_invalid'),
+    ('refresh', 'credential_refresh_failed'),
+    ('lazy_refresh', 'credential_refresh_failed'),
+    ('region', 'region_invalid'),
+    ('aws', 'aws_signing_error'),
+    ('unknown', 'signing_error_unclassified'),
+])
+def test_token_signing_classification_never_exposes_values(
+    monkeypatch, caplog, case, reason,
+):
+    import traceback
+    ClientError = type('ClientError', (Exception,), {
+        '__module__': 'botocore.exceptions',
+    })
+    InvalidRegionError = type('InvalidRegionError', (Exception,), {})
+    credentials_module = ModuleType('botocore.credentials')
+    credentials_module.CredentialProvider = type('CredentialProvider', (), {})
+    monkeypatch.setitem(sys.modules, 'botocore.credentials', credentials_module)
+
+    private = 'access-key secret-key session-token oauth-token private-region'
+    service = ModuleType('databricks.service_credentials')
+    session = Mock()
+    session.get_credentials.return_value = SimpleNamespace(
+        access_key=private, secret_key=private, token=private,
+    )
+    service.getServiceCredentialsProvider = Mock(return_value=session)
+    monkeypatch.setitem(sys.modules, service.__name__, service)
+    signer_module = ModuleType('aws_msk_iam_sasl_signer')
+
+    def sign(region, provider):
+        provider.load()
+        if case == 'lazy_refresh':
+            namespace = {'error': RuntimeError(private)}
+            exec(compile('def _refresh(): raise error',
+                         '/runtime/botocore/credentials.py', 'exec'), namespace)
+            namespace['_refresh']()
+        if case == 'region':
+            raise InvalidRegionError(private)
+        if case == 'aws':
+            raise ClientError({'Error': {'Code': private, 'Message': private}},
+                              private)
+        raise RuntimeError(private)
+
+    signer_module.MSKAuthTokenProvider = SimpleNamespace(
+        generate_auth_token_from_credentials_provider=sign,
+    )
+    monkeypatch.setitem(sys.modules, signer_module.__name__, signer_module)
+    if case == 'dependency':
+        monkeypatch.setitem(sys.modules, signer_module.__name__, None)
+    elif case == 'api':
+        signer_module.MSKAuthTokenProvider = object()
+    elif case == 'session':
+        service.getServiceCredentialsProvider.return_value = object()
+    elif case == 'missing':
+        session.get_credentials.return_value = None
+    elif case == 'object':
+        session.get_credentials.return_value = object()
+    elif case == 'refresh':
+        session.get_credentials.side_effect = RuntimeError(private)
+    with pytest.raises(runtime.RuntimeConfigError) as caught:
+        runtime._mint_msk_token('writer', private)
+    assert f'reason={reason}' in str(caught.value)
+    assert 'MSK token signing failed' in caplog.text
+    rendered = ''.join(traceback.format_exception(caught.value))
+    for value in private.split():
+        assert value not in rendered
+        assert value not in caplog.text
+
+
+def test_signing_diagnostic_survives_spark_wrapper(monkeypatch):
+    functions = ModuleType('pyspark.sql.functions')
+    functions.udf = Mock()
+    monkeypatch.setitem(sys.modules, functions.__name__, functions)
+    safe = (
+        'MSK token signing failed [type=RuntimeError; '
+        'reason=credential_refresh_failed]'
+    )
+    spark = Mock()
+    spark.range.return_value.select.return_value.first.side_effect = (
+        RuntimeError('private-token ' + safe + ' private-secret')
+    )
+    with pytest.raises(runtime.RuntimeConfigError) as caught:
+        runtime.runtime_producer_options({
+            'ktd.msk.credential': 'writer', 'ktd.msk.region': 'region',
+        }, spark=spark)
+    assert str(caught.value) == safe
+
+
+@pytest.mark.parametrize('missing', [False, True])
+def test_real_botocore_session_and_signer_contract(missing, caplog):
+    import traceback
+    import botocore.session
+    from botocore.credentials import CredentialProvider, Credentials
+
+    class ServiceProvider(CredentialProvider):
+        METHOD = 'databricks-service-credentials'
+
+        def __init__(self):
+            self.calls = 0
+
+        def load(self):
+            self.calls += 1
+            if missing:
+                return None
+            return Credentials('unit-private-key', 'unit-private-secret',
+                               'unit-private-session')
+
+    # AWS 연결이나 기본 인증 탐색 없이 실제 Session과 signer를 검증한다.
+    session = botocore.session.Session()
+    provider = ServiceProvider()
+    session.get_component('credential_provider').providers = [provider]
+    callback = runtime._msk_callback_from_session(session, 'ap-northeast-2')
+    if missing:
+        with pytest.raises(runtime.RuntimeConfigError) as caught:
+            callback(None)
+        assert 'reason=credential_refresh_failed' in str(caught.value)
+        assert 'credential_object_invalid' not in str(caught.value)
+        rendered = ''.join(traceback.format_exception(caught.value))
+        assert 'unit-private' not in rendered
+    else:
+        token, expiry = callback(None)
+        assert isinstance(token, str) and token
+        assert expiry > runtime.time.time()
+    assert provider.calls == 1
+    assert 'unit-private' not in caplog.text

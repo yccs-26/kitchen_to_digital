@@ -197,8 +197,10 @@ def _msk_callback_from_session(session, region):
                     error, 'credential_refresh_failed',
                 ) from None
             if credentials is None:
+                # DBR provider는 조회 실패를 삼키고 None을 반환할 수 있다.
+                # Session/provider 타입 불일치가 아니라 credential 조회 실패다.
                 raise _signing_failure(
-                    TypeError(), 'credential_object_invalid',
+                    RuntimeError(), 'credential_refresh_failed',
                 ) from None
             try:
                 # property를 실행하거나 비밀값을 읽지 않고 객체 형태만 검사한다.
