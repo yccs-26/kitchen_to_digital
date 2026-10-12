@@ -73,6 +73,100 @@ def check_kafka_metadata(path, spark):
         runtime.LOGGER.disabled = disabled
 
 
+class _ProduceProbeDiagnostics:
+    """진단 전용 observer: 값과 주소 없이 상태·카운터만 수집한다."""
+
+    def __init__(self):
+        import time
+
+        self.started = time.monotonic()
+        self.events = []
+
+    def record(self, stage, **fields):
+        import time
+
+        if len(self.events) < 64:
+            self.events.append(dict(
+                stage=stage,
+                elapsed_ms=int((time.monotonic() - self.started) * 1000),
+                **fields,
+            ))
+
+    def error_cb(self, error):
+        from confluent_kafka import KafkaError
+
+        self.record('error_cb', error_type='KafkaError', code=error.code(),
+                    name=KafkaError(error.code()).name(),
+                    fatal=error.fatal(), retriable=error.retriable())
+
+    def stats_cb(self, text):
+        import json
+
+        def counts(values, keys):
+            return {k: values[k] for k in keys if type(values.get(k)) is int}
+
+        try:
+            stats = json.loads(text)
+            brokers = []
+            for broker in list(stats.get('brokers', {}).values())[:16]:
+                item = counts(broker, (
+                    'nodeid', 'outbuf_cnt', 'waitresp_cnt', 'tx', 'rx',
+                    'txerrs', 'rxerrs', 'req_timeouts', 'connects', 'disconnects',
+                ))
+                state = broker.get('state')
+                item['state'] = state if state in (
+                    'INIT', 'DOWN', 'CONNECT', 'AUTH', 'APIVERSION_QUERY',
+                    'AUTH_HANDSHAKE', 'UP', 'UPDATE',
+                ) else 'UNKNOWN'
+                item['requests'] = counts(broker.get('req', {}), (
+                    'Produce', 'Metadata', 'ApiVersion', 'ApiVersions',
+                    'SaslHandshake',
+                    'SaslAuthenticate',
+                ))
+                brokers.append(item)
+            topic = stats.get('topics', {}).get('kitchen.sensor.validated', {})
+            partitions = [counts(part, (
+                'partition', 'leader', 'msgq_cnt', 'xmit_msgq_cnt',
+                'txmsgs', 'msgs_inflight',
+            )) for part in list(topic.get('partitions', {}).values())[:16]]
+            self.record('statistics', brokers=brokers, partitions=partitions,
+                        **counts(stats, ('msg_cnt', 'replyq', 'txmsgs')),
+                        **counts(topic, ('metadata_age',)))
+        except (ValueError, TypeError, AttributeError):
+            self.record('statistics_unavailable')
+
+    def observe(self, producer):
+        diagnostic = self
+
+        class ObservedProducer:
+            def produce(self, **kwargs):
+                callback = kwargs['on_delivery']
+
+                def on_delivery(error, message):
+                    from confluent_kafka import KafkaError
+
+                    fields = {} if error is None else {
+                        'code': error.code(),
+                        'name': KafkaError(error.code()).name(),
+                    }
+                    diagnostic.record('delivery_callback', **fields)
+                    callback(error, message)
+
+                kwargs['on_delivery'] = on_delivery
+                diagnostic.record('produce_enter')
+                producer.produce(**kwargs)
+                diagnostic.record('produce_enqueued')
+
+            def flush(self, timeout):
+                # flush 자체가 callback을 poll한다. 추가 poll/flush는 하지 않는다.
+                diagnostic.record('flush_enter')
+                remaining = producer.flush(timeout)
+                diagnostic.record('flush_return', remaining=remaining)
+                return remaining
+
+        return ObservedProducer()
+
+
 def check_kafka_produce(path, spark):
     """기존 Silver recovery 행 한 건만 정상 validated 계약으로 발행한다."""
     import re
@@ -90,6 +184,7 @@ def check_kafka_produce(path, spark):
     disabled = runtime.LOGGER.disabled
     runtime.LOGGER.disabled = True
     producer = None
+    diagnostic = _ProduceProbeDiagnostics()
     try:
         settings = runtime.load_runtime_config(path)
         if settings.job.validated_topic != 'kitchen.sensor.validated':
@@ -102,6 +197,9 @@ def check_kafka_produce(path, spark):
         resolved = settings.resolve_clients(runtime.get_dbutils(spark))
         options = runtime.runtime_producer_options(resolved.producer, spark=spark)
         options['log_level'] = 0
+        options['error_cb'] = diagnostic.error_cb
+        options['stats_cb'] = diagnostic.stats_cb
+        options['statistics.interval.ms'] = 1000
         schema = (REPO_ROOT / 'schemas/avro/sensor_metric_event.avsc').read_text()
         with SchemaRegistryClient(resolved.registry) as registry:
             serializer = AvroSerializer(registry, schema, conf={
@@ -109,19 +207,22 @@ def check_kafka_produce(path, spark):
                 'use.latest.version': False,
                 'subject.name.strategy': topic_subject_name_strategy,
             })
+            diagnostic.record('producer_create')
             producer = Producer(options)
+            diagnostic.record('producer_ready')
             message = publish_validated_event(
-                event, producer, serializer, topic=settings.job.validated_topic,
+                event, diagnostic.observe(producer), serializer,
+                topic=settings.job.validated_topic,
             )
         return {
             'produce_probe': 'succeeded', 'topic': settings.job.validated_topic,
             'partition': message.partition(), 'offset': message.offset(),
-            'event_id': event_id,
+            'event_id': event_id, 'diagnostics': diagnostic.events,
         }
     except Exception as error:
         result = {
             'produce_probe': 'failed', 'error_type': type(error).__name__,
-            'code': None, 'name': None,
+            'code': None, 'name': None, 'diagnostics': diagnostic.events,
         }
         if (isinstance(error, KafkaException) and error.args
                 and isinstance(error.args[0], KafkaError)):

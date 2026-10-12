@@ -376,6 +376,20 @@ def test_produce_probe_reads_silver_and_publishes_once(
         assert payload == dict(row, event_time='2023-11-14T22:13:20.000000+00:00')
         registry.register_schema.assert_not_called()
         registry.register_schema_full_response.assert_not_called()
+    diagnostics = result.pop('diagnostics')
+    stages = [item['stage'] for item in diagnostics]
+    if outcome not in ('missing', 'duplicate'):
+        assert stages[:4] == [
+            'producer_create', 'producer_ready',
+            'produce_enter', 'produce_enqueued',
+        ]
+        assert 'flush_enter' in stages and 'flush_return' in stages
+        assert ('delivery_callback' in stages) == (outcome != 'timeout')
+        producer.poll.assert_not_called()
+        producer.list_topics.assert_not_called()
+        assert factory.call_args.args[0]['statistics.interval.ms'] == 1000
+        assert callable(factory.call_args.args[0]['error_cb'])
+        assert callable(factory.call_args.args[0]['stats_cb'])
     if outcome == 'success':
         assert result == {
             'produce_probe': 'succeeded', 'topic': 'kitchen.sensor.validated',
@@ -409,3 +423,44 @@ def test_produce_probe_cli_is_exclusive_and_does_not_start_job(monkeypatch, caps
     with pytest.raises(SystemExit):
         launcher.main(args + ['--check-kafka-metadata'])
     assert probe.call_count == 1
+
+
+def test_produce_diagnostics_strip_native_secrets_and_addresses():
+    from confluent_kafka import KafkaError
+
+    diagnostic = launcher._ProduceProbeDiagnostics()
+    private = 'secret-token broker.private:9098 access-key payload'
+    diagnostic.error_cb(KafkaError(KafkaError.SASL_AUTHENTICATION_FAILED, private))
+    diagnostic.stats_cb(json.dumps({
+        'name': private, 'msg_cnt': 1, 'replyq': 0, 'txmsgs': 0,
+        'brokers': {private: {
+            'name': private, 'nodeid': 1, 'state': 'AUTH', 'tx': 4,
+            'rx': 3, 'outbuf_cnt': 0, 'waitresp_cnt': 1,
+            'req': {'SaslAuthenticate': 1, 'Metadata': 1, 'Produce': 0,
+                    private: 123},
+        }},
+        'topics': {'kitchen.sensor.validated': {
+            'metadata_age': 1000, 'partitions': {'0': {
+                'partition': 0, 'leader': 1, 'msgq_cnt': 1,
+                'xmit_msgq_cnt': 0, 'msgs_inflight': 0, 'payload': private,
+            }},
+        }, private: {'payload': private}},
+    }))
+    error, stats = diagnostic.events
+    assert error['name'] == 'SASL_AUTHENTICATION_FAILED'
+    assert error['code'] == KafkaError.SASL_AUTHENTICATION_FAILED
+    assert stats['brokers'][0]['state'] == 'AUTH'
+    assert stats['brokers'][0]['requests']['Produce'] == 0
+    assert stats['partitions'][0]['msgq_cnt'] == 1
+    assert stats['metadata_age'] == 1000
+    for value in private.split():
+        assert value not in json.dumps(diagnostic.events)
+    diagnostic.stats_cb(json.dumps({'brokers': {'private': {
+        'state': private, 'nodeid': private, 'tx': private,
+    }}}))
+    assert diagnostic.events[-1]['brokers'] == [
+        {'state': 'UNKNOWN', 'requests': {}},
+    ]
+    diagnostic.stats_cb(private)
+    assert diagnostic.events[-1]['stage'] == 'statistics_unavailable'
+    assert private not in json.dumps(diagnostic.events)
