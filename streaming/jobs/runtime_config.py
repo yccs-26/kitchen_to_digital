@@ -1,6 +1,7 @@
 """Job 2의 비밀값 없는 JSON 설정과 실행 위치별 인증 연결을 담당한다."""
 
 from dataclasses import dataclass, field
+from inspect import getattr_static
 import json
 import logging
 import math
@@ -25,6 +26,27 @@ def _oauth_progress(stage, started):
 
 class RuntimeConfigError(ValueError):
     """설정 값이나 외부 예외 내용을 노출하지 않는 설정 오류다."""
+
+
+_SIGNING_DIAGNOSTIC = (
+    r'MSK token signing failed \[type=[A-Za-z_][A-Za-z0-9_]*; '
+    r'reason=(signer_dependency_unavailable|signer_api_mismatch|'
+    r'credential_object_invalid|credential_refresh_failed|region_invalid|'
+    r'aws_signing_error|signing_error_unclassified)\]'
+)
+
+
+class _TokenSigningError(RuntimeConfigError):
+    """원문 없이 생성한 signer 진단만 상위 UDF 경계까지 보존한다."""
+
+
+def _signing_failure(error, reason):
+    name = type(error).__name__
+    if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name):
+        name = 'Exception'
+    diagnostic = f'MSK token signing failed [type={name}; reason={reason}]'
+    LOGGER.warning('%s', diagnostic)
+    return _TokenSigningError(diagnostic)
 
 
 def _text(value, label):
@@ -142,22 +164,91 @@ def make_msk_oauth_callback(dbutils, credential_name, region):
 
 def _msk_callback_from_session(session, region):
     """worker 내부에만 갱신 가능한 session과 signer를 보관한다."""
-    from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
-    from botocore.credentials import CredentialProvider
+    try:
+        from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
+        from botocore.credentials import CredentialProvider
+    except ImportError as error:
+        raise _signing_failure(
+            error, 'signer_dependency_unavailable',
+        ) from None
+    try:
+        sign = (
+            MSKAuthTokenProvider.generate_auth_token_from_credentials_provider
+        )
+        if not callable(sign):
+            raise TypeError()
+    except (AttributeError, TypeError) as error:
+        raise _signing_failure(error, 'signer_api_mismatch') from None
 
     class Provider(CredentialProvider):
         def load(self):
-            return session.get_credentials()
+            try:
+                getter = session.get_credentials
+                if not callable(getter):
+                    raise TypeError()
+            except (AttributeError, TypeError) as error:
+                raise _signing_failure(
+                    error, 'credential_object_invalid',
+                ) from None
+            try:
+                credentials = getter()
+            except Exception as error:
+                raise _signing_failure(
+                    error, 'credential_refresh_failed',
+                ) from None
+            if credentials is None:
+                raise _signing_failure(
+                    TypeError(), 'credential_object_invalid',
+                ) from None
+            try:
+                # property를 실행하거나 비밀값을 읽지 않고 객체 형태만 검사한다.
+                getattr_static(credentials, 'access_key')
+                getattr_static(credentials, 'secret_key')
+            except AttributeError as error:
+                raise _signing_failure(
+                    error, 'credential_object_invalid',
+                ) from None
+            return credentials
 
     provider = Provider()
-    sign = MSKAuthTokenProvider.generate_auth_token_from_credentials_provider
 
     def oauth_callback(_config):
         try:
             token, expiry_ms = sign(region, provider)
-        except Exception:
-            raise RuntimeConfigError('MSK token retrieval failed') from None
-        return token, expiry_ms / 1000.0
+            return token, expiry_ms / 1000.0
+        except _TokenSigningError:
+            raise
+        except Exception as error:
+            # traceback의 코드 위치만 검사한다. locals나 예외 본문은 읽지 않는다.
+            reason = 'signing_error_unclassified'
+            name = type(error).__name__
+            frame = error.__traceback__
+            refreshing = False
+            while frame is not None:
+                code = frame.tb_frame.f_code
+                if (code.co_name in ('_refresh', '_protected_refresh',
+                                     'get_frozen_credentials')
+                        and code.co_filename.endswith(
+                            'botocore/credentials.py',
+                        )):
+                    refreshing = True
+                frame = frame.tb_next
+            if refreshing or name in (
+                'CredentialRetrievalError', 'TokenRetrievalError',
+                'RefreshWithMFAUnsupportedError',
+            ):
+                reason = 'credential_refresh_failed'
+            elif name in ('NoRegionError', 'InvalidRegionError'):
+                reason = 'region_invalid'
+            elif name in ('NoCredentialsError', 'PartialCredentialsError'):
+                reason = 'credential_object_invalid'
+            elif any(
+                base.__module__ == 'botocore.exceptions'
+                and base.__name__ in ('BotoCoreError', 'ClientError')
+                for base in type(error).__mro__
+            ):
+                reason = 'aws_signing_error'
+            raise _signing_failure(error, reason) from None
 
     return oauth_callback
 
@@ -183,6 +274,9 @@ def _mint_msk_token(credential, region):
         result = callback(None)
         _oauth_progress('udf_return', started)
         return result
+    except _TokenSigningError:
+        _oauth_progress(stage + '_failed', started)
+        raise
     except Exception as error:
         _oauth_progress(stage + '_failed', started)
         # 원문에는 credential/token이 섞일 수 있어 허용된 원인만 전달한다.
@@ -243,7 +337,7 @@ def runtime_producer_options(options, *, spark=None):
             LOGGER.warning('Job2 OAuth error_type=%s', type(error).__name__)
             # Spark가 감싼 UDF 진단은 허용된 필드만 복구한다.
             safe = re.search(
-                r'MSK worker credential setup failed '
+                _SIGNING_DIAGNOSTIC + r'|MSK worker credential setup failed '
                 r'\[stage=(service_credentials_import|'
                 r'service_credentials_provider|oauth_callback_setup|'
                 r'token_signing); type=[A-Za-z_][A-Za-z0-9_]*; '
