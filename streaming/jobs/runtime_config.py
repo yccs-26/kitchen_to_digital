@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 import json
+import logging
 import math
 from pathlib import Path
 import re
@@ -9,6 +10,16 @@ import time
 from urllib.parse import urlsplit
 
 from streaming.jobs.raw_ingestion import IngestionConfig, kafka_source_options
+
+LOGGER = logging.getLogger(__name__)
+
+
+def _oauth_progress(stage, started):
+    """인증 데이터 없이 실행 단계와 경과 시간만 기록한다."""
+    LOGGER.warning(
+        'Job2 OAuth stage=%s elapsed_ms=%.0f',
+        stage, (time.monotonic() - started) * 1000,
+    )
 
 
 class RuntimeConfigError(ValueError):
@@ -152,19 +163,27 @@ def _msk_callback_from_session(session, region):
 
 def _mint_msk_token(credential, region):
     """scalar UDF 안에서만 service credential을 읽고 단기 토큰을 발급한다."""
+    started = time.monotonic()
     stage = 'service_credentials_import'
+    _oauth_progress(stage, started)
     try:
         from databricks.service_credentials import (
             getServiceCredentialsProvider,
         )
 
         stage = 'service_credentials_provider'
+        _oauth_progress(stage, started)
         session = getServiceCredentialsProvider(credential)
         stage = 'oauth_callback_setup'
+        _oauth_progress(stage, started)
         callback = _msk_callback_from_session(session, region)
         stage = 'token_signing'
-        return callback(None)
+        _oauth_progress(stage, started)
+        result = callback(None)
+        _oauth_progress('udf_return', started)
+        return result
     except Exception as error:
+        _oauth_progress(stage + '_failed', started)
         # 원문에는 credential/token이 섞일 수 있어 허용된 원인만 전달한다.
         reason = 'unclassified_error_message_redacted'
         if isinstance(error, ImportError):
@@ -201,16 +220,29 @@ def runtime_producer_options(options, *, spark=None):
     mint_udf = udf(mint, 'struct<token:string,expiry:double>').asNondeterministic()
 
     def oauth_callback(_config):
+        started = time.monotonic()
+        stage = 'callback_enter'
+        _oauth_progress(stage, started)
         try:
             # 매 갱신마다 새 action을 실행한다. 토큰을 저장하거나 출력하지 않는다.
-            row = spark.range(1).select(mint_udf().alias('oauth')).first().oauth
+            stage = 'udf_plan'
+            _oauth_progress(stage, started)
+            query = spark.range(1).select(mint_udf().alias('oauth'))
+            stage = 'udf_collect'
+            _oauth_progress(stage, started)
+            row = query.first().oauth
+            stage = 'token_validate'
+            _oauth_progress(stage, started)
             token, expiry = row.token, row.expiry
             if (not isinstance(token, str) or not token
                     or not isinstance(expiry, (int, float))
                     or not math.isfinite(expiry) or expiry <= time.time()):
                 raise ValueError('Invalid token response')
+            _oauth_progress('callback_return', started)
             return token, float(expiry)
         except Exception as error:
+            _oauth_progress(stage + '_failed', started)
+            LOGGER.warning('Job2 OAuth error_type=%s', type(error).__name__)
             # Spark가 감싼 UDF 진단은 허용된 필드만 복구한다.
             safe = re.search(
                 r'MSK worker credential setup failed '
@@ -227,6 +259,7 @@ def runtime_producer_options(options, *, spark=None):
             ) from None
 
     options['oauth_cb'] = oauth_callback
+    LOGGER.warning('Job2 OAuth stage=callback_registered')
     return options
 
 

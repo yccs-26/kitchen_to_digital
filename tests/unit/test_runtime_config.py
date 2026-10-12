@@ -333,7 +333,7 @@ def test_start_resolves_secrets_on_driver(config_file, monkeypatch):
     assert kwargs['source_options']['databricks.serviceCredential'] == 'reader'
 
 
-def test_worker_auth_refresh_without_dbutils(monkeypatch):
+def test_worker_auth_refresh_without_dbutils(monkeypatch, caplog):
     import inspect
     try:
         from pyspark import cloudpickle
@@ -370,9 +370,20 @@ def test_worker_auth_refresh_without_dbutils(monkeypatch):
     result = runtime.runtime_producer_options(options, spark=spark)
     service.getServiceCredentialsProvider.assert_not_called()
     build.assert_not_called()
+    assert 'stage=callback_registered' in caplog.text
+    assert 'stage=callback_enter' not in caplog.text
     assert result['oauth_cb'](None) == ('token1', 2000000000.0)
     assert result['oauth_cb'](None) == ('token2', 2000000900.0)
     assert first.call_count == 2
+    stages = [
+        record.getMessage().split('stage=')[1].split()[0]
+        for record in caplog.records if 'stage=' in record.getMessage()
+    ]
+    assert stages == ['callback_registered'] + [
+        'callback_enter', 'udf_plan', 'udf_collect',
+        'token_validate', 'callback_return',
+    ] * 2
+    assert 'token1' not in caplog.text and 'token2' not in caplog.text
     assert spark.range.call_count == 2
     functions.udf.return_value.asNondeterministic.assert_called_once()
     assert 'ktd.msk.credential' in options
@@ -393,6 +404,9 @@ def test_worker_auth_refresh_without_dbutils(monkeypatch):
     build.assert_called_once_with(
         service.getServiceCredentialsProvider.return_value, 'region',
     )
+    assert 'stage=token_signing' in caplog.text
+    assert 'stage=udf_return' in caplog.text
+    assert 'udf-token' not in caplog.text
 
 
 @pytest.mark.parametrize('response', [
@@ -403,7 +417,7 @@ def test_worker_auth_refresh_without_dbutils(monkeypatch):
         token='private-token', expiry=float('nan'),
     )),
 ])
-def test_worker_token_failure_is_safe(monkeypatch, response):
+def test_worker_token_failure_is_safe(monkeypatch, response, caplog):
     import traceback
 
     functions = ModuleType('pyspark.sql.functions')
@@ -423,6 +437,13 @@ def test_worker_token_failure_is_safe(monkeypatch, response):
     assert 'stage=scalar_udf' in str(caught.value)
     rendered = ''.join(traceback.format_exception(caught.value))
     assert 'private-token' not in rendered
+    assert 'private-token' not in caplog.text
+    expected = (
+        'udf_collect_failed' if isinstance(response, Exception)
+        else 'token_validate_failed'
+    )
+    assert f'stage={expected}' in caplog.text
+    assert 'stage=callback_return' not in caplog.text
 
 
 def test_worker_preserves_safe_udf_diagnostic(monkeypatch):
@@ -473,7 +494,7 @@ def test_worker_iam_requires_batch_session():
      'unclassified_error_message_redacted'),
 ])
 def test_worker_setup_diagnostic_is_secret_safe(
-    monkeypatch, capsys, stage, exception, reason,
+    monkeypatch, capsys, caplog, stage, exception, reason,
 ):
     import builtins
     import traceback
@@ -505,6 +526,8 @@ def test_worker_setup_diagnostic_is_secret_safe(
     )
     rendered = ''.join(traceback.format_exception(caught.value))
     assert 'private-value' not in rendered
+    assert 'private-value' not in caplog.text
+    assert f'stage={stage}_failed' in caplog.text
     assert caught.value.__suppress_context__
     assert capsys.readouterr() == ('', '')
 
