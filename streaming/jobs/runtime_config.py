@@ -7,6 +7,7 @@ import math
 from pathlib import Path
 import re
 import time
+from threading import Lock
 from urllib.parse import urlsplit
 
 from streaming.jobs.raw_ingestion import IngestionConfig, kafka_source_options
@@ -219,16 +220,13 @@ def runtime_producer_options(options, *, spark=None):
 
     mint_udf = udf(mint, 'struct<token:string,expiry:double>').asNondeterministic()
 
-    def oauth_callback(_config):
+    # Spark 계획은 호출 스레드에서 만든다. 갱신 스레드의 active session에 의존하지 않는다.
+    query = spark.range(1).select(mint_udf().alias('oauth'))
+
+    def fetch_token():
         started = time.monotonic()
-        stage = 'callback_enter'
-        _oauth_progress(stage, started)
+        stage = 'udf_collect'
         try:
-            # 매 갱신마다 새 action을 실행한다. 토큰을 저장하거나 출력하지 않는다.
-            stage = 'udf_plan'
-            _oauth_progress(stage, started)
-            query = spark.range(1).select(mint_udf().alias('oauth'))
-            stage = 'udf_collect'
             _oauth_progress(stage, started)
             row = query.first().oauth
             stage = 'token_validate'
@@ -236,9 +234,9 @@ def runtime_producer_options(options, *, spark=None):
             token, expiry = row.token, row.expiry
             if (not isinstance(token, str) or not token
                     or not isinstance(expiry, (int, float))
-                    or not math.isfinite(expiry) or expiry <= time.time()):
+                    or not math.isfinite(expiry) or expiry <= time.time() + 30):
                 raise ValueError('Invalid token response')
-            _oauth_progress('callback_return', started)
+            _oauth_progress('token_ready', started)
             return token, float(expiry)
         except Exception as error:
             _oauth_progress(stage + '_failed', started)
@@ -257,6 +255,27 @@ def runtime_producer_options(options, *, spark=None):
                 safe.group(0) if safe else 'MSK token retrieval failed '
                 f'[stage=scalar_udf; type={type(error).__name__}]',
             ) from None
+
+    # Producer 생성의 10초 대기 전에 발급을 마친다. 배치 메모리에만 보관한다.
+    cached = fetch_token()
+    now = time.time()
+    refresh_at = now + (cached[1] - now) * 0.75
+    lock = Lock()
+    LOGGER.warning('Job2 OAuth stage=prefetch_ready')
+
+    def oauth_callback(_config):
+        nonlocal cached, refresh_at
+        started = time.monotonic()
+        _oauth_progress('callback_enter', started)
+        # 두 Producer의 초기 호출은 같은 토큰을 사용하고 갱신은 직렬화한다.
+        with lock:
+            if time.time() >= refresh_at:
+                refreshed = fetch_token()
+                now = time.time()
+                cached = refreshed
+                refresh_at = now + (cached[1] - now) * 0.75
+            _oauth_progress('callback_return', started)
+            return cached
 
     options['oauth_cb'] = oauth_callback
     LOGGER.warning('Job2 OAuth stage=callback_registered')

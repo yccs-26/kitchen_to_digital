@@ -106,7 +106,17 @@ job.AvroSerializer = Mock()
 job.Producer = Mock()
 job.process_batch = Mock(return_value='clients-created')
 job._execute_batch = original_execute
-assert handler(SimpleNamespace(sparkSession=Mock()), 8) == 'clients-created'
+spark = Mock()
+spark.range.return_value.select.return_value.first.return_value = (
+    SimpleNamespace(oauth=SimpleNamespace(token='fake-token', expiry=9999999999.0))
+)
+def create_producer(options):
+    if 'oauth_cb' in options:
+        assert spark.range.return_value.select.return_value.first.call_count == 1
+        assert options['oauth_cb'](None) == ('fake-token', 9999999999.0)
+    return Mock()
+job.Producer.side_effect = create_producer
+assert handler(SimpleNamespace(sparkSession=spark), 8) == 'clients-created'
 assert job.Producer.call_count == 2
 assert 'ktd.msk.credential' not in job.Producer.call_args.args[0]
 runtime.get_dbutils.assert_not_called()

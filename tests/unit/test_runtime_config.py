@@ -372,19 +372,17 @@ def test_worker_auth_refresh_without_dbutils(monkeypatch, caplog):
     build.assert_not_called()
     assert 'stage=callback_registered' in caplog.text
     assert 'stage=callback_enter' not in caplog.text
+    assert first.call_count == 1  # Producer 생성 전에 prefetch 완료
     assert result['oauth_cb'](None) == ('token1', 2000000000.0)
+    assert result['oauth_cb'](None) == ('token1', 2000000000.0)
+    assert first.call_count == 1  # 두 Producer 초기 callback에는 Spark 호출 없음
+    monkeypatch.setattr(runtime.time, 'time', lambda: 1925000000.0)
     assert result['oauth_cb'](None) == ('token2', 2000000900.0)
     assert first.call_count == 2
-    stages = [
-        record.getMessage().split('stage=')[1].split()[0]
-        for record in caplog.records if 'stage=' in record.getMessage()
-    ]
-    assert stages == ['callback_registered'] + [
-        'callback_enter', 'udf_plan', 'udf_collect',
-        'token_validate', 'callback_return',
-    ] * 2
+    assert 'stage=prefetch_ready' in caplog.text
+    assert 'stage=callback_return' in caplog.text
     assert 'token1' not in caplog.text and 'token2' not in caplog.text
-    assert spark.range.call_count == 2
+    assert spark.range.call_count == 1
     functions.udf.return_value.asNondeterministic.assert_called_once()
     assert 'ktd.msk.credential' in options
     assert 'ktd.msk.credential' not in result
@@ -429,11 +427,10 @@ def test_worker_token_failure_is_safe(monkeypatch, response, caplog):
         first.side_effect = response
     else:
         first.return_value = response
-    result = runtime.runtime_producer_options({
-        'ktd.msk.credential': 'writer', 'ktd.msk.region': 'region',
-    }, spark=spark)
     with pytest.raises(runtime.RuntimeConfigError) as caught:
-        result['oauth_cb'](None)
+        runtime.runtime_producer_options({
+            'ktd.msk.credential': 'writer', 'ktd.msk.region': 'region',
+        }, spark=spark)
     assert 'stage=scalar_udf' in str(caught.value)
     rendered = ''.join(traceback.format_exception(caught.value))
     assert 'private-token' not in rendered
@@ -459,12 +456,45 @@ def test_worker_preserves_safe_udf_diagnostic(monkeypatch):
     spark.range.return_value.select.return_value.first.side_effect = (
         RuntimeError(f'private-token {safe} private-token')
     )
+    with pytest.raises(runtime.RuntimeConfigError) as caught:
+        runtime.runtime_producer_options({
+            'ktd.msk.credential': 'writer', 'ktd.msk.region': 'region',
+        }, spark=spark)
+    assert str(caught.value) == safe
+
+
+@pytest.mark.parametrize('refresh_fails', [False, True])
+def test_worker_refresh_is_shared_and_failure_does_not_return_stale_token(
+    monkeypatch, refresh_fails, caplog,
+):
+    from concurrent.futures import ThreadPoolExecutor
+
+    functions = ModuleType('pyspark.sql.functions')
+    functions.udf = Mock()
+    monkeypatch.setitem(sys.modules, functions.__name__, functions)
+    monkeypatch.setattr(runtime.time, 'time', lambda: 1000.0)
+    spark = Mock()
+    first = spark.range.return_value.select.return_value.first
+    first.return_value = SimpleNamespace(
+        oauth=SimpleNamespace(token='initial-private', expiry=2000.0),
+    )
     options = runtime.runtime_producer_options({
         'ktd.msk.credential': 'writer', 'ktd.msk.region': 'region',
     }, spark=spark)
-    with pytest.raises(runtime.RuntimeConfigError) as caught:
-        options['oauth_cb'](None)
-    assert str(caught.value) == safe
+    monkeypatch.setattr(runtime.time, 'time', lambda: 2001.0)
+    if refresh_fails:
+        first.side_effect = RuntimeError('refresh-private')
+        with pytest.raises(runtime.RuntimeConfigError):
+            options['oauth_cb'](None)
+        first.side_effect = None
+    first.return_value = SimpleNamespace(
+        oauth=SimpleNamespace(token='renewed-private', expiry=3000.0),
+    )
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(options['oauth_cb'], [None, None]))
+    assert results == [('renewed-private', 3000.0)] * 2
+    assert first.call_count == 2 + int(refresh_fails)
+    assert 'private' not in caplog.text
 
 
 def test_worker_options_without_iam_do_not_require_spark():
