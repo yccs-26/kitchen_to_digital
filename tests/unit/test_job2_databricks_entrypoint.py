@@ -109,20 +109,21 @@ def test_compiled_filename_precedes_wrapper_file(deployed_repo, monkeypatch):
     assert namespace["REPO_ROOT"] == root
 
 
-def test_example_routes_distinct_credentials(deployed_repo, monkeypatch):
+def test_example_routes_distinct_credentials(deployed_repo):
     _, config = deployed_repo
     settings = runtime.load_runtime_config(config)
     source = settings.kafka.spark_options(settings.job.source)
     assert source["databricks.serviceCredential"] == "ktd-msk-consumer"
     assert "kafka.security.protocol" not in source
-    callback = Mock()
-    monkeypatch.setattr(runtime, "make_msk_oauth_callback", callback)
     utility = Mock()
     utility.secrets.get.return_value = "fake-user:fake-secret"
     clients = settings.resolve_clients(utility)
-    callback.assert_called_once_with(
-        utility, "ktd-msk-job2-producer", "ap-northeast-2",
+    utility.credentials.getServiceCredentialsProvider.assert_called_once_with(
+        "ktd-msk-job2-producer",
     )
+    assert clients.producer["ktd.msk.credential"] == "ktd-msk-job2-producer"
+    assert clients.producer["ktd.msk.region"] == "ap-northeast-2"
+    assert "oauth_cb" not in clients.producer
     assert "databricks.serviceCredential" not in clients.producer
     assert "kafka.security.protocol" not in clients.producer
     assert clients.producer["security.protocol"] == "SASL_SSL"

@@ -4,7 +4,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import sys
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -142,16 +142,10 @@ def test_job1_checkpoint_cannot_be_reused(config_file):
         runtime.load_runtime_config(config_file)
 
 
-def test_spark_and_producer_configs_have_distinct_apis(
-    config_file, monkeypatch,
-):
+def test_spark_and_producer_configs_have_distinct_apis(config_file):
     original_file = config_file.read_bytes()
     settings = runtime.load_runtime_config(config_file)
     original = deepcopy(settings)
-    callback = Mock()
-    monkeypatch.setattr(
-        runtime, 'make_msk_oauth_callback', Mock(return_value=callback),
-    )
     spark = settings.kafka.spark_options(settings.job.source)
     producer = settings.kafka.producer_options(Mock())
     assert spark['kafka.bootstrap.servers'] == producer['bootstrap.servers']
@@ -161,7 +155,7 @@ def test_spark_and_producer_configs_have_distinct_apis(
     assert 'kafka.sasl.jaas.config' not in spark
     assert 'kafka.sasl.mechanism' not in spark
     assert producer['sasl.mechanism'] == 'OAUTHBEARER'
-    assert producer['oauth_cb'] is callback
+    assert 'oauth_cb' not in producer
     assert 'databricks.serviceCredential' not in producer
     assert producer['acks'] == 'all'
     assert producer['allow.auto.create.topics'] is False
@@ -172,7 +166,8 @@ def test_spark_and_producer_configs_have_distinct_apis(
         'delivery.report.only.error': False,
         'allow.auto.create.topics': False,
         'sasl.mechanism': 'OAUTHBEARER',
-        'oauth_cb': callback,
+        'ktd.msk.credential': 'writer',
+        'ktd.msk.region': 'ap-northeast-2',
     }
     assert settings == original
     assert config_file.read_bytes() == original_file
@@ -208,12 +203,11 @@ def test_msk_config_still_requires_sasl_ssl(config_file, protocol):
 
 
 def test_registry_secret_retrieval_and_repr_masking(
-    config_file, monkeypatch, capsys,
+    config_file, capsys,
 ):
     settings = runtime.load_runtime_config(config_file)
     utility = Mock()
     utility.secrets.get.return_value = 'api-user:private-value'
-    monkeypatch.setattr(runtime, 'make_msk_oauth_callback', Mock())
     clients = settings.resolve_clients(utility)
     utility.secrets.get.assert_called_once_with(
         scope='test-scope', key='registry-auth',
@@ -315,47 +309,55 @@ def test_secret_preflight_failure_never_starts_query(config_file, monkeypatch):
     start.assert_not_called()
 
 
-def test_start_passes_only_references_to_callback(config_file, monkeypatch):
+def test_start_resolves_secrets_on_driver(config_file, monkeypatch):
     utility = Mock()
     utility.secrets.get.return_value = 'user:secret-value'
-    monkeypatch.setattr(runtime, 'make_msk_oauth_callback', Mock())
     start = Mock()
     monkeypatch.setattr(job, 'start_validation', start)
+    driver = Mock()
+    get_utility = Mock(return_value=utility)
+    monkeypatch.setattr(runtime, 'get_dbutils', get_utility)
     runtime.start_configured_validation(
-        Mock(), config_file, dbutils=utility, available_now=True,
+        driver, config_file, available_now=True,
     )
+    get_utility.assert_called_once_with(driver)
     kwargs = start.call_args.kwargs
     assert kwargs['available_now'] is True
-    assert 'registry_config' not in kwargs
-    factory = kwargs['client_config_factory']
-    assert isinstance(factory.__self__, runtime.RuntimeSettings)
-    assert 'secret-value' not in repr(factory.__self__)
+    assert 'client_config_factory' not in kwargs
+    assert kwargs['registry_config']['basic.auth.user.info'] == (
+        'user:secret-value'
+    )
+    assert 'oauth_cb' not in kwargs['producer_config']
+    json.dumps(kwargs['producer_config'])
+    utility.secrets.get.assert_called_once()
     assert kwargs['source_options']['databricks.serviceCredential'] == 'reader'
 
 
-def test_batch_resolves_references_at_execution(config_file, monkeypatch):
-    settings = runtime.load_runtime_config(config_file)
-    factory = Mock(return_value=runtime.ClientConfigs(
-        {'url': 'https://registry.example'}, {'bootstrap.servers': 'broker'},
-    ))
-    registry = MagicMock()
+def test_worker_auth_refresh_without_dbutils(monkeypatch):
+    service = ModuleType('databricks.service_credentials')
+    service.getServiceCredentialsProvider = Mock()
+    monkeypatch.setitem(sys.modules, service.__name__, service)
+    callback = Mock()
+    build = Mock(return_value=callback)
+    monkeypatch.setattr(runtime, '_msk_callback_from_session', build)
     monkeypatch.setattr(
-        job, 'SchemaRegistryClient', Mock(return_value=registry),
+        runtime, 'get_dbutils', Mock(side_effect=AssertionError),
     )
-    producer = Mock()
-    monkeypatch.setattr(job, 'Producer', producer)
-    process = Mock()
-    monkeypatch.setattr(job, 'process_batch', process)
-    handler = job.make_batch_handler(
-        settings.job, settings.rules, client_config_factory=factory,
+    options = {
+        'ktd.msk.credential': 'writer', 'ktd.msk.region': 'region',
+        'sasl.mechanism': 'OAUTHBEARER',
+    }
+    result = runtime.runtime_producer_options(options)
+    assert result == {'sasl.mechanism': 'OAUTHBEARER', 'oauth_cb': callback}
+    assert 'ktd.msk.credential' in options
+    service.getServiceCredentialsProvider.assert_called_once_with('writer')
+    build.assert_called_once_with(
+        service.getServiceCredentialsProvider.return_value, 'region',
     )
-    factory.assert_not_called()
-    batch = SimpleNamespace(sparkSession=Mock())
-    handler(batch, 1)
-    factory.assert_called_once_with(batch.sparkSession)
-    assert producer.call_args.args[0]['acks'] == 'all'
-    registry_client = process.call_args.kwargs['registry_client']
-    assert registry_client is registry.__enter__.return_value
+    service.getServiceCredentialsProvider.side_effect = RuntimeError('private')
+    with pytest.raises(runtime.RuntimeConfigError) as error:
+        runtime.runtime_producer_options(options)
+    assert 'private' not in str(error.value)
 
 
 @pytest.mark.parametrize('missing', ['checkpoint', 'processing_version'])
@@ -411,22 +413,13 @@ def test_source_options_reach_spark_without_mutation(config_file, monkeypatch):
     monkeypatch.setattr(job, 'make_batch_handler', Mock(return_value=handler))
     job.start_validation(
         spark, settings.job, settings.rules,
-        client_config_factory=Mock(), source_options=options,
+        source_options=options,
     )
     spark.readStream.format.assert_called_once_with('kafka')
     spark.readStream.format.return_value.options.assert_called_once_with(
         **options,
     )
     assert options == before
-
-
-def test_resolved_configs_cannot_mix_with_secret_factory(config_file):
-    settings = runtime.load_runtime_config(config_file)
-    with pytest.raises(ValueError, match='either'):
-        job.make_batch_handler(
-            settings.job, settings.rules, registry_config={'url': 'unused'},
-            client_config_factory=Mock(),
-        )
 
 
 def test_cli_invalid_config_never_creates_session(tmp_path, monkeypatch):
@@ -460,3 +453,21 @@ def test_cli_runtime_route_waits_and_stops_only_owned_query(
     start.return_value.awaitTermination.assert_called_once_with()
     start.return_value.stop.assert_called_once_with()
     spark.stop.assert_not_called()
+
+
+def test_driver_credential_failure_never_starts_query(
+    config_file, monkeypatch,
+):
+    utility = Mock()
+    utility.secrets.get.return_value = 'user:fake-secret'
+    utility.credentials.getServiceCredentialsProvider.side_effect = (
+        RuntimeError('private-credential')
+    )
+    start = Mock()
+    monkeypatch.setattr(job, 'start_validation', start)
+    with pytest.raises(runtime.RuntimeConfigError) as error:
+        runtime.start_configured_validation(
+            Mock(), config_file, dbutils=utility,
+        )
+    assert 'private-credential' not in str(error.value)
+    start.assert_not_called()

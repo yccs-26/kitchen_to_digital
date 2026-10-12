@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from unittest.mock import Mock
 
 import pytest
 
@@ -19,9 +20,11 @@ from streaming.jobs.sensor_validation_job import make_batch_handler
 from streaming.jobs import runtime_config, sensor_validation_job
 
 
-@pytest.mark.parametrize('use_factory', [False, True])
+@pytest.mark.parametrize('resolve_on_driver', [False, True])
 @pytest.mark.parametrize('by_value', [False, True])
-def test_callback_round_trip_in_fresh_worker(tmp_path, use_factory, by_value):
+def test_callback_round_trip_in_fresh_worker(
+    tmp_path, resolve_on_driver, by_value,
+):
     values = json.loads(Path('config/job2-runtime.example.json').read_text())
     values['checkpoint'] = '/Volumes/ktd/bronze/checkpoints/job2/pickle-test'
     values['processing_version'] = 'pickle-test'
@@ -29,11 +32,21 @@ def test_callback_round_trip_in_fresh_worker(tmp_path, use_factory, by_value):
     config = tmp_path / 'runtime.json'
     config.write_text(json.dumps(values))
     settings = load_runtime_config(config)
-    kwargs = (
-        {'client_config_factory': settings.client_configs} if use_factory else
-        {'registry_config': {'url': 'http://unused'},
-         'producer_config': {'bootstrap.servers': 'unused'}}
-    )
+    utility = Mock()
+    utility.secrets.get.return_value = 'test-user:test-secret'
+    if resolve_on_driver:
+        resolved = settings.resolve_clients(utility)
+        kwargs = {
+            'registry_config': resolved.registry,
+            'producer_config': resolved.producer,
+        }
+        utility.secrets.get.assert_called_once()
+        json.dumps([resolved.registry, resolved.producer])
+    else:
+        kwargs = {
+            'registry_config': {'url': 'http://unused'},
+            'producer_config': {'bootstrap.servers': 'unused'},
+        }
     handler = make_batch_handler(settings.job, settings.rules, **kwargs)
     captured = inspect.getclosurevars(handler)
     # Python 3.11 inspect는 IMPORT_FROM 이름도 globals로 오인하므로
@@ -44,13 +57,7 @@ def test_callback_round_trip_in_fresh_worker(tmp_path, use_factory, by_value):
     )
     assert set(captured.nonlocals) == {
         'config', 'rules', 'schema', 'registry_settings', 'producer_settings',
-        'client_config_factory',
     }
-    factory = captured.nonlocals['client_config_factory']
-    if use_factory:
-        assert factory.__self__ is settings
-    else:
-        assert factory is None
     modules = (runtime_config, sensor_validation_job) if by_value else ()
     for module in modules:
         cloudpickle.register_pickle_by_value(module)
@@ -79,12 +86,30 @@ handler = cloudpickle.loads(Path(sys.argv[1]).read_bytes())
 def execute(batch, batch_id, **settings):
     assert batch == 'worker-batch' and batch_id == 7
     assert settings['config'].processing_version == 'pickle-test'
-    factory = settings['client_config_factory']
-    if factory is not None:
-        assert factory.__self__.job.processing_version == 'pickle-test'
     return 'worker-import-OK'
+original_execute = job._execute_batch
 job._execute_batch = execute
 assert handler('worker-batch', 7) == 'worker-import-OK'
+# 직렬화가 끝난 뒤에만 외부 클라이언트를 fake로 대체한다.
+from types import ModuleType, SimpleNamespace
+from unittest.mock import MagicMock, Mock
+from streaming.jobs import runtime_config as runtime
+runtime.get_dbutils = Mock(side_effect=AssertionError('DBUtils forbidden'))
+service = ModuleType('databricks.service_credentials')
+service.getServiceCredentialsProvider = Mock()
+sys.modules[service.__name__] = service
+runtime._msk_callback_from_session = Mock(
+    return_value=lambda _: ('token', 9999),
+)
+job.SchemaRegistryClient = Mock(return_value=MagicMock())
+job.AvroSerializer = Mock()
+job.Producer = Mock()
+job.process_batch = Mock(return_value='clients-created')
+job._execute_batch = original_execute
+assert handler(SimpleNamespace(sparkSession=Mock()), 8) == 'clients-created'
+assert job.Producer.call_count == 2
+assert 'ktd.msk.credential' not in job.Producer.call_args.args[0]
+runtime.get_dbutils.assert_not_called()
 print('roundtrip-OK')
 '''
     result = subprocess.run(

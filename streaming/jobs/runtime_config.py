@@ -98,24 +98,37 @@ class KafkaSettings:
         }
         if self.mechanism == 'AWS_MSK_IAM':
             options['sasl.mechanism'] = 'OAUTHBEARER'
-            options['oauth_cb'] = make_msk_oauth_callback(
-                dbutils, self.producer_service_credential, self.region,
-            )
+            # driver에서 접근을 확인하되 session/provider는 운반하지 않는다.
+            try:
+                dbutils.credentials.getServiceCredentialsProvider(
+                    self.producer_service_credential,
+                )
+            except Exception:
+                raise RuntimeConfigError(
+                    'MSK credential setup failed',
+                ) from None
+            options['ktd.msk.credential'] = self.producer_service_credential
+            options['ktd.msk.region'] = self.region
         return options
 
 
 def make_msk_oauth_callback(dbutils, credential_name, region):
     """UC 자격 증명을 토큰 갱신 시 읽으며 토큰은 closure에 저장하지 않는다."""
     try:
-        from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
-        from botocore.credentials import CredentialProvider
-
         # Databricks의 반환값은 botocore session이므로 provider로 감싼다.
         session = dbutils.credentials.getServiceCredentialsProvider(
             credential_name,
         )
     except Exception:
         raise RuntimeConfigError('MSK credential setup failed') from None
+
+    return _msk_callback_from_session(session, region)
+
+
+def _msk_callback_from_session(session, region):
+    """worker 내부에만 갱신 가능한 session과 signer를 보관한다."""
+    from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
+    from botocore.credentials import CredentialProvider
 
     class Provider(CredentialProvider):
         def load(self):
@@ -134,8 +147,28 @@ def make_msk_oauth_callback(dbutils, credential_name, region):
     return oauth_callback
 
 
+def runtime_producer_options(options):
+    """해석된 설정으로 worker 인증을 생성하며 cloned SparkSession을 쓰지 않는다."""
+    options = dict(options)
+    credential = options.pop('ktd.msk.credential', None)
+    region = options.pop('ktd.msk.region', None)
+    if credential is not None:
+        try:
+            from databricks.service_credentials import (
+                getServiceCredentialsProvider,
+            )
+
+            session = getServiceCredentialsProvider(credential)
+            options['oauth_cb'] = _msk_callback_from_session(session, region)
+        except Exception:
+            raise RuntimeConfigError(
+                'MSK worker credential setup failed',
+            ) from None
+    return options
+
+
 def get_dbutils(spark):
-    """foreachBatch 실행 위치에서 dbutils를 생성하고 외부 객체를 운반하지 않는다."""
+    """Job 시작 위치에서만 dbutils를 생성한다."""
     from pyspark.dbutils import DBUtils
 
     return DBUtils(spark)
@@ -151,16 +184,13 @@ class ClientConfigs:
 
 @dataclass(frozen=True)
 class RuntimeSettings:
-    """closure에는 비밀값이 아닌 참조와 비보안 설정만 전달한다."""
+    """driver에서 해석할 설정과 secret 참조를 보관한다."""
 
     job: object
     rules: object
     kafka: KafkaSettings
     registry: RegistrySettings
     rules_path: str
-
-    def client_configs(self, spark):
-        return self.resolve_clients(get_dbutils(spark))
 
     def resolve_clients(self, dbutils):
         return ClientConfigs(
@@ -292,11 +322,11 @@ def start_configured_validation(
 
     settings = load_runtime_config(path)
     utility = dbutils if dbutils is not None else get_dbutils(spark)
-    # 참조 접근 실패를 query 시작 전에 알리되 해석된 비밀값은 보관하지 않는다.
-    settings.resolve_clients(utility)
+    # secret은 driver에서 한 번 해석하고 직렬화 가능한 설정만 넘긴다.
+    resolved = settings.resolve_clients(utility)
     return start_validation(
         spark, settings.job, settings.rules,
-        client_config_factory=settings.client_configs,
+        registry_config=resolved.registry, producer_config=resolved.producer,
         source_options=settings.kafka.spark_options(settings.job.source),
         available_now=available_now,
     )

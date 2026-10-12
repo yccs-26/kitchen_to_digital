@@ -265,24 +265,13 @@ def process_batch(batch, batch_id: int, **dependencies) -> dict[str, int]:
 
 def _execute_batch(
     batch, batch_id, *, config, rules, schema, registry_settings,
-    producer_settings, client_config_factory,
+    producer_settings,
 ):
     """worker가 import한 모듈에서 배치당 클라이언트를 만들고 처리한다."""
-    # SparkSession과 native producer를 closure에 캡처하지 않는다.
-    if client_config_factory is None:
-        batch_registry = registry_settings
-        batch_producer = producer_settings
-    else:
-        # 비밀값은 foreachBatch 실행 위치에서 조회하며 closure에 넣지 않는다.
-        resolved = client_config_factory(batch.sparkSession)
-        batch_registry = resolved.registry
-        batch_producer = {
-            **resolved.producer,
-            "acks": "all", "delivery.report.only.error": False,
-            "allow.auto.create.topics": False,
-        }
-        if "transactional.id" in batch_producer:
-            raise ValueError("Transactional producers are not supported")
+    from streaming.jobs.runtime_config import runtime_producer_options
+
+    batch_registry = registry_settings
+    batch_producer = runtime_producer_options(producer_settings)
     with SchemaRegistryClient(batch_registry) as registry:
         serializer = AvroSerializer(
             registry, schema,
@@ -308,17 +297,12 @@ def make_batch_handler(
     config: ValidationJobConfig, rules: ValidationRules, *,
     registry_config: Mapping[str, object] | None = None,
     producer_config: Mapping[str, object] | None = None,
-    client_config_factory=None,
 ):
     """직렬화 가능한 설정만 캡처하고 클라이언트는 배치 실행 위치에서 생성한다."""
     schema = (Path(__file__).resolve().parents[2]
               / "schemas/avro/sensor_metric_event.avsc").read_text(
                   encoding="utf-8"
               )
-    if client_config_factory is not None and (
-        registry_config is not None or producer_config is not None
-    ):
-        raise ValueError("Use either config references or resolved configs")
     registry_settings = dict(registry_config or {})
     producer_settings = {
         **(producer_config or {}),
@@ -337,7 +321,6 @@ def make_batch_handler(
             batch, batch_id, config=config, rules=rules, schema=schema,
             registry_settings=registry_settings,
             producer_settings=producer_settings,
-            client_config_factory=client_config_factory,
         )
 
     return handle_batch
@@ -347,7 +330,6 @@ def start_validation(
     spark, config: ValidationJobConfig, rules: ValidationRules, *,
     registry_config: Mapping[str, object] | None = None,
     producer_config: Mapping[str, object] | None = None,
-    client_config_factory=None,
     source_options: Mapping[str, object] | None = None,
     available_now: bool = False,
 ):
@@ -355,7 +337,6 @@ def start_validation(
     handler = make_batch_handler(
         config, rules, registry_config=registry_config,
         producer_config=producer_config,
-        client_config_factory=client_config_factory,
     )
     if source_options is None:
         source = kafka_source(spark, config.source)
