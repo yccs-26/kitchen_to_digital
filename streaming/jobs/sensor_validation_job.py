@@ -271,7 +271,9 @@ def _execute_batch(
     from streaming.jobs.runtime_config import runtime_producer_options
 
     batch_registry = registry_settings
-    batch_producer = runtime_producer_options(producer_settings)
+    batch_producer = runtime_producer_options(
+        producer_settings, spark=batch.sparkSession,
+    )
     with SchemaRegistryClient(batch_registry) as registry:
         serializer = AvroSerializer(
             registry, schema,

@@ -4,7 +4,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import sys
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -334,30 +334,126 @@ def test_start_resolves_secrets_on_driver(config_file, monkeypatch):
 
 
 def test_worker_auth_refresh_without_dbutils(monkeypatch):
+    import inspect
+    try:
+        from pyspark import cloudpickle
+    except ImportError:
+        import cloudpickle
+
     service = ModuleType('databricks.service_credentials')
     service.getServiceCredentialsProvider = Mock()
     monkeypatch.setitem(sys.modules, service.__name__, service)
-    callback = Mock()
+    functions = ModuleType('pyspark.sql.functions')
+    functions.udf = Mock()
+    monkeypatch.setitem(sys.modules, functions.__name__, functions)
+    callback = Mock(return_value=('udf-token', 2000000000.0))
     build = Mock(return_value=callback)
     monkeypatch.setattr(runtime, '_msk_callback_from_session', build)
     monkeypatch.setattr(
         runtime, 'get_dbutils', Mock(side_effect=AssertionError),
     )
+    monkeypatch.setattr(runtime.time, 'time', lambda: 1700000000.0)
+    spark = Mock()
+    first = spark.range.return_value.select.return_value.first
+    first.side_effect = [
+        SimpleNamespace(oauth=SimpleNamespace(
+            token='token1', expiry=2000000000.0,
+        )),
+        SimpleNamespace(oauth=SimpleNamespace(
+            token='token2', expiry=2000000900.0,
+        )),
+    ]
     options = {
         'ktd.msk.credential': 'writer', 'ktd.msk.region': 'region',
         'sasl.mechanism': 'OAUTHBEARER',
     }
-    result = runtime.runtime_producer_options(options)
-    assert result == {'sasl.mechanism': 'OAUTHBEARER', 'oauth_cb': callback}
+    result = runtime.runtime_producer_options(options, spark=spark)
+    service.getServiceCredentialsProvider.assert_not_called()
+    build.assert_not_called()
+    assert result['oauth_cb'](None) == ('token1', 2000000000.0)
+    assert result['oauth_cb'](None) == ('token2', 2000000900.0)
+    assert first.call_count == 2
+    assert spark.range.call_count == 2
+    functions.udf.return_value.asNondeterministic.assert_called_once()
     assert 'ktd.msk.credential' in options
+    assert 'ktd.msk.credential' not in result
+    assert 'ktd.msk.region' not in result
+    runtime.get_dbutils.assert_not_called()
+    service.getServiceCredentialsProvider.assert_not_called()
+
+    # 별도로 직렬화한 UDF 본체만 provider를 호출한다.
+    mint = functions.udf.call_args.args[0]
+    assert inspect.getclosurevars(mint).nonlocals == {
+        'credential': 'writer', 'region': 'region',
+    }
+    assert cloudpickle.loads(cloudpickle.dumps(mint))() == (
+        'udf-token', 2000000000.0,
+    )
     service.getServiceCredentialsProvider.assert_called_once_with('writer')
     build.assert_called_once_with(
         service.getServiceCredentialsProvider.return_value, 'region',
     )
-    service.getServiceCredentialsProvider.side_effect = RuntimeError('private')
-    with pytest.raises(runtime.RuntimeConfigError) as error:
-        runtime.runtime_producer_options(options)
-    assert 'private' not in str(error.value)
+
+
+@pytest.mark.parametrize('response', [
+    RuntimeError('private-token'),
+    SimpleNamespace(oauth=SimpleNamespace(token='', expiry=2000000000.0)),
+    SimpleNamespace(oauth=SimpleNamespace(token='private-token', expiry=1.0)),
+    SimpleNamespace(oauth=SimpleNamespace(
+        token='private-token', expiry=float('nan'),
+    )),
+])
+def test_worker_token_failure_is_safe(monkeypatch, response):
+    import traceback
+
+    functions = ModuleType('pyspark.sql.functions')
+    functions.udf = Mock()
+    monkeypatch.setitem(sys.modules, functions.__name__, functions)
+    spark = Mock()
+    first = spark.range.return_value.select.return_value.first
+    if isinstance(response, Exception):
+        first.side_effect = response
+    else:
+        first.return_value = response
+    result = runtime.runtime_producer_options({
+        'ktd.msk.credential': 'writer', 'ktd.msk.region': 'region',
+    }, spark=spark)
+    with pytest.raises(runtime.RuntimeConfigError) as caught:
+        result['oauth_cb'](None)
+    assert 'stage=scalar_udf' in str(caught.value)
+    rendered = ''.join(traceback.format_exception(caught.value))
+    assert 'private-token' not in rendered
+
+
+def test_worker_preserves_safe_udf_diagnostic(monkeypatch):
+    functions = ModuleType('pyspark.sql.functions')
+    functions.udf = Mock()
+    monkeypatch.setitem(sys.modules, functions.__name__, functions)
+    safe = (
+        'MSK worker credential setup failed '
+        '[stage=token_signing; type=RuntimeConfigError; '
+        'reason=unclassified_error_message_redacted]'
+    )
+    spark = Mock()
+    spark.range.return_value.select.return_value.first.side_effect = (
+        RuntimeError(f'private-token {safe} private-token')
+    )
+    options = runtime.runtime_producer_options({
+        'ktd.msk.credential': 'writer', 'ktd.msk.region': 'region',
+    }, spark=spark)
+    with pytest.raises(runtime.RuntimeConfigError) as caught:
+        options['oauth_cb'](None)
+    assert str(caught.value) == safe
+
+
+def test_worker_options_without_iam_do_not_require_spark():
+    options = {'bootstrap.servers': 'localhost:9092'}
+    assert runtime.runtime_producer_options(options) == options
+
+
+def test_worker_iam_requires_batch_session():
+    with pytest.raises(runtime.RuntimeConfigError, match='batch SparkSession'):
+        runtime.runtime_producer_options({'ktd.msk.credential': 'writer'})
 
 
 @pytest.mark.parametrize('stage,exception,reason', [
@@ -402,9 +498,7 @@ def test_worker_setup_diagnostic_is_secret_safe(
         build.side_effect = exception
 
     with pytest.raises(runtime.RuntimeConfigError) as caught:
-        runtime.runtime_producer_options({
-            'ktd.msk.credential': 'writer', 'ktd.msk.region': 'region',
-        })
+        runtime._mint_msk_token('writer', 'region')
     assert str(caught.value) == (
         'MSK worker credential setup failed '
         f'[stage={stage}; type={type(exception).__name__}; reason={reason}]'

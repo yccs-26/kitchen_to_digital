@@ -2,7 +2,10 @@
 
 from dataclasses import dataclass, field
 import json
+import math
 from pathlib import Path
+import re
+import time
 from urllib.parse import urlsplit
 
 from streaming.jobs.raw_ingestion import IngestionConfig, kafka_source_options
@@ -147,36 +150,83 @@ def _msk_callback_from_session(session, region):
     return oauth_callback
 
 
-def runtime_producer_options(options):
-    """해석된 설정으로 worker 인증을 생성하며 cloned SparkSession을 쓰지 않는다."""
+def _mint_msk_token(credential, region):
+    """scalar UDF 안에서만 service credential을 읽고 단기 토큰을 발급한다."""
+    stage = 'service_credentials_import'
+    try:
+        from databricks.service_credentials import (
+            getServiceCredentialsProvider,
+        )
+
+        stage = 'service_credentials_provider'
+        session = getServiceCredentialsProvider(credential)
+        stage = 'oauth_callback_setup'
+        callback = _msk_callback_from_session(session, region)
+        stage = 'token_signing'
+        return callback(None)
+    except Exception as error:
+        # 원문에는 credential/token이 섞일 수 있어 허용된 원인만 전달한다.
+        reason = 'unclassified_error_message_redacted'
+        if isinstance(error, ImportError):
+            reason = 'dependency_import_failed'
+        elif 'can only be called in a Python UDF' in str(error):
+            reason = 'python_udf_context_required'
+        elif isinstance(error, PermissionError):
+            reason = 'permission_denied'
+        raise RuntimeConfigError(
+            'MSK worker credential setup failed '
+            f'[stage={stage}; type={type(error).__name__}; '
+            f'reason={reason}]',
+        ) from None
+
+
+def runtime_producer_options(options, *, spark=None):
+    """배치의 OAuth 갱신 요청을 지원되는 scalar UDF 실행 위치로 전달한다."""
     options = dict(options)
     credential = options.pop('ktd.msk.credential', None)
     region = options.pop('ktd.msk.region', None)
-    if credential is not None:
-        stage = 'service_credentials_import'
-        try:
-            from databricks.service_credentials import (
-                getServiceCredentialsProvider,
-            )
+    if credential is None:
+        return options
+    if spark is None:
+        raise RuntimeConfigError('MSK authentication requires batch SparkSession')
 
-            stage = 'service_credentials_provider'
-            session = getServiceCredentialsProvider(credential)
-            stage = 'oauth_callback_setup'
-            options['oauth_cb'] = _msk_callback_from_session(session, region)
+    from pyspark.sql.functions import udf
+
+    def mint():
+        # UDF에는 이름과 region만 전달하고 session/credential은 전달하지 않는다.
+        from streaming.jobs.runtime_config import _mint_msk_token
+
+        return _mint_msk_token(credential, region)
+
+    mint_udf = udf(mint, 'struct<token:string,expiry:double>').asNondeterministic()
+
+    def oauth_callback(_config):
+        try:
+            # 매 갱신마다 새 action을 실행한다. 토큰을 저장하거나 출력하지 않는다.
+            row = spark.range(1).select(mint_udf().alias('oauth')).first().oauth
+            token, expiry = row.token, row.expiry
+            if (not isinstance(token, str) or not token
+                    or not isinstance(expiry, (int, float))
+                    or not math.isfinite(expiry) or expiry <= time.time()):
+                raise ValueError('Invalid token response')
+            return token, float(expiry)
         except Exception as error:
-            # 원문에는 credential/token이 섞일 수 있어 허용된 원인만 전달한다.
-            reason = 'unclassified_error_message_redacted'
-            if isinstance(error, ImportError):
-                reason = 'dependency_import_failed'
-            elif 'can only be called in a Python UDF' in str(error):
-                reason = 'python_udf_context_required'
-            elif isinstance(error, PermissionError):
-                reason = 'permission_denied'
+            # Spark가 감싼 UDF 진단은 허용된 필드만 복구한다.
+            safe = re.search(
+                r'MSK worker credential setup failed '
+                r'\[stage=(service_credentials_import|'
+                r'service_credentials_provider|oauth_callback_setup|'
+                r'token_signing); type=[A-Za-z_][A-Za-z0-9_]*; '
+                r'reason=(dependency_import_failed|python_udf_context_required|'
+                r'permission_denied|unclassified_error_message_redacted)\]',
+                str(error),
+            )
             raise RuntimeConfigError(
-                'MSK worker credential setup failed '
-                f'[stage={stage}; type={type(error).__name__}; '
-                f'reason={reason}]',
+                safe.group(0) if safe else 'MSK token retrieval failed '
+                f'[stage=scalar_udf; type={type(error).__name__}]',
             ) from None
+
+    options['oauth_cb'] = oauth_callback
     return options
 
 

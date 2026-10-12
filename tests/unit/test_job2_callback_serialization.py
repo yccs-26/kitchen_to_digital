@@ -98,9 +98,9 @@ runtime.get_dbutils = Mock(side_effect=AssertionError('DBUtils forbidden'))
 service = ModuleType('databricks.service_credentials')
 service.getServiceCredentialsProvider = Mock()
 sys.modules[service.__name__] = service
-runtime._msk_callback_from_session = Mock(
-    return_value=lambda _: ('token', 9999),
-)
+functions = ModuleType('pyspark.sql.functions')
+functions.udf = Mock()
+sys.modules[functions.__name__] = functions
 job.SchemaRegistryClient = Mock(return_value=MagicMock())
 job.AvroSerializer = Mock()
 job.Producer = Mock()
@@ -110,6 +110,7 @@ assert handler(SimpleNamespace(sparkSession=Mock()), 8) == 'clients-created'
 assert job.Producer.call_count == 2
 assert 'ktd.msk.credential' not in job.Producer.call_args.args[0]
 runtime.get_dbutils.assert_not_called()
+service.getServiceCredentialsProvider.assert_not_called()
 print('roundtrip-OK')
 '''
     result = subprocess.run(
