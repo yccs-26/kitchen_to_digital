@@ -54,8 +54,30 @@ def check_kafka_metadata(path, spark):
         # 진단 전용으로 native broker/auth 원문 로그를 차단한다.
         options['log_level'] = 0
         producer = Producer(options)
-        producer.list_topics(timeout=10)
-        return {'metadata_lookup': 'succeeded'}
+        topic = settings.job.validated_topic
+        metadata = producer.list_topics(topic=topic, timeout=10)
+        detail = metadata.topics.get(topic)
+        error = detail.error if detail is not None else None
+        code = error.code() if error is not None else None
+        # 권한/연결 오류나 응답 누락만으로 topic 부재를 단정하지 않는다.
+        exists = None
+        if detail is not None and error is None:
+            exists = True
+        elif code == KafkaError.UNKNOWN_TOPIC_OR_PART:
+            exists = False
+        return {
+            'metadata_lookup': (
+                'succeeded' if detail is not None and error is None else 'failed'
+            ),
+            'topic': topic, 'topic_exists': exists,
+            'topic_error_code': code,
+            'topic_error_name': KafkaError(code).name() if code is not None else None,
+            'partition_count': len(detail.partitions) if detail is not None else None,
+            'partitions': [
+                {'partition_id': part.id, 'leader_id': part.leader}
+                for _, part in sorted(detail.partitions.items())
+            ] if detail is not None else [],
+        }
     except Exception as error:
         result = {
             'metadata_lookup': 'failed',

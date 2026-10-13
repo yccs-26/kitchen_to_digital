@@ -205,9 +205,11 @@ def test_metadata_diagnostic_reuses_auth_without_publishing(
     monkeypatch, capsys, failure_stage,
 ):
     import confluent_kafka
+    from types import SimpleNamespace
 
     private = 'private-key private-secret private-session private-oauth'
     settings = Mock()
+    settings.job.validated_topic = 'kitchen.sensor.validated'
     source_options = {'bootstrap.servers': 'unused', 'ktd.msk.credential': 'test'}
     settings.kafka.producer_options.return_value = source_options
     resolved = {'bootstrap.servers': 'unused', 'oauth_cb': Mock()}
@@ -217,6 +219,12 @@ def test_metadata_diagnostic_reuses_auth_without_publishing(
     utility = Mock()
     monkeypatch.setattr(runtime, 'get_dbutils', Mock(return_value=utility))
     producer = Mock()
+    producer.list_topics.return_value.topics = {
+        'kitchen.sensor.validated': SimpleNamespace(error=None, partitions={
+            1: SimpleNamespace(id=1, leader=7),
+            0: SimpleNamespace(id=0, leader=-1),
+        }),
+    }
     factory = Mock(return_value=producer)
     monkeypatch.setattr(confluent_kafka, 'Producer', factory)
     error = confluent_kafka.KafkaException(confluent_kafka.KafkaError(
@@ -239,7 +247,13 @@ def test_metadata_diagnostic_reuses_auth_without_publishing(
     producer.produce.assert_not_called()
     producer.flush.assert_not_called()
     if failure_stage is None:
-        assert result == {'metadata_lookup': 'succeeded'}
+        assert result == {
+            'metadata_lookup': 'succeeded', 'topic': 'kitchen.sensor.validated',
+            'topic_exists': True, 'topic_error_code': None,
+            'topic_error_name': None, 'partition_count': 2,
+            'partitions': [{'partition_id': 0, 'leader_id': -1},
+                           {'partition_id': 1, 'leader_id': 7}],
+        }
     else:
         assert result['metadata_lookup'] == 'failed'
         assert result['error_type'] == (
@@ -249,7 +263,9 @@ def test_metadata_diagnostic_reuses_auth_without_publishing(
             assert result['code'] == confluent_kafka.KafkaError._TRANSPORT
             assert result['name'] == '_TRANSPORT'
     if failure_stage not in ('setup', 'producer'):
-        producer.list_topics.assert_called_once_with(timeout=10)
+        producer.list_topics.assert_called_once_with(
+            topic='kitchen.sensor.validated', timeout=10,
+        )
     if failure_stage != 'setup':
         assert factory.call_args.args[0]['oauth_cb'] is resolved['oauth_cb']
         assert factory.call_args.args[0]['log_level'] == 0
@@ -464,3 +480,37 @@ def test_produce_diagnostics_strip_native_secrets_and_addresses():
     diagnostic.stats_cb(private)
     assert diagnostic.events[-1]['stage'] == 'statistics_unavailable'
     assert private not in json.dumps(diagnostic.events)
+
+
+@pytest.mark.parametrize('kind,exists', [
+    ('missing_response', None), ('UNKNOWN_TOPIC_OR_PART', False),
+    ('TOPIC_AUTHORIZATION_FAILED', None),
+])
+def test_topic_metadata_errors_are_safe(monkeypatch, kind, exists):
+    from types import SimpleNamespace
+    import confluent_kafka
+
+    settings = Mock()
+    settings.job.validated_topic = 'kitchen.sensor.validated'
+    monkeypatch.setattr(runtime, 'load_runtime_config', Mock(return_value=settings))
+    monkeypatch.setattr(runtime, 'get_dbutils', Mock())
+    monkeypatch.setattr(runtime, 'runtime_producer_options', Mock(return_value={}))
+    producer = Mock()
+    monkeypatch.setattr(confluent_kafka, 'Producer', Mock(return_value=producer))
+    code = None if kind == 'missing_response' else getattr(confluent_kafka.KafkaError, kind)
+    producer.list_topics.return_value.topics = {} if code is None else {
+        'kitchen.sensor.validated': SimpleNamespace(
+            error=confluent_kafka.KafkaError(code, 'private-token private-secret'),
+            partitions={},
+        ),
+    }
+    result = launcher.check_kafka_metadata('unused.json', Mock())
+    assert result['metadata_lookup'] == 'failed'
+    assert result['topic_exists'] is exists
+    assert result['topic_error_code'] == code
+    assert result['topic_error_name'] == (kind if code is not None else None)
+    assert result['partition_count'] == (0 if code is not None else None)
+    assert result['partitions'] == []
+    assert 'private' not in json.dumps(result)
+    producer.produce.assert_not_called()
+    producer.flush.assert_not_called()
