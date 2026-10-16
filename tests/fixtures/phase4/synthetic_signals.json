@@ -1,0 +1,19 @@
+{
+  "provenance": "synthetic_test_only",
+  "description": "독립적인 신호 형태 예시이며 실제 입력 또는 전이 시나리오가 아니다.",
+  "context": {
+    "event_time": "2026-10-16T09:00:00+09:00",
+    "store_id": "synthetic-store",
+    "equipment_id": "synthetic-reference-burner",
+    "source": "synthetic-controller"
+  },
+  "cases": [
+    {"signal_id": "mode-idle", "kind": "mode", "mode": "IDLE"},
+    {"signal_id": "mode-preheat", "kind": "mode", "mode": "PREHEATING"},
+    {"signal_id": "mode-cook", "kind": "mode", "mode": "COOKING"},
+    {"signal_id": "cleaning-on", "kind": "cleaning", "active": true},
+    {"signal_id": "cleaning-off", "kind": "cleaning", "active": false},
+    {"signal_id": "fault-on", "kind": "fault", "code": "SYNTHETIC_E1", "active": true},
+    {"signal_id": "fault-off", "kind": "fault", "code": "SYNTHETIC_E1", "active": false}
+  ]
+}
