@@ -1,0 +1,11 @@
+[
+  {"type": "refrigerator", "metric": "temperature_celsius", "unit": "celsius", "valid": true},
+  {"type": "freezer", "metric": "temperature_celsius", "unit": "celsius", "valid": true},
+  {"type": "fryer", "metric": "oil_temperature_celsius", "unit": "celsius", "valid": true},
+  {"type": "hood", "metric": "fan_rpm", "unit": "rpm", "valid": true},
+  {"type": "refrigerator", "metric": "temperature_celsius", "unit": "fahrenheit", "valid": false},
+  {"type": "hood", "metric": "fan_rpm", "unit": "celsius", "valid": false},
+  {"type": "hood", "metric": "temperature_celsius", "unit": "celsius", "valid": false},
+  {"type": "unknown", "metric": "fan_rpm", "unit": "rpm", "valid": false},
+  {"type": "refrigerator", "metric": "temperature", "unit": "celsius", "valid": false}
+]
