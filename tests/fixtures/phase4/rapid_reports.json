@@ -1,0 +1,27 @@
+{
+  "provenance": "synthetic_test_only",
+  "description": "수십 ms 간격 명시적 보고의 반복·금지·중복·역순. Hysteresis 검증용 수치 신호가 아니다.",
+  "store_id": "synthetic-store",
+  "equipment_id": "synthetic-reference-burner",
+  "source": "synthetic-controller",
+  "reference_time": "2026-10-17T00:00:01Z",
+  "initial_state": "IDLE",
+  "steps": [
+    {"signal_id": "rapid-1", "event_time": "2026-10-17T00:00:00.010Z", "kind": "mode", "mode": "COOKING", "decision": "FORBIDDEN", "state": "IDLE"},
+    {"signal_id": "rapid-2", "event_time": "2026-10-17T00:00:00.020Z", "kind": "mode", "mode": "PREHEATING", "decision": "TRANSITION", "state": "PREHEATING"},
+    {"signal_id": "rapid-3", "event_time": "2026-10-17T00:00:00.030Z", "kind": "mode", "mode": "PREHEATING", "decision": "NO_CHANGE", "state": "PREHEATING"},
+    {"signal_id": "rapid-1", "event_time": "2026-10-17T00:00:00.010Z", "kind": "mode", "mode": "COOKING", "decision": "DUPLICATE", "state": "PREHEATING"},
+    {"signal_id": "rapid-4", "event_time": "2026-10-17T00:00:00.040Z", "kind": "mode", "mode": "COOKING", "decision": "TRANSITION", "state": "COOKING"},
+    {"signal_id": "rapid-5", "event_time": "2026-10-17T00:00:00.050Z", "kind": "mode", "mode": "PREHEATING", "decision": "FORBIDDEN", "state": "COOKING"},
+    {"signal_id": "rapid-6", "event_time": "2026-10-17T00:00:00.060Z", "kind": "mode", "mode": "COOKING", "decision": "NO_CHANGE", "state": "COOKING"},
+    {"signal_id": "rapid-4", "event_time": "2026-10-17T00:00:00.040Z", "kind": "mode", "mode": "COOKING", "decision": "DUPLICATE", "state": "COOKING"},
+    {"signal_id": "rapid-7", "event_time": "2026-10-17T00:00:00.070Z", "kind": "cleaning", "active": true, "decision": "TRANSITION", "state": "CLEANING"},
+    {"signal_id": "rapid-8", "event_time": "2026-10-17T00:00:00.080Z", "kind": "cleaning", "active": false, "decision": "NO_CHANGE", "state": "CLEANING"},
+    {"signal_id": "rapid-9", "event_time": "2026-10-17T00:00:00.090Z", "kind": "mode", "mode": "IDLE", "decision": "FORBIDDEN", "state": "CLEANING"},
+    {"signal_id": "rapid-10", "event_time": "2026-10-17T00:00:00.100Z", "kind": "cleaning_completed", "decision": "TRANSITION", "state": "IDLE"},
+    {"signal_id": "rapid-11", "event_time": "2026-10-17T00:00:00.110Z", "kind": "mode", "mode": "PREHEATING", "decision": "TRANSITION", "state": "PREHEATING"},
+    {"signal_id": "rapid-12", "event_time": "2026-10-17T00:00:00.120Z", "kind": "mode", "mode": "COOKING", "decision": "TRANSITION", "state": "COOKING"},
+    {"signal_id": "rapid-13", "event_time": "2026-10-17T00:00:00.120Z", "kind": "cleaning", "active": true, "decision": "SAME_TIME", "state": "COOKING"},
+    {"signal_id": "rapid-14", "event_time": "2026-10-17T00:00:00.025Z", "kind": "mode", "mode": "IDLE", "decision": "OUT_OF_ORDER", "state": "COOKING"}
+  ]
+}

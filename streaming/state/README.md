@@ -92,3 +92,109 @@ reference_time이나 Python hash/random은 ID 재료에 넣지 않는다.
 증가한다. 보존/TTL, checkpoint 복원·정책 migration, 실시간 서비스 적합성은
 미검증이다. YAML은 읽기 I/O와 미사용 설정을 피하려고 이번 단위에 만들지 않았고
 정책은 코드의 버전 상수·전이표에 고정했다. 실제 운영 설정은 후속 과제다.
+
+## P4-2 — 순서 제어와 Hysteresis 적용 범위
+
+P4-1의 `synthetic-reference-v1`과 전이 함수는 유지한다. 새 테스트의
+`rapid_reports.json`은 10 ms 간격 반복 후보·중복·금지 복귀·동시각·늦은 보고를
+포함한다. 이는 수치 threshold 주변 노이즈 fixture가 아니며 물리적 장비의
+전이 속도를 검증한 것도 아니다.
+
+### 현재 순서 제어를 해석할 때의 경계
+
+| 조건 | 판정·snapshot 변화 |
+|---|---|
+| 다른 매장/장비 | IDENTITY_MISMATCH, 그대로 유지 |
+| 저장된 ID와 같은 전체 신호 | DUPLICATE, 재출력·cursor 갱신 없음 |
+| 저장된 ID와 다른 내용 | ID_CONFLICT, canonical 원문 유지 |
+| 새 ID이며 기준 시각이 cursor보다 과거 | REFERENCE_REVERSED, 유지 |
+| 새 ID이며 사건 시각이 기준 시각보다 미래 | FUTURE_EVENT, 유지; 이후 재시도 가능 |
+| 새 ID이며 사건 시각이 cursor보다 과거 | OUT_OF_ORDER, 유지 |
+| 새 ID이며 사건 시각이 cursor와 동일 | SAME_TIME, 유지 |
+| 위 검사를 통과한 보고 | 전이 여부와 무관하게 cursor·원장 갱신 |
+
+여기서 cursor는 `last_event_time`이다. DUPLICATE/ID_CONFLICT는 시각 검사보다
+먼저 판정된다. 과거 ID replay는 OUT_OF_ORDER가 아닌 DUPLICATE이며,
+금지/no-op/HEALTH_DEFERRED 보고도 이후 신호의 순서 경계가 된다.
+이 cursor는 마지막 operational 전이 시각이나 건강한 관측의 last_seen과 다르다.
+reference_time 자체를 단조 증가시키는 guard는 아직 없다. 이전 호출의 기준
+시각보다 작아져도 마지막 소비 사건 시각 이상이면 허용될 수 있다.
+
+동시각 distinct ID는 최초 소비가 금지/no-op여도 다음 신호를 막는다.
+따라서 입력 도착 순서를 바꾸면 다른 결과가 나올 수 있다. 현재 보장은
+**같은 순서의 입력 재실행 결정성**이다. sequence 없는 신호를 임의 정렬하거나
+동시각 충돌을 버퍼링하여 재해석하지 않는다. 이런 입력은 caller가 판정 이유를
+관측할 수 있지만 외부 보관·history correction은 아직 없다.
+
+### 명시적 mode에는 Hysteresis를 추가하지 않는다
+
+`ModeSignal`은 threshold 비교 결과가 아니라 제어기가 확정했다고 가정한
+관측 보고다. 이 FSM에서 임의의 대기시간이나 재확인 횟수를 더하면 보고의
+의미와 적용 시각이 달라진다. 같은 모드의 새 ID는 NO_CHANGE, 같은 ID는
+DUPLICATE이며 되돌리기/건너뛰기는 FORBIDDEN으로 처리한다.
+
+PREHEATING 직후 COOKING처럼 허용된 보고는 간격이 짧아도 즉시 적용한다.
+합법적인 전체 순환의 빠른 반복도 억제하지 않는다. 이 동작은 수치 노이즈
+제거 또는 debounce 보장이 아니다. 실제 제어기의 mode가 이미 안정화된
+보고인지 통합 시 확인해야 하며, 그렇지 않다면 별도 명시적 debounce 정책과
+버전 변경을 검토한다. 청소 완료와 fault 신호를 묵시적으로 지연/추정하지 않는다.
+
+### 수치 기반 파생 상태의 별도 Hysteresis 정책 — 정의만, 미구현
+
+향후 numeric qualifier는 기존 explicit FSM과 분리된 순수 계산 단계로 둔다.
+예를 들어 독립적인 LOW/HIGH 온도 구간 판정이며, HIGH가 COOKING 또는 FAULT를
+의미하지 않는다. operational state에 매핑하려면 장비별 의미·허용 전이를
+별도 결정한다. 온도만으로 CLEANING/FAULT를 만들 수 없다.
+
+장비·metric·unit·정책 버전별로 아래 값을 명시적으로 제공해야 한다.
+임계값과 시간의 실제 숫자는 현재 센서 근거가 없어 미정이다.
+
+| 정책 | 요구 |
+|---|---|
+| `enter_threshold`, `exit_threshold` | finite 수치, `enter > exit`, 입력과 같은 unit |
+| `enter_duration`, `exit_duration` | 각 방향의 양수 지속시간 |
+| `max_sample_gap` | 양수 최대 관측 간격; 샘플링 특성에 맞게 결정 |
+| qualifier snapshot | 확정 구간, 후보 방향·시작 시각, 마지막 유효 관측, dedup 근거 |
+
+고온 방향 reference 판정은 다음과 같이 정의한다.
+
+1. LOW에서 `value >= enter_threshold`이면 HIGH 후보를 시작/유지한다.
+   시간순의 새 유효 샘플에서 `event_time - candidate_since >= enter_duration`
+   이고 연속 관측 조건을 만족해야 HIGH로 확정한다.
+2. HIGH에서 `value <= exit_threshold`이면 LOW 후보를 시작/유지한다.
+   LOW 확정도 동일하게 `exit_duration`을 충족해야 한다.
+3. 각 방향의 조건이 깨지면 해당 후보를 취소한다. 두 임계값 사이에서는
+   확정 구간을 유지하되 진행 중 후보는 취소한다. 이로써 경계 주변 반복이
+   확정 구간을 왕복시키지 않는다. 반대 후보가 새로 시작하면 시작 시각도 새로 잡는다.
+4. 연속성은 각 유효 샘플 간격 `<= max_sample_gap`으로 제한한다.
+   초과 공백·잘못된 수치/단위는 후보를 끊는다. 공백 뒤 첫 적합 샘플에서
+   후보를 다시 시작한다. 이 간격 내 조건 유지 가정은 관측 정책이지
+   실제 물리적 연속 상태를 증명한 것은 아니다.
+5. 중복·충돌·동시각·역순·미래 샘플은 근거를 추가하지 않는다.
+   새 후보·지속시간·last_seen을 전진시키거나 취소하지 않으며 current를
+   과거로 되돌리지 않는다. 시각이 지난 사실만으로 원래 후보를 확정하지 않는다.
+6. 새 사건 없이 timer/reference_time만 흘러도 HIGH/LOW로 승격하지 않는다.
+   관측 공백은 별도 Health freshness 계산으로 넘기며 qualifier의 확정 구간을
+   자동 정상화하지 않는다. 숫자에서 파생한 후보의 출력 identity는 센서 event_id를
+   보존하는 별도 계약이 필요하며 synthetic signal_id로 몰래 대체하지 않는다.
+
+이 정책의 qualifier 함수·설정·numeric fixture/테스트는 이번에 추가하지 않았다.
+따라서 Hysteresis **설계 범위 정의 완료**와 **수치 판정 구현·검증 미완료**를
+구분한다. 장비별 숫자를 추정해서 YAML에 채우지 않는다.
+
+### 다음 Health/timer 단위로 넘길 결정
+
+- operational cursor를 Health의 last_seen으로 재사용하지 않는다. health snapshot에
+  관측 freshness와 active fault 집합을 별도 보관한다. 이번에는 데이터 모델을 바꾸지 않는다.
+- freshness의 기준은 승인 source의 새 유효 관측 사건 시각이며 reference_time은
+  호출자가 주는 평가 시각으로 분리하는 안을 사용한다. 중복·충돌·금지 보고·
+  미래/역순/동시각 거부를 단순 수신했다는 이유로 freshness를 연장하지 않는다.
+  어떤 payload가 유효 관측으로 인정되는지는 실제 source 계약에서 확정해야 한다.
+- 다음 단위에서 평가 시각의 단조성, `now >= last_seen + timeout`의 경계,
+  관측 갱신과 이전 timer의 경합을 테스트한다. timer에는 관측 세대/기준 시각을
+  연결해 새 관측 뒤 도착한 이전 timer가 current를 덮지 않게 한다.
+- fault 코드별 발생/해제와 freshness를 독립 보존한다. 표시 우선순위 후보는
+  FAULT > STALE > HEALTHY이나 실제 FAULT 집합·초기 unknown·복귀 규칙을
+  구현 전 확정한다. 단일 코드 해제를 전체 HEALTHY로 바꾸지 않는다.
+- timeout 숫자, fault source 권한, 실제 샘플링 간격은 미정이다. 이번 P4-2는
+  Health/timer 구현·검증이나 실제 신호/E2E 완료를 뜻하지 않는다.
