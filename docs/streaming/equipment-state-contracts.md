@@ -4,10 +4,10 @@
 `9c3dabbd1340d3324267d6624a803012482b1ac5`,
 브랜치 `feat/phase-4-twin-state`. 시작 작업 트리는 clean이었다.
 
-상태: **장비별 계약 설계 + 순수 Registry/Reference adapter + 독립 Hood RPM qualifier**.
-현재 구현은 P4-1/P4-2의 synthetic 조리 Reference, 장비/profile 선택 계층과
-아래 8절의 순수 Hood 계산이다. 다른 장비 정책과 Hood Registry handler는 미구현이다. 실제 장비 제어기 사양도
-제공되지 않았으므로 장비별 후보 상태를 실제 하드웨어 지원 사실로 해석하지 않는다.
+상태: **장비별 계약 설계 + Fryer/Hood Registry adapter + Hood RPM qualifier**.
+현재 구현은 synthetic 조리 Reference와 Hood RPM 계산을 연결한 순수 Registry다.
+Hood qualifier는 8절, Registry 연결은 9절을 따른다. 냉장·냉동고/세척기 정책은
+미구현이다. 실제 장비 제어기 사양이 제공되지 않았으므로 장비별 후보 상태를 실제 하드웨어 지원 사실로 해석하지 않는다.
 
 ## 1. 직접 확인한 근거
 
@@ -244,8 +244,8 @@ numeric loop에 포함하는 변경은 금지한다. Registry 등록·metric all
 ## 6. 권장 FSM Registry 구조
 
 기존 `transition()`을 generic 엔진으로 재작성하지 않는다. type별 정책 선택을
-그 앞의 얇은 adapter/registry에서 수행한다. 이번에 선택 계층과 Fryer Reference
-adapter만 구현했으며 numeric qualifier·다른 장비 handler는 미구현이다.
+그 앞의 얇은 adapter/registry에서 수행한다. 현재 Fryer Reference와 Hood RPM
+adapter가 구현되어 있다. 냉장·냉동고와 세척기 handler는 미구현이다.
 
 | 계층 | 계약·책임 |
 |---|---|
@@ -267,7 +267,7 @@ fallback하지 않는다. 실제 오류 코드와 API는 아래 Registry 구현 
 | fryer / explicit-cooking-reference-v1 | synthetic binding 주입 시 adapter 실행 가능 | 실제 controller 연결·source 검증은 미구현 |
 | refrigerator / cooling-controller-v1 | profile 등록, handler 없음 | 승인 mode 입력 확보 |
 | freezer / cooling-controller-v1 | profile 등록, handler 없음 | freezer별 승인 mode·지원 기능 확인 |
-| hood / rpm-observation-v1 | profile 등록, handler 없음 | threshold/dwell·기동/정지 fixture와 qualifier 검증 |
+| hood / rpm-observation-v1 | numeric binding 주입 시 adapter 실행 가능 | HoodSnapshot의 명시적 정책; 실제 센서 연결은 미구현 |
 | dishwasher / wash-cycle-v1 | profile 등록, handler 없음 | typed phase·cycle identity·명시적 완료 입력 확보 |
 
 synthetic reference는 새 실제 equipment_type을 Avro에 등록하자는 뜻이 아니다.
@@ -375,10 +375,10 @@ Fryer adapter는 후자에서만 실행한다. 이는 synthetic_test_only 신호
 `equipment_type`으로 받아 binding과 비교한다. 이는 외부 wire에 필드를 추가한
 변경이 아니다. 향후 신호 adapter가 이 metadata의 신뢰 근거를 마련해야 한다.
 
-`ProfileSnapshot(profile, state)`는 원본 Reference의 TwinState와 profile을 묶는다.
-현재 State 타입은 조리 Reference 전용이다. 다른 장비 상태를 현재 enum으로
-표현하거나 Health/초기 unknown을 구현하지 않는다. 기존 초기 상태는 호출자가
-명시한다. 다른 version의 snapshot은 binding과 불일치하여 거부한다.
+`ProfileSnapshot(profile, state)`는 TwinState 또는 HoodSnapshot 원문과 profile을
+묶는다. 장비별 enum·결과를 강제로 통합하지 않는다. 기존 Fryer 초기 상태와 Hood
+정책은 호출자가 명시한다. Hood는 current=None에서 초기화할 수 있다. 다른 version의
+snapshot은 binding과 불일치하여 거부한다. Health 계산은 추가하지 않는다.
 
 ```python
 # initial_state, synthetic_signal, reference_time은 호출자가 제공한다.
@@ -402,7 +402,7 @@ original_fsm_result = result.fsm
 
 | 검사 순서·상황 | 코드 |
 |---|---|
-| evaluate의 event가 SyntheticSignal이 아님 | UNSUPPORTED_INPUT |
+| evaluate의 event가 SyntheticSignal/HoodRpmEvent가 아님 | UNSUPPORTED_INPUT |
 | equipment_id가 binding 목록에 없음 | UNKNOWN_EQUIPMENT |
 | 등록 ID의 store_id 불일치 | STORE_MISMATCH |
 | 입력 equipment_type과 binding type 불일치 | EQUIPMENT_TYPE_MISMATCH |
@@ -410,15 +410,18 @@ original_fsm_result = result.fsm
 | binding과 요청은 일치하나 catalog에 key 없음 | PROFILE_NOT_FOUND |
 | catalog에 profile은 있으나 handler=None | HANDLER_NOT_IMPLEMENTED |
 | 선택 handler가 요구하는 InputKind와 binding 불일치 | INPUT_CONTRACT_UNAVAILABLE |
+| numeric payload type과 요청 type 불일치 | EQUIPMENT_TYPE_MISMATCH |
+| 선택 handler의 입력 allowlist 불일치 | UNSUPPORTED_INPUT |
+| 선택 handler의 snapshot 타입 불일치 | SNAPSHOT_TYPE_MISMATCH |
 | snapshot의 store/equipment identity와 입력 불일치 | SNAPSHOT_IDENTITY_MISMATCH |
 
 선택 전에 잘못된 Python 타입·빈 식별자 같은 API 사용 오류는 TypeError 또는
 ValueError로 거부한다. 구성 시 중복 device ID는 DUPLICATE_BINDING, 중복
 profile key는 DUPLICATE_PROFILE이다. ProfileSpec의 handler가 선언한 key와
-등록 key가 다르면 HANDLER_PROFILE_MISMATCH로 거부한다. 이 단위에는
-FryerReferenceAdapter 외 handler 타입을 등록할 수 없다.
+등록 key가 다르면 HANDLER_PROFILE_MISMATCH로 거부한다. 허용 handler는
+FryerReferenceAdapter와 HoodRpmAdapter 두 concrete 타입으로 제한한다.
 
-`build_registry()`는 fryer handler 하나와 refrigerator/freezer/hood/dishwasher의
+`build_registry()`는 Fryer/Hood handler와 refrigerator/freezer/dishwasher의
 handler=None 항목을 만든다. 알려진 profile 미구현과 미등록 profile을 구별하고
 다른 profile/version·다른 장비의 handler로 fallback하지 않는다. 실제 registry에
 없는 dishwasher를 자동 장비 등록하지도 않는다. 필요하면 resolve()만 호출해
@@ -432,7 +435,8 @@ FryerReferenceAdapter는 기존 transition에 같은 previous/event/reference_ti
 교체하지 않는다. 다른 profile handler가 생길 때 ID와 snapshot migration은
 별도로 설계해야 한다.
 
-RegistryResult는 다음 ProfileSnapshot과 원래 FsmResult를 함께 반환한다.
+RegistryResult는 다음 ProfileSnapshot과 원래 FsmResult 또는 HoodResult를
+기존 `.fsm` 속성으로 반환한다.
 같은 snapshot/입력/유효 기준 시각에서 재계산하면 동일 전이 ID이며, 이미 갱신한
 snapshot에 replay하면 원래 FSM대로 DUPLICATE·빈 의도다. 순수 계산의 결정성만
 검증했고 snapshot 영속 복원·sink 전달 복구·exactly-once 증거는 아니다.
@@ -441,10 +445,8 @@ snapshot에 replay하면 원래 FSM대로 DUPLICATE·빈 의도다. 순수 계�
 `916 passed, 10 deselected, 1 warning`. 명령과 실행 시간은 검증 보고서의
 Registry 구현 절에 기록했다. Avro·Simulator·기존 FSM·Phase 2/3는 변경하지 않았다.
 
-다음 권장 단위는 앞선 계획의 Hood numeric qualifier다. profile 등록은 되어
-있지만 handler는 여전히 없으므로, 먼저 독립 순수 RPM 후보 계산과 threshold/
-dwell/관측 공백 fixture를 검토한다. 새 장비 FSM·typed controller 입력·
-Health/timer 또는 외부 연결을 이번 완료 범위에 포함하지 않는다.
+이 절의 최초 검증 이후 Hood numeric qualifier와 Registry 연결을 추가했다.
+최신 범위·검증은 아래 8~9절을 따른다. Health/timer와 외부 연결은 미구현이다.
 
 이번 권장 commit 대상은 위 Python 네 파일과 이 설계 문서·검증 보고서 여섯
 파일이다. 메시지: `feat(phase4): add equipment FSM registry and reference adapter`.
@@ -453,10 +455,9 @@ Health/timer 또는 외부 연결을 이번 완료 범위에 포함하지 않는
 ## 8. Hood RPM qualifier — 독립 순수 계산 구현
 
 2026-10-17, `streaming/state/hood.py`를 구현했다. 앞선 후보 설계 중 Hood의
-수치 판정만 이번 절로 구체화한다. 기존 Fryer enum·FSM·Registry 계약은 유지한다.
-`HOOD_PROFILE = (hood, rpm-observation, 1)`은 계속 handler=None이며 Registry의
-`resolve()`는 Hood에 HANDLER_NOT_IMPLEMENTED를 반환한다. 이 Qualifier를
-Registry에 연결한 것으로 해석하지 않는다.
+수치 판정만 이 절로 구체화했다. 당시 Registry는 Hood handler=None이었다.
+후속 연결은 아래 9절에서 구현했으며 Qualifier의 전이 함수·enum·정책은 보존했다.
+`HOOD_PROFILE = (hood, rpm-observation, "1")`을 명시적으로 선택한다.
 
 ### 입력·초기화와 의미
 
@@ -527,6 +528,62 @@ UTC event_time, 이전/다음 상태와 후보 시작 시각이다. 수치 정�
 fixture는 synthetic 시계열로 0 RPM·경계 노이즈를 보완했고 Simulator는 수정하지
 않았다. 테스트 결과는 검증 보고서의 Hood 절을 따른다.
 
-다음 한 단위 후보는 Hood 전용 snapshot/result를 수용하는 Registry adapter 계약이다.
-기존 Registry는 Fryer 전용 타입이므로 사용자 검토 후 별도 범위로 확장해야 한다.
-Health freshness/timer, 실제 source 권한, validated 소비와 외부 sink 연결은 후속이다.
+후속 Hood 전용 Registry 연결은 아래 9절에 기록한다. Health freshness/timer,
+실제 source 권한, validated 소비와 외부 sink 연결은 여전히 후속이다.
+
+
+## 9. Hood Registry Adapter — 순수 연결 계층
+
+2026-10-17. Fryer/Hood의 snapshot/result 구조를 유지하면서 Registry에서 선택할
+수 있도록 연결했다. Fryer transition과 Hood qualify_rpm의 계산 로직은 수정하지
+않았다. bindings.py의 key·InputKind·장비 binding 계약도 그대로 유지한다.
+
+공통 adapter 표면은 `profile`, `input_kind`, `snapshot_type`, `accepts(event)`,
+`evaluate(previous, event, reference_time=...)`뿐이다. 임의 handler Protocol이나
+공통 Operational State/Health 모델을 도입하지 않고 두 concrete adapter의 닫힌
+union으로 지원 범위를 명시한다. 기존 Fryer evaluate 인자·결과는 동일하다.
+
+| 선택 key | 필요한 binding 입력 | 입력 / snapshot / 원본 결과 |
+|---|---|---|
+| fryer / explicit-cooking-reference / 1 | SYNTHETIC_SIGNAL | SyntheticSignal / TwinState / FsmResult |
+| hood / rpm-observation / 1 | NUMERIC_TELEMETRY | HoodRpmEvent / HoodSnapshot / HoodResult |
+| refrigerator, freezer, dishwasher 기존 key | handler 없음 | HANDLER_NOT_IMPLEMENTED |
+
+`ProfileSnapshot.state`는 장비별 객체 전체를 보존한다. Hood의 policy/current/
+candidate/candidate_since/last_event_time/receipts를 줄여서 재구성하지 않는다.
+`RegistryResult.snapshot.state is RegistryResult.fsm.state`이며 `.fsm`은 원본
+FsmResult/HoodResult다. PENDING·NO_CHANGE·INITIALIZED에서는 원본대로 intents가
+비어 있고 state_change_id를 새로 만들지 않는다. 기존 SHA-256 생성도 각 엔진에
+위임한다. 처음 미확정 상태와 이후 STOPPED→ROTATING→STOPPED를 그대로 지원한다.
+
+선택 우선순위는 위 7절 표와 같다. resolve는 binding store/type/profile/version,
+등록 handler와 InputKind를 검사한다. evaluate는 numeric payload equipment_type을
+요청 equipment_type과 추가 비교한다. handler.accepts는 Fryer에 SyntheticSignal만,
+Hood에 hood/fan_rpm/rpm/1.0.0의 HoodRpmEvent만 허용한다. 잘못된 metric/unit/schema
+version 및 장비 간 입력 혼용은 UNSUPPORTED_INPUT이다. 선택된 handler와 state 타입
+불일치는 SNAPSHOT_TYPE_MISMATCH이며, store/equipment가 다른 snapshot도 거부한다.
+구성 시 handler를 다른 profile/version에 등록하는 것은 허용하지 않는다.
+
+Registry 계약 거부는 예외이며 snapshot·후보·원장 전체가 유지되고 계산을 호출하지
+않는다. 직접 qualifier의 INVALID_SAMPLE과 구별해야 한다. 직접 호출에서는 잘못된
+metric/unit/version도 소비하며 후보를 끊지만, Registry에서는 실행 전 거부하므로
+소비하지 않는다. caller는 이런 예외를 무시한 입력 구간을 유효한 연속 관측으로
+간주하면 안 된다. 실제 consumer의 오류 인계·후보 단절 절차는 미구현이다.
+음수 RPM은 adapter에서 재판정하지 않고 qualifier의 INVALID_SAMPLE/후보 취소에
+위임한다. 구조 오류·nonfinite 값은 기존 HoodRpmEvent 생성 시 예외다.
+
+Hood adapter는 정책 숫자를 소유하거나 기본값을 주입하지 않는다. snapshot에
+명시된 정책으로 계산하며 숫자는 초기 테스트 파라미터다. 실제 binding·source 권한,
+wire decode, Kafka key 검사, Health·Alert·timer, checkpoint·outbox·sink는 구현하지
+않았다. factory는 handler catalog만 생성하고 장비 binding을 자동 추론하지 않는다.
+
+기존 hood_rpm.json을 변경 없이 재사용해 direct qualifier와 Registry를 단계별로
+대조했다. 후보 보존·초기화·노이즈·정상 양방향 전이, 처리 지연 재계산, 확정 snapshot
+replay·중복/충돌·역순/동시각, 잘못된 계약과 cross-profile 입력의 engine 호출 차단을
+검증했다. 새 Registry 테스트 25개이며 기존 지원 목록 테스트에서는 Hood의 미구현
+기대 항목 하나를 제거했다. 기존 Fryer 순환·Health 보존·ID 검증은 유지한다.
+정확한 실행 결과는 검증 보고서의 Hood Registry Adapter 절을 따른다.
+
+다음 논리 작업 후보는 Health freshness/timer의 별도 snapshot·이벤트 계약이다.
+운영 cursor와 Health last_seen을 공유하지 않고 시간 단조성·timer 경합을 먼저
+설계해야 한다. 이 연결 단위에서 Health나 외부 실행을 자동 진행하지 않는다.

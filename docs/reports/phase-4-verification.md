@@ -399,3 +399,99 @@ Health/timer·정책 migration·실제 validated consumer도 미구현이다.
 위 5개 파일만 권장 staging 대상이며 메시지는
 `feat(phase4): add deterministic hood RPM qualifier`이다.
 Git add/commit/push/merge 없이 이 논리 단위를 마치고 사용자 검토를 기다린다.
+
+## Hood Registry Adapter — 순수 연결 계층 구현
+
+검증일: 2026-10-17 (Asia/Seoul). 시작 브랜치 `feat/phase-4-twin-state`, HEAD
+`2d4c81868d82ec152922d9592a183df1039ae65b`.
+시작 시 이전 Hood Qualifier 작업의 문서 2개가 수정 상태였고 Hood 코드·테스트·
+fixture 3개가 untracked였다. 이 기존 작업을 보존하며 이번 연결 계층을 추가했다.
+현재 소스·Registry 테스트·실행 계획 Phase 4와 장비 계약을 직접 대조했다.
+
+### 변경과 공통 인터페이스
+
+이번 단위의 파일은 아래 6개다.
+
+- `streaming/state/adapters.py`: HoodRpmAdapter, 공통 profile/input_kind/
+  snapshot_type/accepts/evaluate 표면, 허용 adapter 두 타입 union.
+- `streaming/state/registry.py`: 두 snapshot/result/input 타입 지원, Hood v1 명시
+  catalog 등록, 잘못된 입력·snapshot 타입의 실행 전 거부.
+- `tests/unit/phase4/test_registry.py`: 지원 handler 목록에 Hood 반영, 미구현 목록의
+  Hood 사례 1개 제거. 나머지 Fryer 테스트와 기대 동작은 보존.
+- `tests/unit/phase4/test_hood_registry.py`: 새 연결 계층 테스트 25개.
+- `docs/streaming/equipment-state-contracts.md`: 최신 지원 목록과 9절 계약.
+- `docs/reports/phase-4-verification.md`: 이번 검증 기록.
+
+기존 미추적 선행 파일 `streaming/state/hood.py`, `tests/unit/phase4/test_hood.py`,
+`tests/fixtures/phase4/hood_rpm.json`은 이번 시작 시 SHA-256과 종료 시 값을 비교하여
+내용 보존을 확인했다. 기존 FSM·contracts·bindings도 같은 방식으로 보존 확인했다.
+FryerReferenceAdapter의 evaluate 위임 함수 본문은 그대로다.
+
+상태 공통화나 전이 재구현 없이 `ProfileSnapshot.state`에 TwinState/HoodSnapshot을
+보존하고 `RegistryResult.fsm`에 원본 FsmResult/HoodResult를 반환한다. snapshot의
+policy·후보 방향·시작 시각·원장·cursor를 버리지 않는다. Hood profile/version은
+`(hood, rpm-observation, "1")`, 입력은 NUMERIC_TELEMETRY/HoodRpmEvent다.
+장비 binding은 caller가 명시하며 파일 읽기·기본 장비·fallback은 없다.
+
+정상 등록 시 실제 지원하는 계산은 Fryer synthetic Reference와 Hood RPM 두 개다.
+refrigerator/freezer/dishwasher는 알려진 catalog만 있고 handler는 없다.
+Hood 정책은 snapshot에서 그대로 가져오며 기본 숫자를 새로 주입하지 않는다.
+PENDING/NO_CHANGE/INITIALIZED는 전이 출력과 state_change_id를 만들지 않는다.
+실제 전이 의도와 SHA-256은 기존 Qualifier 결과 그대로다.
+
+Registry는 잘못된 type/metric/unit/schema version·입력 교차를 계산 전에 거부한다.
+이때 snapshot 전체는 유지된다. 직접 Qualifier에서 잘못된 metric/unit/version을
+INVALID_SAMPLE로 소비·후보 취소하는 동작과 구분한다. 음수 RPM은 Qualifier의 기존
+INVALID_SAMPLE 처리에 위임한다. 실제 소비 경로에서 계약 거부를 무시한 구간의
+연속성을 보장하지 않으며 오류 인계/후보 단절 절차는 후속이다.
+
+### Fixture 및 검증
+
+새 fixture를 복제하지 않고 기존 hood_rpm.json을 그대로 사용했다. 단계마다 direct
+qualify_rpm과 Registry 결과가 동일한지 대조했다. 초기화·노이즈·후보 유지·양방향
+전이, 같은 snapshot의 재계산·처리 지연, 확정 snapshot replay, 원문 ID 중복·충돌,
+동시각·역순·음수 입력, profile/version·장비 identity·snapshot 타입·InputKind와
+잘못된 metric/unit/schema version을 확인했다. 선택 거부 시 두 Adapter의 evaluate를
+호출하지 않는 것도 monkeypatch로 검증했다. 외부 I/O mock 성공을 E2E로 해석하지 않는다.
+
+테스트를 먼저 작성해 HoodRpmAdapter import 부재로 실패하는 것을 확인한 뒤 구현했다.
+기존 지원 목록 테스트를 새 기능에 맞춰 갱신했다. 이전 271개에서 미구현 Hood 기대
+사례 1개를 제거하고 새 25개를 추가하여 현재 Phase 4는 295개다.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-hood-adapter-red tests/unit/phase4/test_hood_registry.py
+# ImportError: HoodRpmAdapter 미구현, collection error 1건
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-hood-adapter-focused tests/unit/phase4/test_hood_registry.py
+# 25 passed in 0.05s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-hood-adapter-regression -m 'not integration'
+# 1009 passed, 10 deselected, 1 warning in 3.34s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-hood-adapter-final tests/unit/phase4
+# 295 passed in 0.29s
+```
+
+마지막 Phase 4 재실행은 테스트 줄 길이 정리 후 수행했다. 전체 회귀 이후 기능 코드
+변경은 없다. 경고는 기존 Authlib httpx deprecation 1건이며 외부 integration 10개를
+제외했다. 새/수정 Python의 AST 구문·79열 검사와 최종 git diff --check를 확인했다.
+
+### 미검증·Git·다음 단위
+
+Health/Alert·freshness/timer, 정책 migration, 승인 source 권한, Avro decode·validated
+consumer·Kafka key 검사, 영속 checkpoint/원장 보존, outbox·sink ACK·분산 복구는
+미구현·미검증이다. 실제 하드웨어나 cloud E2E 증거가 아니다. Avro·Simulator·
+Phase 2/3 변경, AWS/Databricks 실행, Spark/Kafka/DynamoDB 연결은 수행하지 않았다.
+
+최종 확인 중 HEAD가 `9a90b3d55b79464edbfd7f4a9dc611939d8e6c04`로 바뀌었고,
+선행 Hood 5개 파일이 `feat(phase4): add deterministic hood RPM qualifier` commit에
+포함된 것을 git log/show로 확인했다. 이 작업에서 Git 변경 명령은 실행하지 않았다.
+선행 Hood/FSM/contracts/bindings의 내용 hash는 시작 시점과 같으며 기능 코드도
+회귀 실행 때와 같다. 최종 git status 기준 정확한 staging 대상은 위 연결 계층
+6개 파일뿐이다. 메시지 제안은
+`feat(phase4): integrate hood RPM qualifier with registry`다. git add/commit/push/merge는
+수행하지 않았다.
+
+다음 논리 작업 후보는 Operational State와 독립적인 Health freshness/timer 계약이다.
+별도 last_seen·평가 시각 단조성·timeout 경계·관측 갱신과 timer 경합을 먼저 정한다.
+이번 연결 단위 완료 후 사용자 검토를 기다린다.

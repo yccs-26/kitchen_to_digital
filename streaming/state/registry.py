@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
-from streaming.state.adapters import FryerReferenceAdapter
+from streaming.state.adapters import (
+    EquipmentAdapter, FryerReferenceAdapter, HoodRpmAdapter,
+)
 from streaming.state.bindings import (
     DISHWASHER_PROFILE,
     FREEZER_PROFILE,
@@ -16,6 +18,7 @@ from streaming.state.bindings import (
 )
 from streaming.state.contracts import SyntheticSignal, _require_text
 from streaming.state.fsm import FsmResult, TwinState
+from streaming.state.hood import HoodResult, HoodRpmEvent, HoodSnapshot
 
 
 class RegistryErrorCode(Enum):
@@ -30,6 +33,7 @@ class RegistryErrorCode(Enum):
     INPUT_CONTRACT_UNAVAILABLE = "INPUT_CONTRACT_UNAVAILABLE"
     UNSUPPORTED_INPUT = "UNSUPPORTED_INPUT"
     SNAPSHOT_IDENTITY_MISMATCH = "SNAPSHOT_IDENTITY_MISMATCH"
+    SNAPSHOT_TYPE_MISMATCH = "SNAPSHOT_TYPE_MISMATCH"
     HANDLER_PROFILE_MISMATCH = "HANDLER_PROFILE_MISMATCH"
     DUPLICATE_BINDING = "DUPLICATE_BINDING"
     DUPLICATE_PROFILE = "DUPLICATE_PROFILE"
@@ -48,15 +52,16 @@ class ProfileSpec:
     """handler가 None이면 알려진 profile이지만 계산은 미구현이다."""
 
     key: ProfileKey
-    handler: FryerReferenceAdapter | None = None
+    handler: EquipmentAdapter | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.key, ProfileKey):
             raise TypeError("key must be ProfileKey")
         if self.handler is not None:
-            # 이번에는 이 adapter만 허용한다. 새 장비 handler는 별도 작업이다.
-            if type(self.handler) is not FryerReferenceAdapter:
-                raise TypeError("only FryerReferenceAdapter is implemented")
+            if type(self.handler) not in (
+                FryerReferenceAdapter, HoodRpmAdapter,
+            ):
+                raise TypeError("unsupported equipment adapter")
             if self.key != self.handler.profile:
                 raise RegistryError(RegistryErrorCode.HANDLER_PROFILE_MISMATCH)
 
@@ -65,18 +70,18 @@ class ProfileSpec:
 class ProfileSnapshot:
     """snapshot이 계산된 profile을 보존해 다른 버전으로의 암묵 이동을 막는다.
 
-    현재 state 타입은 Reference 전용이다. 다른 장비용 snapshot을 미리
-    구현한 것이 아니며 resolve 단계에서 미구현 handler를 구별한다.
+    장비별 state 원문을 보존한다. 선택된 handler와 실제 state 타입의
+    일치는 evaluate 단계에서 검사하며 다른 장비 타입으로 변환하지 않는다.
     """
 
     profile: ProfileKey
-    state: TwinState
+    state: TwinState | HoodSnapshot
 
     def __post_init__(self) -> None:
         if not isinstance(self.profile, ProfileKey):
             raise TypeError("profile must be ProfileKey")
-        if not isinstance(self.state, TwinState):
-            raise TypeError("state must be TwinState")
+        if not isinstance(self.state, (TwinState, HoodSnapshot)):
+            raise TypeError("state must be TwinState or HoodSnapshot")
 
 
 @dataclass(frozen=True)
@@ -84,7 +89,8 @@ class RegistryResult:
     """다음 profile snapshot과 원본 FSM 결과를 함께 돌려준다."""
 
     snapshot: ProfileSnapshot
-    fsm: FsmResult
+    # 기존 .fsm 접근을 유지하며 원본 result의 decision/intents를 보존한다.
+    fsm: FsmResult | HoodResult
 
 
 @dataclass(frozen=True)
@@ -117,7 +123,7 @@ class EquipmentFsmRegistry:
         equipment_id: str,
         equipment_type: str,
         profile: ProfileKey,
-    ) -> FryerReferenceAdapter:
+    ) -> EquipmentAdapter:
         """identity・type・profile・실행 능력 순으로 검사한다."""
         for name, value in (
             ("store_id", store_id), ("equipment_id", equipment_id),
@@ -149,7 +155,7 @@ class EquipmentFsmRegistry:
     def evaluate(
         self,
         previous: ProfileSnapshot,
-        event: SyntheticSignal,
+        event: SyntheticSignal | HoodRpmEvent,
         *,
         equipment_type: str,
         reference_time: datetime,
@@ -157,7 +163,7 @@ class EquipmentFsmRegistry:
         """선택을 검증한 뒤 기존 FSM을 호출하고 profile key를 유지한다."""
         if not isinstance(previous, ProfileSnapshot):
             raise TypeError("previous must be ProfileSnapshot")
-        if not isinstance(event, SyntheticSignal):
+        if not isinstance(event, (SyntheticSignal, HoodRpmEvent)):
             raise RegistryError(RegistryErrorCode.UNSUPPORTED_INPUT)
         handler = self.resolve(
             store_id=event.store_id,
@@ -165,6 +171,15 @@ class EquipmentFsmRegistry:
             equipment_type=equipment_type,
             profile=previous.profile,
         )
+        # numeric payload의 type과 별도 요청 type을 함께 대조한다.
+        if isinstance(event, HoodRpmEvent) and (
+            event.equipment_type != equipment_type
+        ):
+            raise RegistryError(RegistryErrorCode.EQUIPMENT_TYPE_MISMATCH)
+        if not handler.accepts(event):
+            raise RegistryError(RegistryErrorCode.UNSUPPORTED_INPUT)
+        if not isinstance(previous.state, handler.snapshot_type):
+            raise RegistryError(RegistryErrorCode.SNAPSHOT_TYPE_MISMATCH)
         if (previous.state.store_id, previous.state.equipment_id) != (
             event.store_id, event.equipment_id
         ):
@@ -179,10 +194,10 @@ class EquipmentFsmRegistry:
 def build_registry(
     bindings: tuple[EquipmentBinding, ...],
 ) -> EquipmentFsmRegistry:
-    """기존 Reference 하나만 실행 가능하게 하는 새 로컬 Registry를 만든다.
+    """명시적 Fryer Reference 및 Hood v1 handler catalog를 만든다.
 
-    장비 ID나 입력 능력은 자동 생성하지 않는다. 나머지는 알려진 profile
-    자리만 등록하며 냉장고·후드·세척기 FSM 구현을 포함하지 않는다.
+    장비 ID나 입력 능력은 자동 생성하지 않는다. 냉장고·냉동고·세척기는
+    알려진 profile 자리만 등록하며 실행 handler를 포함하지 않는다.
     """
     return EquipmentFsmRegistry(
         bindings=bindings,
@@ -190,7 +205,7 @@ def build_registry(
             ProfileSpec(FRYER_REFERENCE, FryerReferenceAdapter()),
             ProfileSpec(REFRIGERATOR_PROFILE),
             ProfileSpec(FREEZER_PROFILE),
-            ProfileSpec(HOOD_PROFILE),
+            ProfileSpec(HOOD_PROFILE, HoodRpmAdapter()),
             ProfileSpec(DISHWASHER_PROFILE),
         ),
     )

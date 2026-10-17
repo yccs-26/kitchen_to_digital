@@ -145,10 +145,10 @@ def test_fryer_cycle_matches_direct_fsm_and_preserves_ids(
     assert initial.state.receipts == ()
 
 
-def test_only_fryer_has_a_handler_and_no_binding_is_inferred(binding):
+def test_fryer_and_hood_have_handlers_and_no_binding_is_inferred(binding):
     registry = build_registry((binding,))
     implemented = [p.key for p in registry.profiles if p.handler is not None]
-    assert implemented == [FRYER_REFERENCE]
+    assert implemented == [FRYER_REFERENCE, HOOD_PROFILE]
     assert registry.resolve(
         store_id=binding.store_id, equipment_id=binding.equipment_id,
         equipment_type="fryer", profile=FRYER_REFERENCE,
@@ -229,12 +229,11 @@ def test_bound_but_unknown_profile_is_distinct_from_unimplemented(
     [
         (REFRIGERATOR_PROFILE, "fridge-001"),
         (FREEZER_PROFILE, "freezer-001"),
-        (HOOD_PROFILE, "hood-001"),
         # 세척기는 simulator 설정에만 있다. 테스트 binding은 live 등록이 아니다.
         (DISHWASHER_PROFILE, "dishwasher-001"),
     ],
 )
-def test_known_non_fryer_profiles_have_no_handler(key, equipment_id):
+def test_remaining_known_profiles_have_no_handler(key, equipment_id):
     binding = EquipmentBinding(
         "store-001", equipment_id, key, InputKind.NUMERIC_TELEMETRY
     )
