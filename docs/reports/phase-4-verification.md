@@ -238,3 +238,79 @@ AWS/Databricks 실행, Spark/Kafka/DynamoDB 연결을 수행하지 않았다.
 장비별 입력이 확보되기 전 기본 정책 자동 적용을 막는 것이 완료 기준이다.
 세 문서만 대상으로 `docs(phase4): define equipment state contracts and registry design`
 메시지를 권장한다. Git staging/commit/push/merge 없이 사용자 검토를 기다린다.
+
+## Equipment FSM Registry — 순수 선택 계층 구현
+
+검증일: 2026-10-17 (Asia/Seoul). 시작 HEAD
+`897d745d4443d069824334ceb541eefc74da8d93`, 브랜치
+`feat/phase-4-twin-state`, 시작 Git status clean.
+
+### 실제 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `streaming/state/bindings.py` | ProfileKey·입력 종류·명시적 장비 binding |
+| `streaming/state/adapters.py` | 기존 Fryer Reference transition 위임 |
+| `streaming/state/registry.py` | tuple catalog·lookup·snapshot key 검사·선택 오류 |
+| `tests/unit/phase4/test_registry.py` | 새 테스트 51개 |
+| `docs/streaming/equipment-state-contracts.md` | 구현 상태·API·오류 우선순위·후속 범위 갱신 |
+| `docs/reports/phase-4-verification.md` | 이번 검증 증거 |
+
+현재 validation_rules의 실제 identity는 store-001의 fridge-001, freezer-001,
+fryer-001, hood-001이다. equipment_id는 key이며 store/type를 함께 대조한다.
+계약을 직접 확인했고 설정이나 기존 10필드 Avro를 변경하지 않았다.
+
+### Registry 계약과 검증
+
+ProfileKey는 equipment_type/profile_id/version을 분리한 exact-match key다.
+장비별 InputKind까지 포함하는 binding은 호출자가 명시적으로 주입한다.
+기본 장비 등록·설정 파일 읽기·최신 버전 선택·다른 장비 profile fallback은 없다.
+등록된 실제 장비라는 사실만으로 명시적 mode/청소 신호를 사용할 수 있다고
+간주하지 않는다. 테스트의 fryer-001 identity는 실제 설정을 사용하되
+SYNTHETIC_SIGNAL 능력은 테스트 가정이다. NUMERIC_TELEMETRY binding은
+INPUT_CONTRACT_UNAVAILABLE로 거부한다.
+
+장비 없음, store/type 충돌, snapshot/request profile 불일치, 미등록 profile,
+알려진 profile의 handler 미구현을 구별했다. 같은 profile에 handler를 중복 등록하거나
+다른 profile/version에 Reference handler를 연결하는 구성도 거부한다.
+RegistryError는 FSM Decision과 별도이며 거부된 입력은 snapshot을 바꾸지 않는다.
+
+FryerReferenceAdapter 하나만 계산 가능하다. 기존 FSM·순서·중복·Health 분리와
+`state_change_id` 알고리즘을 그대로 사용한다. ProfileSnapshot이 key를 보존하므로
+다른 binding/profile/version으로 옮겨진 snapshot은 선택 단계에서 거부한다.
+refrigerator/freezer/hood/dishwasher는 catalog entry만 있고 handler=None이다.
+다른 장비 snapshot·Operational State·Health/timer는 미리 구현하지 않았다.
+
+테스트는 실제 fryer identity의 정상 binding과 4단계 전이·3개 Health 초기값,
+동일 snapshot/처리 지연 재실행 ID·직접 FSM 결과 동일성·다음 snapshot 중복을
+검증한다. 미등록 identity·store/type 충돌·profile/version 불일치·미등록 profile·
+미구현 handler·numeric/잘못된 입력·다른 identity snapshot·잘못된 handler key·
+중복 구성과 frozen 입력 보존도 검증했다.
+
+### 실제 실행 명령
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-registry-unit tests/unit/phase4
+# 202 passed in 0.16s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-registry-regression -m 'not integration'
+# 916 passed, 10 deselected, 1 warning in 3.33s
+```
+
+외부 서비스 integration 10개를 제외했다. 경고는 기존 Authlib httpx deprecation
+1건이다. 새 Python 구문·79열 검사와 종료 시 git diff --check를 확인했다.
+기존 FSM·계약·Simulator·Avro·Phase 2/3 코드의 diff가 없는지도 확인했다.
+미사용 테스트 import 정리 후 `--basetemp /private/tmp/ktd-registry-final`로
+Phase 4 단위를 재확인했다: `202 passed in 0.14s`.
+
+### 미검증과 다음 경계
+
+실제 Fryer 제어기 입력·source 권한·새 wire/validated 연결은 미구현이다.
+새 profile의 실제 장비 동작, 수치 Hysteresis, Health/timer, profile migration,
+영속 snapshot/원장, outbox/sink 복구·E2E는 이번 검증 범위가 아니다.
+AWS/Databricks·Spark·Kafka·DynamoDB를 실행하거나 연결하지 않았다.
+
+다음 권장 단위는 Hood RPM qualifier의 순수 계산·시계열 fixture 검토다.
+사용자 검토 전 자동으로 다음 구현을 시작하지 않는다. 위 여섯 파일만 대상으로
+`feat(phase4): add equipment FSM registry and reference adapter` 메시지를
+권장한다. git add/commit/push/merge는 수행하지 않았다.

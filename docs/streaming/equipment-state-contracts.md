@@ -4,9 +4,9 @@
 `9c3dabbd1340d3324267d6624a803012482b1ac5`,
 브랜치 `feat/phase-4-twin-state`. 시작 작업 트리는 clean이었다.
 
-상태: **계약 분석·사용자 검토용 설계 제안**.
-현재 구현은 P4-1/P4-2의 synthetic 조리 Reference FSM뿐이다.
-이 문서의 새 enum·정책·registry·신호는 구현되지 않았다. 실제 장비 제어기 사양도
+상태: **장비별 계약 설계 + 순수 Registry/Reference adapter 구현**.
+현재 구현은 P4-1/P4-2의 synthetic 조리 Reference와 장비/profile 선택 계층이다.
+다른 장비의 새 enum·정책·신호는 구현되지 않았다. 실제 장비 제어기 사양도
 제공되지 않았으므로 장비별 후보 상태를 실제 하드웨어 지원 사실로 해석하지 않는다.
 
 ## 1. 직접 확인한 근거
@@ -87,7 +87,7 @@ STALE은 마지막 Operational State를 과거 상태나 IDLE로 바꾸지 않�
 
 ## 4. 공통 전이·초기화 조건
 
-아래 전이표는 **미구현 후보 정책**이다. 현재 `OperationalState` enum에 새 값을
+아래 조리 Reference 외의 전이표는 **미구현 후보 정책**이다. 현재 `OperationalState` enum에 새 값을
 추가하거나 모든 장비를 Reference FSM에 넣는 변경을 하지 않는다.
 
 - 각 profile은 자신의 state enum과 payload allowlist를 가진다. 같은 문자열 IDLE도
@@ -105,7 +105,7 @@ STALE은 마지막 Operational State를 과거 상태나 IDLE로 바꾸지 않�
   그런 사례를 정상 완료나 직전 정상 상태의 새 관측으로 기록하지 않는다.
   current 유지와 별도로 입력 미해석/동기화 필요 사유를 남기는 설계가 필요하다.
 
-### 4.1 조리 Reference — 구현됨, fryer에는 미연결
+### 4.1 조리 Reference — 구현됨, 실제 fryer 입력에는 미연결
 
 | 이전 | 명시적 보고 | 다음 | 허용/금지 |
 |---|---|---|---|
@@ -123,8 +123,9 @@ STALE은 마지막 Operational State를 과거 상태나 IDLE로 바꾸지 않�
 상태 집합은 IDLE/PREHEATING/COOKING/CLEANING이다. 전체 no-op·완료 신호의
 시점별 처리는 기존 README·test_fsm의 행렬을 따른다. 구현된 synthetic fixture의
 reference 화구를 실제 fryer-001과 동일 장비라고 간주하지 않는다.
-fryer 정책 후보는 이 흐름과 명시적 청소 완료 의미를 만족할 때만 adapter로
-재사용한다. 유온만 있는 현재 fryer-001에는 bind하지 않는다.
+fryer 정책은 이 흐름과 명시적 청소 완료 의미를 만족할 때만 adapter로
+재사용한다. 유온만 있는 실제 fryer-001의 입력은 자동 bind하지 않는다.
+동일 identity로 synthetic 능력을 명시한 로컬 테스트 binding과 실제 연결은 구별한다.
 
 ### 4.2 refrigerator — 냉각 동작 보고 profile 후보
 
@@ -243,7 +244,8 @@ numeric loop에 포함하는 변경은 금지한다. Registry 등록·metric all
 ## 6. 권장 FSM Registry 구조
 
 기존 `transition()`을 generic 엔진으로 재작성하지 않는다. type별 정책 선택을
-그 앞의 얇은 adapter/registry에서 수행하는 **미구현 제안**이다.
+그 앞의 얇은 adapter/registry에서 수행한다. 이번에 선택 계층과 Fryer Reference
+adapter만 구현했으며 numeric qualifier·다른 장비 handler는 미구현이다.
 
 | 계층 | 계약·책임 |
 |---|---|
@@ -256,17 +258,17 @@ numeric loop에 포함하는 변경은 금지한다. Registry 등록·metric all
 
 Registry 선택은 event의 equipment_type 문자열만 신뢰하지 않고 장비 binding과
 store/type가 일치하는지 대조한다. profile이 없거나 필요한 입력 capability가
-없으면 POLICY_NOT_CONFIGURED/INPUT_CONTRACT_UNAVAILABLE 등의 별도 사유를
-반환하고 IDLE이나 조리 정책으로 fallback하지 않는다. 이 사유 enum도 아직 없다.
+없으면 선택 실패를 코드가 있는 RegistryError로 거부하고 IDLE이나 조리 정책으로
+fallback하지 않는다. 실제 오류 코드와 API는 아래 Registry 구현 절을 따른다.
 
 | type / profile 후보 | 현재 선택 가능 범위 | 활성화 조건 |
 |---|---|---|
 | synthetic reference / synthetic-reference-v1 | 기존 함수의 직접 synthetic 테스트 | 기존 4상태 계약·명시적 초기 상태 |
-| fryer / explicit-cooking-reference-v1 | 미구현 binding/adapter | reference 의미·모드/청소/완료 source 검증 |
-| refrigerator / cooling-controller-v1 | 미구현 | 승인 mode 입력 확보 |
-| freezer / cooling-controller-v1 | 미구현; 구조 공유 후보 | freezer별 승인 mode·지원 기능 확인 |
-| hood / rpm-observation-v1 | 미구현 | threshold/dwell·기동/정지 fixture와 qualifier 검증 |
-| dishwasher / wash-cycle-v1 | 미구현 | typed phase·cycle identity·명시적 완료 입력 확보 |
+| fryer / explicit-cooking-reference-v1 | synthetic binding 주입 시 adapter 실행 가능 | 실제 controller 연결·source 검증은 미구현 |
+| refrigerator / cooling-controller-v1 | profile 등록, handler 없음 | 승인 mode 입력 확보 |
+| freezer / cooling-controller-v1 | profile 등록, handler 없음 | freezer별 승인 mode·지원 기능 확인 |
+| hood / rpm-observation-v1 | profile 등록, handler 없음 | threshold/dwell·기동/정지 fixture와 qualifier 검증 |
+| dishwasher / wash-cycle-v1 | profile 등록, handler 없음 | typed phase·cycle identity·명시적 완료 입력 확보 |
 
 synthetic reference는 새 실제 equipment_type을 Avro에 등록하자는 뜻이 아니다.
 현재 실제 장비 4개의 registry 행에는 이 profile binding 필드가 없다.
@@ -297,7 +299,7 @@ store_id는 검증 metadata로 유지한다. 동일 numeric 사건이 여러 pro
 
 ## 7. 기존 테스트 호환성과 다음 작은 구현 순서
 
-이번에는 Python 코드·설정·fixture·테스트를 수정하지 않았다.
+최초 장비 계약 설계 단위에서는 Python 코드·설정·fixture·테스트를 수정하지 않았다.
 기존 `test_signal_contracts.py`, `test_fsm.py`, `test_ordering.py`를 그대로 실행했다.
 
 ```sh
@@ -309,11 +311,12 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --ba
 수치 Hysteresis를 실행 검증한 결과가 아니다. 문서 작업이므로 전체 회귀는
 이번에 재실행하지 않았고 AWS/Databricks·Kafka·Spark 실행도 하지 않았다.
 
-다음 한 단위의 우선순위는 **로컬 Policy Registry와 reference adapter의
-선택 계약**이다. 새 장비 동작/Health/timer·외부 I/O는 그 단위에 넣지 않는다.
+최초 설계의 다음 한 단위는 **로컬 Policy Registry와 reference adapter의
+선택 계약**이었다. 그 구현 결과는 아래 Registry 구현 절에 추가했다.
+새 장비 동작/Health/timer·외부 I/O는 그 단위에 넣지 않는다.
 완료 기준은 기존 함수/ID 유지, 명시적 synthetic binding 성공, 미지원 type/
 미등록 장비·store/type 불일치·입력 부족에 fallback하지 않는 테스트다.
-이 문서 검토 후에만 해당 구현을 시작한다.
+선택 계약 구현 이후에도 새 장비 profile은 별도 검토 후 시작한다.
 
 | 이후 순서 | 최소 구현 경계 | 필요한 테스트 |
 |---|---|---|
@@ -332,5 +335,116 @@ Health/timer는 별도 작업으로 유지하며 필요한 장비별 유효 관�
 
 설계 문서·README 연결·검증 보고서의 이번 기록만 commit 대상으로 제안한다.
 메시지: `docs(phase4): define equipment state contracts and registry design`.
-Staging/commit/push/merge는 수행하지 않는다. 이 문서가 채택되기 전에는
-새 장비 profile 구현이나 Simulator/validated 변경을 자동으로 시작하지 않는다.
+위 세 문서는 최초 설계 작업의 commit 범위다. Registry 구현의 변경 범위는
+아래에 추가했다. Staging/commit/push/merge 및 새 장비 profile 구현이나
+Simulator/validated 변경을 자동으로 시작하지 않는다.
+
+## 9. Equipment FSM Registry 구현 결과
+
+구현 기준 HEAD: `897d745d4443d069824334ceb541eefc74da8d93`.
+위의 장비별 전이 후보를 미리 구현하지 않고 순수 선택 계층 한 단위만 추가했다.
+
+| 파일 | 구현 계약 |
+|---|---|
+| `streaming/state/bindings.py` | frozen ProfileKey, EquipmentBinding, InputKind와 profile key 상수 |
+| `streaming/state/adapters.py` | FryerReferenceAdapter에서 기존 transition을 그대로 호출 |
+| `streaming/state/registry.py` | frozen catalog·binding, resolve/evaluate, profile snapshot, 코드별 선택 오류 |
+| `tests/unit/phase4/test_registry.py` | 새 Registry 테스트 51개 |
+
+### binding·입력·snapshot
+
+`ProfileKey(equipment_type, profile_id, version)`은 세 필드 모두 정확히 일치해야
+한다. profile 명칭의 기존 `-v1` 서술을 실제 key에서는 이름과 버전으로 분리했다.
+예: `FRYER_REFERENCE = (fryer, explicit-cooking-reference, "1")`.
+문자열의 대소문자·공백을 정규화하거나 latest version을 선택하지 않는다.
+
+`EquipmentBinding(store_id, equipment_id, profile, input_kind)`에는 기본 장비나
+기본 입력 능력이 없다. equipment_type은 profile key에 포함되고 equipment_id는
+Registry 안에서 전역 유일해야 한다. 같은 ID를 두 store에 등록해도 거부한다.
+`build_registry(bindings)`는 파일·네트워크를 읽지 않는다. 호출자가 검증한
+binding tuple을 주입해야 한다. 실제 validation_rules를 자동 복사·갱신하거나
+실제 장비 ID를 보고 synthetic 입력 능력을 자동 부여하지 않는다.
+
+`InputKind.NUMERIC_TELEMETRY`와 `InputKind.SYNTHETIC_SIGNAL`을 구별한다.
+Fryer adapter는 후자에서만 실행한다. 이는 synthetic_test_only 신호를 처리하는
+로컬 입력 능력이며 실제 제어기 계약이나 권한 검증을 뜻하지 않는다.
+실제 fryer-001의 현재 입력은 유온뿐이므로 synthetic binding 테스트를 실제
+장비 신호 확보·validated 입력 연결로 표시하지 않는다.
+
+기존 SyntheticSignal에는 equipment_type이 없어서 `evaluate()`의 필수 키워드
+`equipment_type`으로 받아 binding과 비교한다. 이는 외부 wire에 필드를 추가한
+변경이 아니다. 향후 신호 adapter가 이 metadata의 신뢰 근거를 마련해야 한다.
+
+`ProfileSnapshot(profile, state)`는 원본 Reference의 TwinState와 profile을 묶는다.
+현재 State 타입은 조리 Reference 전용이다. 다른 장비 상태를 현재 enum으로
+표현하거나 Health/초기 unknown을 구현하지 않는다. 기존 초기 상태는 호출자가
+명시한다. 다른 version의 snapshot은 binding과 불일치하여 거부한다.
+
+```python
+# initial_state, synthetic_signal, reference_time은 호출자가 제공한다.
+registry = build_registry((EquipmentBinding(
+    "store-001", "fryer-001", FRYER_REFERENCE, InputKind.SYNTHETIC_SIGNAL,
+),))
+previous = ProfileSnapshot(FRYER_REFERENCE, initial_state)
+result = registry.evaluate(
+    previous, synthetic_signal,
+    equipment_type="fryer", reference_time=reference_time,
+)
+next_snapshot = result.snapshot
+original_fsm_result = result.fsm
+```
+
+### 오류 우선순위와 handler 연결 방어
+
+예상되는 선택 실패는 `RegistryError.code`로 구별한다. 기존 FSM의 Decision과
+혼합하지 않는다. 오류 발생 시 기존 snapshot은 변경되지 않고 출력도 없다.
+정상 선택 뒤의 금지 전이·중복·시간 판정은 원래 FsmResult를 그대로 따른다.
+
+| 검사 순서·상황 | 코드 |
+|---|---|
+| evaluate의 event가 SyntheticSignal이 아님 | UNSUPPORTED_INPUT |
+| equipment_id가 binding 목록에 없음 | UNKNOWN_EQUIPMENT |
+| 등록 ID의 store_id 불일치 | STORE_MISMATCH |
+| 입력 equipment_type과 binding type 불일치 | EQUIPMENT_TYPE_MISMATCH |
+| snapshot/request profile key와 binding 불일치 | PROFILE_MISMATCH |
+| binding과 요청은 일치하나 catalog에 key 없음 | PROFILE_NOT_FOUND |
+| catalog에 profile은 있으나 handler=None | HANDLER_NOT_IMPLEMENTED |
+| 선택 handler가 요구하는 InputKind와 binding 불일치 | INPUT_CONTRACT_UNAVAILABLE |
+| snapshot의 store/equipment identity와 입력 불일치 | SNAPSHOT_IDENTITY_MISMATCH |
+
+선택 전에 잘못된 Python 타입·빈 식별자 같은 API 사용 오류는 TypeError 또는
+ValueError로 거부한다. 구성 시 중복 device ID는 DUPLICATE_BINDING, 중복
+profile key는 DUPLICATE_PROFILE이다. ProfileSpec의 handler가 선언한 key와
+등록 key가 다르면 HANDLER_PROFILE_MISMATCH로 거부한다. 이 단위에는
+FryerReferenceAdapter 외 handler 타입을 등록할 수 없다.
+
+`build_registry()`는 fryer handler 하나와 refrigerator/freezer/hood/dishwasher의
+handler=None 항목을 만든다. 알려진 profile 미구현과 미등록 profile을 구별하고
+다른 profile/version·다른 장비의 handler로 fallback하지 않는다. 실제 registry에
+없는 dishwasher를 자동 장비 등록하지도 않는다. 필요하면 resolve()만 호출해
+Reference용 상태 객체를 만들지 않고 미구현 여부를 확인할 수 있다.
+
+### Reference 재사용·검증과 다음 작업
+
+FryerReferenceAdapter는 기존 transition에 같은 previous/event/reference_time을
+전달한다. 원래 `synthetic-reference-v1`과 전이 ID 알고리즘·출력 의도를 변경하지
+않는다. Registry profile의 이름/버전은 선택 metadata이며 원본 FSM policy_version을
+교체하지 않는다. 다른 profile handler가 생길 때 ID와 snapshot migration은
+별도로 설계해야 한다.
+
+RegistryResult는 다음 ProfileSnapshot과 원래 FsmResult를 함께 반환한다.
+같은 snapshot/입력/유효 기준 시각에서 재계산하면 동일 전이 ID이며, 이미 갱신한
+snapshot에 replay하면 원래 FSM대로 DUPLICATE·빈 의도다. 순수 계산의 결정성만
+검증했고 snapshot 영속 복원·sink 전달 복구·exactly-once 증거는 아니다.
+
+검증: Phase 4 `202 passed`; 전체 로컬 회귀
+`916 passed, 10 deselected, 1 warning`. 명령과 실행 시간은 검증 보고서의
+Registry 구현 절에 기록했다. Avro·Simulator·기존 FSM·Phase 2/3는 변경하지 않았다.
+
+다음 권장 단위는 앞선 계획의 Hood numeric qualifier다. profile 등록은 되어
+있지만 handler는 여전히 없으므로, 먼저 독립 순수 RPM 후보 계산과 threshold/
+dwell/관측 공백 fixture를 검토한다. 새 장비 FSM·typed controller 입력·
+Health/timer 또는 외부 연결을 이번 완료 범위에 포함하지 않는다.
+
+이번 권장 commit 대상은 위 Python 네 파일과 이 설계 문서·검증 보고서 여섯
+파일이다. 메시지: `feat(phase4): add equipment FSM registry and reference adapter`.
