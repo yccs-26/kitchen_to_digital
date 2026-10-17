@@ -188,3 +188,53 @@ operational cursor와 별도의 freshness 근거·fault 집합을 가진 snapsho
 이번 권장 commit 범위는 위 4개 파일만이다. 메시지 제안:
 `test(phase4): verify ordering and define hysteresis scope`.
 Staging/commit/push/merge 또는 다음 Health 구현을 자동 실행하지 않는다.
+
+## 장비별 Operational State 계약 검토 — 문서 설계 단위
+
+검토일: 2026-10-17 (Asia/Seoul). 시작 HEAD
+`9c3dabbd1340d3324267d6624a803012482b1ac5`, 브랜치
+`feat/phase-4-twin-state`, 시작 Git status clean.
+
+이번 변경은 [장비별 계약·확장 설계](../streaming/equipment-state-contracts.md),
+`streaming/state/README.md`의 연결, 이 보고서의 기록 세 문서다.
+Simulator·equipment registry·metric 규칙·Avro·기존 FSM·Phase 2/3 코드를
+직접 읽었으며 수정하지 않았다. 새 장비 profile/registry·신호·Health/timer는
+구현하지 않았다.
+
+### 확인 결과
+
+- Simulator 설정은 6항목·5유형·5개 metric 이름이다. numeric main 경로와
+  현재 validation_rules에 일치하는 것은 4항목·4유형·3개 metric 이름이다.
+  이는 설정/코드 정합성 증거이며 실시간 Kafka 데이터 목록이 아니다.
+- fridge-door-001의 door_open과 dishwasher-001의 state는 boolean/categorical
+  생성 후보가 있지만 main 발행 및 현재 numeric Avro/validated 검증 경로는
+  지원하지 않는다. door의 parent 장비 관계도 등록되어 있지 않다.
+- 냉장·냉동고 온도와 fryer 유온은 각각 냉각 동작/조리·청소 의도를 확정하지
+  못한다. Hood RPM은 회전 관측 파생 후보이나 정책·정지/기동 fixture가 없다.
+- 냉각 STANDBY/COOLING, hood STOPPED/ROTATING, dishwasher cycle 상태와
+  장비별 허용/금지 표는 **설계 제안**이다. 실제 제어기 신호 또는 장비 지원이
+  확인된 구현 상태가 아니다. 기존 synthetic 조리 reference는 그대로 유지한다.
+- 장비별 binding과 profile/version registry가 기존 reference 함수를 adapter로
+  호출하도록 제안했다. 새 장비를 조리 enum에 강제 매핑하거나 미설정 장비를
+  조리 정책으로 fallback하지 않는다. 실제 typed 입력·source·cycle·완료·
+  정책 migration은 별도 선행 계약이다.
+
+### 실제 검증과 한계
+
+오프라인 inventory 스크립트로 EQUIPMENTS와 validation_rules의 장비·metric·unit
+일치 여부를 대조했다. simulator main 또는 producer를 실행하지 않았다.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-device-design-phase4 tests/unit/phase4
+# 151 passed in 0.11s
+```
+
+P4-1/P4-2 기존 테스트 호환성을 확인했다. 문서만 변경하여 전체 회귀를 이번에
+재실행하지 않았으며 기존 전체 회귀 숫자를 이번 실행 결과로 재사용하지 않는다.
+새 profile·정책 선택·numeric qualifier·실제 입력 E2E는 미검증이다.
+AWS/Databricks 실행, Spark/Kafka/DynamoDB 연결을 수행하지 않았다.
+
+다음 권장 한 단위는 로컬 Policy Registry 선택 계약과 reference adapter다.
+장비별 입력이 확보되기 전 기본 정책 자동 적용을 막는 것이 완료 기준이다.
+세 문서만 대상으로 `docs(phase4): define equipment state contracts and registry design`
+메시지를 권장한다. Git staging/commit/push/merge 없이 사용자 검토를 기다린다.

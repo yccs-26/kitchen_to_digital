@@ -5,6 +5,10 @@
 적용 범위는 **synthetic reference 화구**다. 실제 fryer에 이 정책을 적용했다고
 간주하지 않는다. 초기 상태와 health는 호출자가 명시하며 자동 초기화하지 않는다.
 
+장비별 실제 입력 목록·후보 전이표와 미구현 정책 선택 구조는
+[장비별 FSM 계약·Registry 설계](../../docs/streaming/equipment-state-contracts.md)를
+참고한다. 해당 문서는 확장 제안이며 현재 함수·enum의 적용 범위를 바꾸지 않는다.
+
 ## 기존 validated 계약과 별도 입력 제안
 
 현재 Avro는 `event_id`, `event_time`, `store_id`, `equipment_id`,
