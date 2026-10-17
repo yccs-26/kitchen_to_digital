@@ -4,9 +4,9 @@
 `9c3dabbd1340d3324267d6624a803012482b1ac5`,
 브랜치 `feat/phase-4-twin-state`. 시작 작업 트리는 clean이었다.
 
-상태: **장비별 계약 설계 + 순수 Registry/Reference adapter 구현**.
-현재 구현은 P4-1/P4-2의 synthetic 조리 Reference와 장비/profile 선택 계층이다.
-다른 장비의 새 enum·정책·신호는 구현되지 않았다. 실제 장비 제어기 사양도
+상태: **장비별 계약 설계 + 순수 Registry/Reference adapter + 독립 Hood RPM qualifier**.
+현재 구현은 P4-1/P4-2의 synthetic 조리 Reference, 장비/profile 선택 계층과
+아래 8절의 순수 Hood 계산이다. 다른 장비 정책과 Hood Registry handler는 미구현이다. 실제 장비 제어기 사양도
 제공되지 않았으므로 장비별 후보 상태를 실제 하드웨어 지원 사실로 해석하지 않는다.
 
 ## 1. 직접 확인한 근거
@@ -448,3 +448,85 @@ Health/timer 또는 외부 연결을 이번 완료 범위에 포함하지 않는
 
 이번 권장 commit 대상은 위 Python 네 파일과 이 설계 문서·검증 보고서 여섯
 파일이다. 메시지: `feat(phase4): add equipment FSM registry and reference adapter`.
+
+
+## 8. Hood RPM qualifier — 독립 순수 계산 구현
+
+2026-10-17, `streaming/state/hood.py`를 구현했다. 앞선 후보 설계 중 Hood의
+수치 판정만 이번 절로 구체화한다. 기존 Fryer enum·FSM·Registry 계약은 유지한다.
+`HOOD_PROFILE = (hood, rpm-observation, 1)`은 계속 handler=None이며 Registry의
+`resolve()`는 Hood에 HANDLER_NOT_IMPLEMENTED를 반환한다. 이 Qualifier를
+Registry에 연결한 것으로 해석하지 않는다.
+
+### 입력·초기화와 의미
+
+Simulator는 store-001/hood-001, hood/fan_rpm/rpm, 생성 범위 800~1800이다.
+validation_rules에도 동일 장비·metric/unit이 등록되어 있다. 이 범위는 난수
+생성 설정이며 실제 정상 RPM 범위나 정지/운전 기준으로 검증된 사양이 아니다.
+`HoodRpmEvent`는 기존 validated 10필드를 그대로 보존한다. event_time은 내부
+aware UTC datetime이며 wire string의 파싱·실제 등록/source 권한·Kafka key
+검증은 caller 책임이다. 새 signal_id나 신호 wire 계약을 만들지 않는다.
+
+`HoodSnapshot(store_id, equipment_id, policy)`의 current는 처음에 None이다.
+첫 지속시간 충족 구간은 INITIALIZED로 확정하며 가상의 STOPPED→ROTATING
+전이나 state_change_id를 만들지 않는다. current가 이미 알려진 로컬 snapshot도
+호출자가 명시할 수 있다. STOPPED/ROTATING은 RPM 관측에서 파생한 상태이며
+전원 명령·흡입 성능·COOKING/CLEANING/FAULT를 의미하지 않는다.
+Health 필드나 timer를 계산하지 않는다.
+
+### 명시적으로 주입하는 테스트 정책
+
+| 파라미터 | 이번 fixture 값 | 확정 조건 |
+|---|---|---|
+| enter_rpm | 600 rpm | RPM >= 600인 ROTATING 후보 |
+| exit_rpm | 200 rpm | RPM <= 200인 STOPPED 후보 |
+| enter_duration | 3초 | 새 유효 샘플 시각 - 후보 시작 >= 3초 |
+| exit_duration | 2초 | 새 유효 샘플 시각 - 후보 시작 >= 2초 |
+| max_sample_gap | 2초 | 연속 소비 샘플 간격 <= 2초 |
+
+실제 장비 사양이 아닌 **초기 테스트 파라미터**다. 정책에 기본 숫자를 숨기지
+않고 호출자가 모두 제공한다. finite 수치, 0 <= exit < enter, 각 기간의 양수를
+검사한다. snapshot이 정책을 보존하며 호출 때 다른 정책을 전달하는 인자는 없다.
+운영 정책 변경·snapshot migration은 미구현이다.
+
+확정 상태와 다른 구간에서 후보를 시작하며 동일 구간의 새 시간순 샘플만
+후보 시작 시각을 유지한다. 양 임계값 사이에서는 current를 유지하고 후보를
+취소한다. 기존 확정 구간으로 복귀해도 반대 후보를 취소한다. 미초기 상태에서
+후보 방향이 바뀌면 새로 시작한다. 공백 > 2초이면 새 샘플에서 다시 시작하며,
+정확히 2초는 연속성에 포함한다. 모든 확정은 새 샘플이 필요하다. 사건 부재나
+reference_time 경과만으로 STOPPED/ROTATING·STALE을 만들지 않는다.
+샘플 사이 조건 유지 가정은 관측 정책이며 물리적 연속 회전을 증명하지 않는다.
+
+### 순서·부적합 입력·출력 identity
+
+identity → 소비 event_id 중복/전체 10필드 충돌 → reference_time < cursor →
+미래 사건 → 역순/동시각 → 입력 적합성 → 후보 계산 순으로 검사한다.
+다른 store/equipment, DUPLICATE/ID_CONFLICT, 시간 거부는 snapshot 전체를 보존한다.
+이들은 후보를 늘리거나 취소하지 않고 원장에도 넣지 않는다. 같은 ID의 int/float
+동등 수치와 같은 순간의 UTC 표현은 중복이다. 새 ID의 동시각은 SAME_TIME으로
+거부하므로 순열 불변성이 아닌 같은 순서 재실행 결정성만 보장한다.
+reference_time은 마지막 소비 사건 시각과 비교하며 이전 처리 시각을 저장하지 않는다.
+
+새 시간순 입력의 음수 RPM, 잘못된 type/metric/unit/version은 INVALID_SAMPLE이다.
+current는 유지하고 후보를 취소하며, cursor와 원문 원장에는 소비 기록을 남긴다.
+이후 유효 샘플은 후보를 새로 시작한다. Domain validator는 음수 RPM을 거부하지
+않으므로 이는 Qualifier의 추가 방어다. 이 처리는 Phase 2 Quarantine 구현이 아니다.
+비유한 값·bool/string 수치·빈 식별자·naive 시각은 모델 생성 시 예외로 거부한다.
+이 경우 계산 결과 snapshot은 없으며 caller가 잘못된 입력을 임의 누락한 스트림의
+연속성을 보장하지 않는다. 실제 연결 전 해당 오류의 후보 단절 인계가 필요하다.
+
+TRANSITION에는 `HoodStateChange` 하나를 반환한다. SHA-256 입력은 고정 정책 버전,
+Hood profile key, 모든 정책값(기간은 정수 μs), store/equipment, 확정 샘플 event_id,
+UTC event_time, 이전/다음 상태와 후보 시작 시각이다. 수치 정책의 600/600.0은
+같은 identity를 만든다. 처리 시각은 포함하지 않는다. 동일 이전 snapshot 재계산은
+같은 출력, 다음 snapshot의 replay는 DUPLICATE/빈 출력을 반환한다.
+초기화·PENDING·NO_CHANGE·거부는 전이 의도를 만들지 않는다.
+
+전체 원문 tuple 원장은 무제한 로컬 참조용이며 영속성·TTL·checkpoint 복구는
+미검증이다. 출력은 미전달 의도이며 outbox·sink ACK·exactly-once를 보장하지 않는다.
+fixture는 synthetic 시계열로 0 RPM·경계 노이즈를 보완했고 Simulator는 수정하지
+않았다. 테스트 결과는 검증 보고서의 Hood 절을 따른다.
+
+다음 한 단위 후보는 Hood 전용 snapshot/result를 수용하는 Registry adapter 계약이다.
+기존 Registry는 Fryer 전용 타입이므로 사용자 검토 후 별도 범위로 확장해야 한다.
+Health freshness/timer, 실제 source 권한, validated 소비와 외부 sink 연결은 후속이다.

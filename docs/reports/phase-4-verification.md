@@ -314,3 +314,88 @@ AWS/Databricks·Spark·Kafka·DynamoDB를 실행하거나 연결하지 않았다
 사용자 검토 전 자동으로 다음 구현을 시작하지 않는다. 위 여섯 파일만 대상으로
 `feat(phase4): add equipment FSM registry and reference adapter` 메시지를
 권장한다. git add/commit/push/merge는 수행하지 않았다.
+
+## Hood RPM Qualifier — 순수 Python 구현
+
+검증일: 2026-10-17 (Asia/Seoul). 시작 HEAD
+`2d4c81868d82ec152922d9592a183df1039ae65b`, 브랜치
+`feat/phase-4-twin-state`, 시작 Git status clean.
+실행 계획의 Phase 4·Health 분리 경계, 현재 Simulator·validation_rules·Avro·
+validated publisher·event_identity·기존 P4-1/P4-2·Registry 코드를 직접 확인했다.
+
+### 이번 변경 파일
+
+- `streaming/state/hood.py`: validated 10필드 입력 모델, Hood 전용 enum, 명시적
+  immutable 정책·snapshot, 순수 qualify_rpm, 초기화/후보/전이 결과와 결정적 출력 ID.
+- `tests/unit/phase4/test_hood.py`: 새 테스트 69개.
+- `tests/fixtures/phase4/hood_rpm.json`: 정지 초기화→경계 노이즈→회전→정지 시계열.
+- `docs/streaming/equipment-state-contracts.md`: 8절에 입력·수치·시간·identity·한계 기록.
+- `docs/reports/phase-4-verification.md`: 이번 실행 증거.
+
+### 계약과 구현 판단
+
+실제 설정은 store-001/hood-001, equipment_type=hood, fan_rpm/rpm이며 Simulator
+생성 범위는 800~1800이다. 실제 정상 운전 사양이 아니다. fixture는 별도 초기
+테스트 파라미터 enter=600 rpm/3초, exit=200 rpm/2초, max gap=2초를 주입한다.
+정지/기동 fixture는 synthetic이며 Simulator나 실제 Kafka에서 캡처한 것이 아니다.
+모든 fixture 입력은 기존 domain validator·등록 장비·metric/unit·버전 검사를
+통과하는지 테스트했다. Phase 2 파일은 수정하지 않았다.
+
+임계값·기간·공백의 등호 경계를 포함한다. deadband/조건 이탈은 후보를 취소하고
+확정 상태를 유지한다. 공백 초과는 후보를 새로 시작한다. None에서 최초 확정은
+INITIALIZED/빈 전이 의도이며, 이후 STOPPED→ROTATING→STOPPED만 전이 출력한다.
+중복/충돌·역순/동시각·미래·기준 역전·identity 불일치는 후보와 원장을 보존한다.
+새 시간순의 음수·잘못된 type/metric/unit/version은 current를 보존하고 후보를
+취소하며 INVALID_SAMPLE로 소비한다. 구조 오류는 모델 생성 예외이며 caller의
+오류 인계·stream 연결은 미구현이다. Health 계산은 포함하지 않는다.
+
+state_change_id는 정책 버전·Hood profile·모든 정책값·장비 identity·원본 event_id·
+UTC event_time·전후 상태·후보 시작 시각의 SHA-256이다. 처리 지연과 무관하고
+같은 순서 재실행은 동일 결과를 만든다. 다음 snapshot에 replay하면 재출력하지
+않는다. 초기화는 가상의 이전 상태나 state_change_id를 만들지 않는다.
+
+기존 Registry·bindings·adapters·Fryer FSM·contracts는 수정하지 않았다.
+HOOD_PROFILE은 계속 handler=None이며 Registry 호출은 기존처럼
+HANDLER_NOT_IMPLEMENTED다. 새 계산을 기존 Registry에 연결했다고 주장하지 않는다.
+
+### 테스트 우선 실행과 실제 결과
+
+먼저 테스트·fixture만 작성하고 실행했다:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-hood-red tests/unit/phase4/test_hood.py
+# ModuleNotFoundError: streaming.state.hood (collection error 1건)
+```
+
+구현 후 63개가 통과했고 fixture의 전이 trigger 기대 ID 오기 1건을 수정했다.
+시계열 자체의 기대 전이·상태는 모두 통과했으며 3초/2초 충족 시각인
+rpm-10/rpm-17을 출력 trigger로 확인했다. 추가 replay/Health 분리 사례를 포함한
+최종 기능 코드에서 다음을 실행했다:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-hood-final-phase4 tests/unit/phase4
+# 271 passed in 0.19s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-hood-regression -m 'not integration'
+# 985 passed, 10 deselected, 1 warning in 3.14s
+```
+
+경고는 기존 Authlib httpx deprecation 1건이다. 외부 integration 10개는 제외했다.
+경계 duration 직전/정확한 충족, 최대 공백 등호/초과, 초기 방향 변경, deadband·
+확정 구간 복귀, 긴 공백과 처리 지연, 과거 ID replay·전체 payload 충돌·UTC 및
+int/float 동등성, 정책값의 출력 ID 반영을 확인했다. 기존 Registry 51개를 포함한
+Phase 4 회귀가 통과했다. Python 구문·79열과 git diff --check도 최종 확인한다.
+
+### 한계와 다음 작업
+
+순수 Python/fixture 증거이며 실장비, Spark·Kafka·DynamoDB·AWS/Databricks·E2E
+실행 증거가 아니다. 해당 연결/실행은 하지 않았다. 현재 정책은 샘플 사이 조건
+유지를 가정하며 source 권한·물리적 운전 성능을 검증하지 않는다. 원장은 무제한
+로컬 tuple이며 영속 복구·보존 정책·outbox와 출력 ACK는 미구현이다.
+Health/timer·정책 migration·실제 validated consumer도 미구현이다.
+
+다음 제안은 Hood용 Registry adapter/snapshot/result 확장 계약을 별도 단위로
+검토하는 것이다. 이번에는 자동 등록하거나 기존 Registry 계약을 바꾸지 않았다.
+위 5개 파일만 권장 staging 대상이며 메시지는
+`feat(phase4): add deterministic hood RPM qualifier`이다.
+Git add/commit/push/merge 없이 이 논리 단위를 마치고 사용자 검토를 기다린다.

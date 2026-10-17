@@ -1,0 +1,23 @@
+{
+  "provenance": "synthetic_test_only",
+  "description": "Initial stopped qualification, noise cancellation, rotation and stop; test parameters only",
+  "policy": {"enter_rpm": 600, "exit_rpm": 200, "enter_seconds": 3, "exit_seconds": 2, "max_gap_seconds": 2},
+  "steps": [
+    {"second": 0, "rpm": 0, "decision": "PENDING", "state": null},
+    {"second": 2, "rpm": 0, "decision": "INITIALIZED", "state": "STOPPED"},
+    {"second": 3, "rpm": 600, "decision": "PENDING", "state": "STOPPED"},
+    {"second": 4, "rpm": 599, "decision": "NO_CHANGE", "state": "STOPPED"},
+    {"second": 5, "rpm": 601, "decision": "PENDING", "state": "STOPPED"},
+    {"second": 6, "rpm": 400, "decision": "NO_CHANGE", "state": "STOPPED"},
+    {"second": 7, "rpm": 800, "decision": "PENDING", "state": "STOPPED"},
+    {"second": 9, "rpm": 1800, "decision": "PENDING", "state": "STOPPED"},
+    {"second": 10, "rpm": 800, "decision": "TRANSITION", "state": "ROTATING"},
+    {"second": 11, "rpm": 200, "decision": "PENDING", "state": "ROTATING"},
+    {"second": 12, "rpm": 201, "decision": "NO_CHANGE", "state": "ROTATING"},
+    {"second": 13, "rpm": 199, "decision": "PENDING", "state": "ROTATING"},
+    {"second": 14, "rpm": 400, "decision": "NO_CHANGE", "state": "ROTATING"},
+    {"second": 15, "rpm": 200, "decision": "PENDING", "state": "ROTATING"},
+    {"second": 16, "rpm": 0, "decision": "PENDING", "state": "ROTATING"},
+    {"second": 17, "rpm": 0, "decision": "TRANSITION", "state": "STOPPED"}
+  ]
+}
