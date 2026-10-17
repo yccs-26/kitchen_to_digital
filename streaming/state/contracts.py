@@ -71,6 +71,11 @@ class CleaningSignal:
             raise TypeError("active must be bool")
 
 
+@dataclass(frozen=True)
+class CleaningCompletedSignal:
+    """제어기가 청소의 정상 완료를 명시적으로 보고한 synthetic 신호."""
+
+
 def _require_text(value: object, field: str) -> None:
     """식별자는 빈 문자열을 허용하지 않고 원문을 보존한다."""
     if not isinstance(value, str) or not value.strip():
@@ -103,7 +108,9 @@ class SyntheticSignal:
     store_id: str
     equipment_id: str
     source: str
-    payload: ModeSignal | CleaningSignal | FaultSignal
+    payload: (
+        ModeSignal | CleaningSignal | CleaningCompletedSignal | FaultSignal
+    )
     provenance: Literal["synthetic_test_only"]
 
     def __post_init__(self) -> None:
@@ -112,7 +119,8 @@ class SyntheticSignal:
         if self.provenance != "synthetic_test_only":
             raise ValueError("Only synthetic_test_only signals are allowed")
         if not isinstance(
-            self.payload, (ModeSignal, CleaningSignal, FaultSignal)
+            self.payload,
+            (ModeSignal, CleaningSignal, CleaningCompletedSignal, FaultSignal),
         ):
             raise TypeError("payload must be an explicit candidate signal")
         if (

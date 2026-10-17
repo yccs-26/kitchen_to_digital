@@ -1,0 +1,14 @@
+{
+  "provenance": "synthetic_test_only",
+  "store_id": "synthetic-store",
+  "equipment_id": "synthetic-reference-burner",
+  "source": "synthetic-controller",
+  "initial_operational_state": "IDLE",
+  "initial_health": "STALE",
+  "steps": [
+    {"signal_id": "cycle-1", "event_time": "2026-10-17T00:00:01Z", "kind": "mode", "mode": "PREHEATING", "expected": "PREHEATING"},
+    {"signal_id": "cycle-2", "event_time": "2026-10-17T00:00:02Z", "kind": "mode", "mode": "COOKING", "expected": "COOKING"},
+    {"signal_id": "cycle-3", "event_time": "2026-10-17T00:00:03Z", "kind": "cleaning", "active": true, "expected": "CLEANING"},
+    {"signal_id": "cycle-4", "event_time": "2026-10-17T00:00:04Z", "kind": "cleaning_completed", "expected": "IDLE"}
+  ]
+}
