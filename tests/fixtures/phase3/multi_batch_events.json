@@ -1,0 +1,860 @@
+{
+  "version": 1,
+  "watermark_delay": "10 minutes",
+  "window_duration": "1 minute",
+  "output_mode": "append",
+  "target_equipment_id": "fridge-001",
+  "notes": [
+    "Expected decisions are specifications, not a Python Spark emulator.",
+    "Clock events are local test inputs only; never production heartbeats.",
+    "All steps with events are separate source files; empty step adds no file.",
+    "Finite oracle includes late-new; streaming final intentionally excludes it.",
+    "Observation retry is not a Gold/Delta idempotency test."
+  ],
+  "scenarios": [
+    {
+      "name": "normal",
+      "steps": [
+        {
+          "events": [
+            {
+              "event_id": "a",
+              "event_time": "2026-10-16T00:00:10Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 2.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            },
+            {
+              "event_id": "b",
+              "event_time": "2026-10-16T00:00:20Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 4.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "ACCEPT",
+            "ACCEPT"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "c",
+              "event_time": "2026-10-16T00:00:30Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 6.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "ACCEPT"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-25",
+              "event_time": "2026-10-16T00:25:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-26",
+              "event_time": "2026-10-16T00:26:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        }
+      ],
+      "expected_finite": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 3,
+          "sum": 12.0,
+          "avg": 4.0,
+          "min": 2.0,
+          "max": 6.0
+        }
+      ],
+      "expected_stream_final": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 3,
+          "sum": 12.0,
+          "avg": 4.0,
+          "min": 2.0,
+          "max": 6.0
+        }
+      ]
+    },
+    {
+      "name": "cross_batch_duplicate",
+      "steps": [
+        {
+          "events": [
+            {
+              "event_id": "a",
+              "event_time": "2026-10-16T00:00:10Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 2.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            },
+            {
+              "event_id": "b",
+              "event_time": "2026-10-16T00:00:20Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 4.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "ACCEPT",
+            "ACCEPT"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "a",
+              "event_time": "2026-10-16T00:00:10Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 2.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            },
+            {
+              "event_id": "c",
+              "event_time": "2026-10-16T00:00:30Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 6.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "BOUNDED_DUPLICATE",
+            "ACCEPT"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-25",
+              "event_time": "2026-10-16T00:25:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-26",
+              "event_time": "2026-10-16T00:26:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        }
+      ],
+      "expected_finite": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 3,
+          "sum": 12.0,
+          "avg": 4.0,
+          "min": 2.0,
+          "max": 6.0
+        }
+      ],
+      "expected_stream_final": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 3,
+          "sum": 12.0,
+          "avg": 4.0,
+          "min": 2.0,
+          "max": 6.0
+        }
+      ]
+    },
+    {
+      "name": "payload_conflict",
+      "steps": [
+        {
+          "events": [
+            {
+              "event_id": "a",
+              "event_time": "2026-10-16T00:00:10Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 2.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "ACCEPT"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "a",
+              "event_time": "2026-10-16T00:00:10Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 99.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "CONTRACT_VIOLATION_HIDDEN_BY_ID_DEDUP"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-25",
+              "event_time": "2026-10-16T00:25:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-26",
+              "event_time": "2026-10-16T00:26:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        }
+      ],
+      "expected_finite": null,
+      "expected_stream_final": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 1,
+          "sum": 2.0,
+          "avg": 2.0,
+          "min": 2.0,
+          "max": 2.0
+        }
+      ],
+      "expected_conflict": {
+        "event_id": "a",
+        "differing_fields": [
+          "metric_value"
+        ]
+      },
+      "scope": "Native ID dedup does not validate conflicting payloads."
+    },
+    {
+      "name": "utc_boundary",
+      "steps": [
+        {
+          "events": [
+            {
+              "event_id": "edge-before",
+              "event_time": "2026-10-16T00:00:59.999999Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 2.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "ACCEPT"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "edge-at",
+              "event_time": "2026-10-16T09:01:00+09:00",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 4.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "ACCEPT_NEXT_UTC_WINDOW"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-25",
+              "event_time": "2026-10-16T00:25:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-26",
+              "event_time": "2026-10-16T00:26:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        }
+      ],
+      "expected_finite": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 1,
+          "sum": 2.0,
+          "avg": 2.0,
+          "min": 2.0,
+          "max": 2.0
+        },
+        {
+          "window_start": "2026-10-16T00:01:00+00:00",
+          "window_end": "2026-10-16T00:02:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 1,
+          "sum": 4.0,
+          "avg": 4.0,
+          "min": 4.0,
+          "max": 4.0
+        }
+      ],
+      "expected_stream_final": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 1,
+          "sum": 2.0,
+          "avg": 2.0,
+          "min": 2.0,
+          "max": 2.0
+        },
+        {
+          "window_start": "2026-10-16T00:01:00+00:00",
+          "window_end": "2026-10-16T00:02:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 1,
+          "sum": 4.0,
+          "avg": 4.0,
+          "min": 4.0,
+          "max": 4.0
+        }
+      ]
+    },
+    {
+      "name": "watermark_late",
+      "steps": [
+        {
+          "events": [
+            {
+              "event_id": "a",
+              "event_time": "2026-10-16T00:00:10Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 2.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            },
+            {
+              "event_id": "b",
+              "event_time": "2026-10-16T00:00:20Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 4.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "ACCEPT",
+            "ACCEPT"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-25",
+              "event_time": "2026-10-16T00:25:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-26",
+              "event_time": "2026-10-16T00:26:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "a",
+              "event_time": "2026-10-16T00:00:10Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 2.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            },
+            {
+              "event_id": "late-new",
+              "event_time": "2026-10-16T00:00:30Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 6.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "LATE_DUPLICATE_DROPPED",
+            "LATE_NEW_DROPPED"
+          ],
+          "require_watermark_after": "2026-10-16T00:10:10+00:00",
+          "require_dedup_eviction": true
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-27",
+              "event_time": "2026-10-16T00:27:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        }
+      ],
+      "expected_finite": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 3,
+          "sum": 12.0,
+          "avg": 4.0,
+          "min": 2.0,
+          "max": 6.0
+        }
+      ],
+      "expected_stream_final": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 2,
+          "sum": 6.0,
+          "avg": 3.0,
+          "min": 2.0,
+          "max": 4.0
+        }
+      ],
+      "excluded_event_ids": [
+        "a",
+        "late-new"
+      ]
+    },
+    {
+      "name": "idle",
+      "steps": [
+        {
+          "events": [
+            {
+              "event_id": "a",
+              "event_time": "2026-10-16T00:00:10Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 2.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            },
+            {
+              "event_id": "b",
+              "event_time": "2026-10-16T00:00:20Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 4.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "ACCEPT",
+            "ACCEPT"
+          ]
+        },
+        {
+          "events": [],
+          "expected_decisions": [],
+          "idle": true
+        }
+      ],
+      "expected_finite": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 2,
+          "sum": 6.0,
+          "avg": 3.0,
+          "min": 2.0,
+          "max": 4.0
+        }
+      ],
+      "expected_stream_final": [],
+      "completion": "OPEN_PENDING_EVENT_TIME"
+    },
+    {
+      "name": "batch_replay",
+      "steps": [
+        {
+          "events": [
+            {
+              "event_id": "a",
+              "event_time": "2026-10-16T00:00:10Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 2.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            },
+            {
+              "event_id": "b",
+              "event_time": "2026-10-16T00:00:20Z",
+              "store_id": "store-001",
+              "equipment_id": "fridge-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 4.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "ACCEPT",
+            "ACCEPT"
+          ]
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-25",
+              "event_time": "2026-10-16T00:25:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ],
+          "fail_after_output": true
+        },
+        {
+          "events": [
+            {
+              "event_id": "clock-26",
+              "event_time": "2026-10-16T00:26:00Z",
+              "store_id": "store-001",
+              "equipment_id": "clock-001",
+              "equipment_type": "refrigerator",
+              "metric_name": "temperature_celsius",
+              "metric_value": 1.0,
+              "unit": "celsius",
+              "schema_version": "1.0.0",
+              "source": "phase3-local-fixture"
+            }
+          ],
+          "expected_decisions": [
+            "TEST_CLOCK_ACCEPTED"
+          ]
+        }
+      ],
+      "expected_finite": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 2,
+          "sum": 6.0,
+          "avg": 3.0,
+          "min": 2.0,
+          "max": 4.0
+        }
+      ],
+      "expected_stream_final": [
+        {
+          "window_start": "2026-10-16T00:00:00+00:00",
+          "window_end": "2026-10-16T00:01:00+00:00",
+          "window_type": "1m_tumbling",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "metric_name": "temperature_celsius",
+          "unit": "celsius",
+          "count": 2,
+          "sum": 6.0,
+          "avg": 3.0,
+          "min": 2.0,
+          "max": 4.0
+        }
+      ],
+      "replay": "Same source batch and checkpoint; no extra input file."
+    }
+  ]
+}
