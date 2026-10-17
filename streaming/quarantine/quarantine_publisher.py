@@ -125,6 +125,7 @@ def publish_quarantine_record(
         raise TimeoutError(
             "Quarantine delivery was not confirmed before timeout."
         )
-    if delivered.offset() < 0:
+    offset = delivered.offset()
+    if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
         raise RuntimeError("Quarantine delivery has no acknowledged offset.")
     return delivered

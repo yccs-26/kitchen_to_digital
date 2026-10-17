@@ -772,6 +772,45 @@ def test_conflict_quarantine_failure_blocks_batch_until_ack(
     )
 
 
+@pytest.mark.parametrize("offset", [False, True, None, "3", 1.5, -1])
+def test_conflict_invalid_ack_blocks_batch_and_retry_preserves_canonical(
+    event, dependencies, offset,
+):
+    """잘못된 ACK는 배치를 막고 정상 ACK 재시도만 후속 행을 처리한다."""
+    job.process_record(raw_record(event), **dependencies)
+    storage = dependencies["silver"]._storage
+    canonical = deepcopy(storage.rows)
+    producer = dependencies["quarantine_producer"]
+    producer.message.offset.return_value = offset
+    batch = FakeBatch(
+        raw_record({**event, "metric_value": 9.5}, offset=43),
+        raw_record({**event, "event_id": "next-event"}, offset=44),
+    )
+
+    with pytest.raises(RuntimeError, match="acknowledged offset"):
+        job.process_batch(batch, 2, **dependencies)
+
+    assert storage.rows == canonical
+    assert len(dependencies["validated_producer"].calls) == 1
+    assert len(producer.calls) == 1
+    retry_producer = FakeProducer()
+    retry_producer.message.offset.return_value = 0
+    dependencies["quarantine_producer"] = retry_producer
+    dependencies["silver"] = SilverSink(storage)
+    counts = job.process_batch(batch, 2, **dependencies)
+
+    assert counts == dict(
+        received=2, validated=1, quarantine=1, conflict=1, duplicate=0,
+        late=0,
+    )
+    assert storage.rows[event["event_id"]] == canonical[event["event_id"]]
+    assert len(storage.rows) == 2
+    assert len(dependencies["validated_producer"].calls) == 2
+    assert len(retry_producer.calls) == 1
+    for field in ("key", "value"):
+        assert retry_producer.calls[0][field] == producer.calls[0][field]
+
+
 def test_conflict_replay_after_checkpoint_failure_has_stable_evidence(
     event, dependencies,
 ):

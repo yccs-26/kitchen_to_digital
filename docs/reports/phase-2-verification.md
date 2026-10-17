@@ -691,3 +691,292 @@ git add docs/evidence/phase-2/p2-8a/schema-id-inventory.json docs/reports/phase-
 git diff --cached --stat
 git commit -m "docs(phase2): complete live schema ID inventory"
 ```
+
+## 2026-10-10 Cloud Registry 이관 준비 완료 — Cloud 미실행
+
+이번 단위는 source export와 실행 절차 준비다. 기존 실제 inventory는 수정하지
+않았고, Confluent Cloud 생성·요청·등록이나 secret 생성/변경은 수행하지 않았다.
+P2-8A 전체 및 Cloud smoke 완료를 뜻하지 않는다.
+
+실행 절차: `docs/implementation/p2-8a-registry-migration.md`.
+manifest: `docs/evidence/phase-2/p2-8a/registry-migration/manifest.json`.
+source export 조회 시각: 2026-10-10 02:41:36 UTC.
+
+local Registry에서 ID 1/2의 GET schema, ID→subject/version,
+subject/version→ID/schema 및 effective BACKWARD 설정을 다시 조회했다.
+각 schema 정의는 기존 inventory와 저장소 Avro artifact에 일치했다.
+source-export.json과 정확한 schema 문자열 `.avsc`, raw ID/version 보존 POST body,
+validated canonical v1 등록 body를 준비했다. schema 원문 hash와 JSON 구조 hash를
+구분하며, 후자는 field 순서/default를 포함한 내용 변경을 검출한다.
+
+확정 이관 순서는 raw subject IMPORT → ID 1/version 1 → ID 2/version 2 →
+READWRITE/BACKWARD 검증 → 별도 validated subject에 10-field v1 등록이다.
+validated의 ID/version을 요청에 강제하지 않으며, 동일 default context에서 예상되는
+ID 1/version 1을 실제 응답 및 GET으로 확인한다. 이번 actual destination 값은 null이다.
+
+`scripts/registry_migration.py`는 offline/preflight/import-raw/verify-raw/
+register-validated/verify-all을 제공한다. source bundle을 검증하고, 생성된 목적지의
+subject/삭제 이력 또는 기존 ID 1/2가 있으면 같은 schema라도 자동 진행하지 않는다.
+401/403/5xx/임의 404를 부재로 취급하지 않는다. 각 ID의 schema/subject/version/hash를
+검사하며 실패 시 즉시 중단하고 force/delete/자동 mutation retry를 하지 않는다.
+부분 이관 실패는 IMPORT 상태로 남을 수 있어 GET 대사 후 별도 재개하도록 명시했다.
+이번에는 `offline`과 mocked API 테스트만 실행했다.
+
+`scripts/registry_runtime_smoke.py`는 Cloud 이관 후 Databricks driver에서 호출하는
+읽기 전용 함수다. get_schema(1/2), 기존 fixture ID 1 decode, 현재 Kafka ID 1 표본
+및 corrupt 표본을 검사한다. secret은 기존 RegistrySettings/SecretReference로
+실행 위치에서 해석하며 결과에 넣지 않는다. 현재 Kafka 표본이 만료되면 NOT_OBSERVED로
+남기고 fixture 성공으로 대체하지 않는다. corrupt의 INVALID_CONFLUENT_FRAME은
+Quarantine 후보일 뿐 publish/ACK 성공으로 표시하지 않는다. executor Registry 접근과
+Job 2 E2E는 별도 미검증이다.
+
+실제 실행한 검증:
+
+```text
+python3 scripts/registry_migration.py offline
+OFFLINE_BUNDLE_PASS; no network requests
+
+.venv/bin/python -m pytest -q tests/unit/test_registry_migration.py tests/unit/test_runtime_config.py tests/unit/test_validation_input.py
+122 passed, 1 warning (기존 Authlib/httpx deprecation)
+```
+
+새 이관 테스트 24개에는 기존/삭제 ID·subject 중단, schema 변조, 부분 import 실패의
+무재시도, URL/redirect 보호, 오류 본문의 비밀값 미출력, 명시적 실행 flag,
+corrupt frame 후보 경계가 포함된다. 준비된 export schema를 반환하는 오프라인
+client로 기존 fixture를 decode하여 ID 1/10필드/UTC-aware event_time을 확인했다.
+이 결과는 Cloud Registry 연결 증거가 아니다. Python compile 및 79열/공백 검사,
+JSON/Avro parse, manifest/source/request/hash 일치, git diff/check/status 확인도 수행했다.
+
+Cloud 생성 후 남은 사용자 순서는 환경/Registry/API 인증 준비 → destination preflight
+→ raw import/검증 → validated 등록/검증 → Databricks secret 참조 연결 → driver smoke다.
+endpoint는 생성 후 실제 HTTPS URL로 채우고, provider=confluent, auth_mode=basic,
+제안 참조는 scope=ktd-job2/key=schema-registry-basic-auth다. 실제 secret 값이나
+API key는 문서·manifest에 포함하지 않았다. 자세한 명령과 실패 시 중단 기준은 위
+실행 절차에 있으며, 이번에는 준비 후 멈췄다. Git staging/commit/push는 수행하지 않았다.
+
+
+## 2026-10-17 P2-8 로컬 복구 — 잘못된 Quarantine ACK 차단
+
+기준 HEAD는 `b8c6ee25ef038c79185d2b0d479bf78781ebf120`, 브랜치는
+`feat/phase2-validation-silver`다. 기존 미커밋 보고서 본문은 보존하고 이 절만 추가했다.
+
+기존 `test_sensor_validation_job.py`와 `test_validated_publisher.py`에는
+Silver 성공 후 직렬화·발행·ACK 실패, 동일 이벤트 재시도, 일부 배치 재처리,
+발행 ACK 후 호출자 실패, 충돌 Quarantine 실패 후 복구가 이미 있다.
+따라서 같은 시나리오를 중복 추가하지 않고 잘못된 Quarantine ACK offset의
+성공 오판을 이번 한 논리 작업으로 선택했다.
+
+`False < 0`과 `True < 0`, `1.5 < 0`은 거짓이므로 기존 음수 검사만으로는
+잘못된 ACK가 정상 완료로 반환된다. None/문자열은 계약 오류 대신 TypeError가 난다.
+이는 fake로 확인한 방어 계약 결함이며 실제 Kafka에서 발생한 장애 기록은 아니다.
+`streaming/quarantine/quarantine_publisher.py`에서 validated와 동일하게 bool을
+제외한 0 이상의 정수만 허용하도록 최소 수정했다. 인계 문서의 테스트 중심 범위에
+대해 이번 사용자의 최소 구현 요청을 적용했고 수정 원인과 범위를 먼저 설명했다.
+
+추가 테스트:
+`test_conflict_invalid_ack_blocks_batch_and_retry_preserves_canonical`
+(`tests/unit/test_sensor_validation_job.py`, 5개 offset 매개변수).
+
+- 정상 이벤트 저장 뒤 같은 event_id의 metric_value 충돌과 후속 정상 행을 입력한다.
+- Quarantine ACK offset False/True/None/문자열/실수에서 RuntimeError가 전파된다.
+- 실패 시 canonical은 변하지 않고 후속 정상 행은 저장·발행되지 않는다.
+- 새 fake producer와 SilverSink를 주입하고 동일 fake 저장소로 재시도한다.
+- 정상 ACK offset 0이면 received=2, quarantine=1, conflict=1, validated=1이다.
+- 기존 canonical을 보존하고 Quarantine key/value는 첫 시도와 동일하다.
+
+실제 실행 명령과 결과:
+
+```text
+# 제품 코드 수정 전 실패 확인
+.venv/bin/python -m pytest -q tests/unit/test_sensor_validation_job.py -k conflict_invalid_ack
+5 failed, 74 deselected, 1 warning
+
+# 최소 수정 후 관련 회귀
+.venv/bin/python -m pytest -q tests/unit/test_sensor_validation_job.py tests/unit/test_silver_sink.py tests/unit/test_delta_silver_adapter.py tests/unit/test_validated_publisher.py tests/unit/test_quarantine_publisher.py
+232 passed, 1 warning
+
+# 외부 시스템 호출을 제외한 전체 로컬 회귀
+.venv/bin/python -m pytest -q -m 'not integration'
+744 passed, 10 deselected, 1 warning
+```
+
+warning은 기존 Authlib/httpx deprecation이다. 이번 추가는 한 시나리오의 5개
+매개변수 사례이며 과거 739건 기록을 현재 실행 결과로 대체해 인용하지 않았다.
+`git diff --check` 통과. 기존 변경 파일의 hash를 대조했고 보고서의 기존 본문도 보존했다.
+
+남은 검증 우선순위:
+
+1. 실제 Delta 저장 성공 후 validated ACK 실패 및 Spark checkpoint 실패의 재시작
+   복구. 고정 event_id/동일 10필드 입력에 대해 canonical 1행 유지, validated
+   event_id 누락 0건을 대사해야 한다. Kafka 중복은 허용되는 전달 의미다.
+2. 새 프로세스/저장소 연결과 재시작 시각 변화까지 포함한 Job 2 복구. 이번 fake
+   저장소 재사용은 프로세스 재시작이나 영속 Delta 검증이 아니다.
+3. 실제 Quarantine ACK 후 checkpoint 실패 시 동일 source topic/partition/offset의
+   quarantine_id 유지와 canonical 불변을 확인해야 한다.
+
+통합 테스트 10건은 명시적으로 제외했다. AWS/Registry/Databricks 호출, Compute 실행,
+Avro·운영 Credential·checkpoint 변경 및 Git staging/commit/push/merge는 하지 않았다.
+단위 결과는 Spark/Kafka/Delta E2E 또는 Phase 2 완료 증빙이 아니다.
+포트폴리오에는 실패 5건과 수정 후 로컬 회귀 744건 화면을 함께 촬영하되
+“P2-8 로컬 fake ACK 복구 검증”으로 표시한다.
+
+
+### 2026-10-17 재개 세션 — 기존 복구 수정 재검증
+
+재개 시 실제 HEAD는 `b8c6ee25ef038c79185d2b0d479bf78781ebf120`, 브랜치는
+`feat/phase2-validation-silver`였다. 수정 8개와 미추적 요약 16개가 이미 있었다.
+위 Quarantine ACK 수정 및 5개 매개변수 테스트도 시작 시 존재했으므로 이번
+재개 세션에서 작성하거나 red→green을 새로 실행한 결과로 주장하지 않는다.
+
+인계 첫 지시의 중복 테스트 금지에 따라 코드·테스트를 추가하지 않았다.
+Silver는 매번 저장소의 event_id를 조회하고 INSERTED/DUPLICATE_NOOP 모두
+validated 발행을 시도한다. CONFLICT는 canonical을 보존하고 Quarantine ACK를
+기다린다. 저장·발행 예외는 배치 밖으로 전파하며 진행 상태는 Spark가 관리한다.
+기존 테스트는 아래 경계를 fake 수준에서 검증한다.
+
+| 경계 | 기존 테스트 |
+|---|---|
+| Silver 성공 후 직렬화/produce/flush 실패와 재처리 | `test_failure_propagates_after_write_and_replay_recovers` |
+| validated ACK 오류·timeout 후 중복 재발행 | `test_ack_error_propagates_and_retry_publishes_duplicate`, `test_timeout_is_not_success_and_can_be_retried` |
+| ACK 성공 후 호출자 실패와 canonical 1행 보존 | `test_caller_failure_after_ack_allows_duplicate_publish` |
+| 배치 일부 성공 후 실패·재처리 | `test_partial_batch_retry_republishes_completed_records` |
+| 충돌 Quarantine 실패·잘못된 ACK 차단·복구 | `test_conflict_quarantine_failure_blocks_batch_until_ack`, `test_conflict_invalid_ack_blocks_batch_and_retry_preserves_canonical` |
+| 충돌 재처리의 동일 Quarantine identity | `test_conflict_replay_after_checkpoint_failure_has_stable_evidence` |
+
+이번 직접 실행:
+
+```text
+.venv/bin/python -m pytest -q tests/unit/test_sensor_validation_job.py tests/unit/test_silver_sink.py tests/unit/test_delta_silver_adapter.py tests/unit/test_validated_publisher.py tests/unit/test_quarantine_publisher.py
+232 passed, 1 warning in 0.51s
+```
+
+warning은 Authlib/httpx deprecation이다. 전체 744건 및 수정 전 실패 5건은
+앞 절의 기존 기록이며 이번 재실행 결과가 아니다.
+
+남은 장애 검증은 다음 순서다. 아래는 실행 명세이며 cloud 실행 승인이 아니다.
+입력의 기준은 `tests/unit/test_sensor_validation_job.py`의 `event`/`raw_record`
+fixture 10필드와 원본 bytes다. 로컬 고정 event_time은 `2026-10-08T12:00:00+00:00`,
+event_id는 `job2-test-1`, metric_value는 4.2, key는 `fridge-001`이다.
+실제 Kafka source partition/offset은 발행 결과를 측정해야 하며 fake의 2/42를
+실측값으로 사용하지 않는다. 기존 runtime 데이터와 충돌 여부를 먼저 확인해야 한다.
+
+1. **최우선: 실제 Silver 성공→validated ACK 미확정→같은 원본 재처리.**
+   기대값은 canonical 10필드 불변·event_id당 1행, 최종 validated 누락 0건,
+   정상 이벤트의 Quarantine 0건이다. timeout 후 Kafka 중복은 허용한다.
+   실제 Spark 실패 배치의 재실행과 checkpoint 진행 여부까지 함께 측정한다.
+2. **ACK 성공→checkpoint 완료 전 장애→새 프로세스로 재개.**
+   같은 원본 bytes와 실제 lineage를 재처리해 canonical 1행과 validated 전달을
+   대사한다. 새 저장소 연결 및 지연된 재시도에서도 보존돼야 한다.
+   고정 fixture는 지연 실행 시 LATE가 될 수 있으나 validated 발행 대상이다.
+3. **충돌 Quarantine ACK→checkpoint 완료 전 장애→재개.**
+   canonical 4.2를 먼저 보존하고 같은 event_id의 metric_value만 9.5로 바꾼
+   원본을 재처리한다. 기대값은 canonical 4.2 유지, 충돌 validated 0건,
+   `EVENT_ID_CONFLICT`/`metric_value`와 동일 source lineage·quarantine_id다.
+   처리 시각이 바뀌면 Quarantine 전체 payload의 byte 동일성은 요구하지 않는다.
+
+이번 세션은 보고서에 이 절만 추가했다. 제품 코드·테스트·다른 Phase·운영 설정을
+수정하지 않았고 외부 서비스 호출, Compute 실행, credential/checkpoint 변경,
+Git staging/commit/push/PR/merge를 수행하지 않았다. 실제 프로세스 재시작과
+Kafka/Spark/Delta 부분 실패 복구는 여전히 미검증이다.
+
+### 2026-10-17 로컬 수용 보완 — 음수 Quarantine ACK 배치 복구
+
+시작 branch/HEAD는 `feat/phase2-validation-silver` /
+`b8c6ee25ef038c79185d2b0d479bf78781ebf120`이다. 기존 수정 8개와 미추적
+파일을 보존했다. bool 제외·정수·비음수 ACK 검사와 잘못된 타입 5개 테스트는
+시작 시 이미 존재했다. 이번 변경은 기존 배치 복구 테스트에 offset `-1` 한 건과
+이 절을 추가한 것이다. publisher의 음수 거부 테스트는 있었지만 배치 중단,
+canonical 보존, 후속 행 미처리, 정상 ACK 재시도를 잇는 음수 사례는 없었다.
+제품 코드와 Silver/validated 복구 구현을 다시 수정하지 않았다.
+
+두 로컬 계획서와 `docs/plans/handoff/{validated-contract,session-prompts}.md`를
+읽었다. 외부 `../ktd-worktrees/handoff/validated-contract.md`는
+`Operation not permitted`여서 내부 사본을 사용했다. 외부 최신본과 동일한지는
+미확인이다. 계획의 과거 진행 상태 대신 현재 코드와 테스트를 대조했다.
+
+현재 파일을 되돌리지 않고 별도 Python 프로세스에서 HEAD의 publisher 소스를
+모듈 namespace에 로드하여 기존 5개 테스트를 실행했다. 실제 재현 명령:
+
+```bash
+.venv/bin/python - <<'PYTHON'
+import subprocess
+
+import pytest
+import streaming.quarantine.quarantine_publisher as publisher
+
+source = subprocess.check_output([
+    "git", "show", "HEAD:streaming/quarantine/quarantine_publisher.py",
+]).decode()
+exec(compile(source, "<HEAD quarantine_publisher.py>", "exec"),
+     publisher.__dict__)
+raise SystemExit(pytest.main([
+    "-q", "tests/unit/test_sensor_validation_job.py",
+    "-k", "conflict_invalid_ack", "--basetemp=/tmp/ktd-p2-ack-red",
+]))
+PYTHON
+```
+
+`-1` 추가 전 결과는 **5 failed, 74 deselected, 1 warning**이었다.
+False/True/1.5는 예외 없이 잘못 완료하고 None/문자열은 TypeError였다.
+이는 이전 HEAD 구현과의 비교이며 이번에 새 제품 수정을 수행한 red→green은
+아니다. 위 명령을 최종 테스트 파일로 다시 실행하면 추가된 -1은 통과하므로
+5 failed/1 passed가 예상된다.
+
+원인은 이전 구현의 `offset < 0` 단독 검사다. bool은 int의 하위 타입이고
+False/True/양의 실수는 음수 비교를 통과한다. 현재 기존 수정은 bool이 아닌
+int이며 offset >= 0인 경우만 성공한다. 이번 -1 포함 6개 사례에서 RuntimeError가
+process_batch 밖으로 전파되고 canonical과 후속 행을 보호한다. ACK 0 재시도는
+conflict=1/quarantine=1/validated=1로 완료하며 canonical과 Quarantine key/value를
+유지한다. ACK 실패 시 배치 완료 카운트를 반환하지 않는다.
+
+최종 코드에서 직접 실행한 검증:
+
+```text
+.venv/bin/python -m pytest -q tests/unit/test_sensor_validation_job.py tests/unit/test_silver_sink.py tests/unit/test_delta_silver_adapter.py tests/unit/test_validated_publisher.py tests/unit/test_quarantine_publisher.py --basetemp=/tmp/ktd-p2-ack-related
+233 passed, 1 warning in 0.42s
+
+.venv/bin/python -m pytest -q tests/unit --basetemp=/tmp/ktd-p2-ack-unit
+745 passed, 1 warning in 2.69s
+
+git diff --check
+PASS
+```
+
+경고는 기존 Authlib/httpx deprecation이다. produce/flush 예외, callback 오류,
+callback 부재, 남은 queue, 정상 ACK 0의 기존 테스트도 관련 회귀에 포함된다.
+이 결과는 fake/unit 증빙이다. 실제 Spark checkpoint 진행·재시작, 영속 Delta,
+Kafka broker ACK를 검증한 결과가 아니다.
+
+다음 수용 검증을 위한 MSK 준비 상태(이번 cloud 조회·변경 없음):
+
+| 항목 | 현재 상태와 다음 확인 |
+|---|---|
+| validated | 사용자 보고는 UNKNOWN_TOPIC_OR_PART. 이번 metadata 미조회 |
+| quarantine | 존재·metadata 미검증 |
+| partitions | 최신 사용자 지시로 두 output 모두 3. 설계 문서의 validated 초기 후보 6과 구분 |
+| provisioning | 미실행. 관리용 별도 권한, 대상 cluster, RF/min ISR/retention 확인 필요 |
+| runtime 권한 | CreateTopic 추가 금지 유지. 기존 raw 읽기와 output 쓰기·metadata 권한 확인 필요 |
+| 자동 생성 | 클라이언트 allow.auto.create.topics=False 유지. broker 설정은 이번 미조회 |
+| metadata 증빙 | 두 topic의 partition 0/1/2, leader/replica/ISR, topic error와 실제 runtime role의 조회 성공 기록 |
+| delivery 증빙 | 별도 승인된 실행에서 callback 성공·non-bool 정수 offset >= 0, topic/partition/offset과 읽기 결과 기록. flush=0만으로 성공 판정 금지 |
+
+로컬에서 남은 공백은 실제 checkpoint·영속 sink를 사용하는 새 프로세스 재개다.
+같은 fake 저장소 재사용은 이를 증명하지 않는다. 후속 복구 검증은 다음과 같다.
+
+1. Silver 성공→validated ACK 미확정→같은 원본 재처리: canonical 1행/10필드
+   불변, validated 누락 0건, 정상 이벤트 Quarantine 0건. Kafka 중복은 허용한다.
+2. validated ACK→checkpoint 완료 전 장애→새 프로세스 재개: canonical 1행과
+   최종 validated 전달을 대사한다.
+3. Quarantine ACK→checkpoint 완료 전 장애→재개: canonical 불변, 충돌 validated
+   0건, 같은 원본 lineage와 quarantine_id를 확인한다.
+
+기존 checkpoint를 유지하고 raw offset이 retention 및 미완료 범위에 있는지
+먼저 확인한다. 기존 happy-path raw ACK p1/o3는 과거 증빙이며 현재 재처리
+가능성은 미확인이다. payload/처리 시각이 바뀌는 재시도에서는 계약상 요구되는
+identity·lineage를 대사하고 전체 payload byte 동일성을 무조건 요구하지 않는다.
+
+다음 논리 작업은 두 output topic provisioning 사양 확정과 읽기 전용 preflight
+절차 준비다. 실제 cloud 변경·Compute 실행은 이번 범위에 포함하지 않았다.
+Avro 10필드, Bronze Iceberg, Silver Delta, 다른 Phase, 설정, 기존 미추적 파일은
+변경하지 않았다. 포트폴리오에는 233/745 통과 화면을 촬영하고
+“로컬 fake ACK 검증”으로 표시한다. Git add/commit/push/PR/merge 없이 검토를 기다린다.
