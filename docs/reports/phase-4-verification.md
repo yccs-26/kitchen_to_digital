@@ -575,3 +575,112 @@ git add -- docs/streaming/equipment-health-contracts.md docs/streaming/equipment
 권장 메시지: `docs(phase4): define health freshness and timer contracts`.
 위 명령과 commit/push/merge는 실행하지 않았다. 이 설계 단위 완료 후 멈추며
 사용자 검토 없이 다음 구현으로 진행하지 않는다.
+
+## Health Core Reducer — 순수 관측/tick 계산 구현
+
+검증일: 2026-10-20 (Asia/Seoul). 브랜치 `feat/phase-4-twin-state`, 시작 HEAD
+`f03203fe81613dcf2194d55c5b191686a30c8158`, 시작 git status clean.
+최근 Phase 4 commit은 Health 계약, Hood Registry 연결, Hood Qualifier, Registry다.
+현재 계약 원문·코드·Ordering/Dedup/Hood 테스트·config를 직접 확인했다.
+worktree에 AGENTS.md가 없어 제공된 지침과 원본 checkout의 AGENTS.md를 확인했다.
+기준 실행 계획의 Phase 4·Health/Alert 경계도 대조했다.
+
+### 변경 파일과 구조
+
+- `streaming/state/health.py`: HealthPolicy/Observation/Snapshot, timer token/tick,
+  initialize_health/reduce_health, HealthResult/Change/Decision. 단일 파일의 순수 코어다.
+- `tests/unit/phase4/test_health.py`: 관측·원장·정책/형식 호환성·JSON 테스트 재구성.
+- `tests/unit/phase4/test_health_timer.py`: tick·경합·기록 순서 replay·변화 ID chain.
+- `docs/streaming/equipment-health-contracts.md`: 현재 구현 API/필드 매핑과 26개 설계
+  시나리오의 실제 테스트 대응을 10절에 추가했다. 최초 설계표와 최신 상태를 구분한다.
+- `docs/streaming/equipment-state-contracts.md`: Health 절의 미구현 표기를 최신 상세
+  계약으로 연결하도록 최소 갱신했다. Operational 계약은 변경하지 않았다.
+- `docs/reports/phase-4-verification.md`: 이번 실행 기록.
+
+기존 Fryer FSM/Hood qualifier/Registry/adapters/bindings/contracts와 기존 테스트·fixture,
+config는 시작 시 SHA-256과 종료 시 값을 비교해 보존 확인한다. 외부 I/O나 scheduler를
+구현하지 않았고 별도 health_timer.py도 필요하지 않아 만들지 않았다.
+
+### 정책 분류와 입력/출력
+
+확정된 last_seen=UTC event_time, 초기 None, 관측 age<timeout, deadline 등호부터
+STALE, monotonic evaluation, 중복/충돌·세대 token·revision·SHA-256 정책을 구현했다.
+실제 timeout/source·fault lifecycle·운영 scheduler/storage는 미정으로 유지한다.
+테스트는 10초 timeout과 fixture-simulator source를 명시적으로 주입한다. 이는
+실장비 운전 사양 또는 승인된 실 source가 아니다.
+
+HealthPolicy는 caller가 제공한 numeric EquipmentBinding, binding/입력 계약 revision,
+별도 Health ProfileKey, 단일 metric/unit·schema/source 목록·timeout을 보존한다.
+정책 fingerprint는 정수 μs·정렬 allowlist·장비 identity·Operational dependency까지
+포함한다. snapshot은 정책 본문·epoch/start·관측/평가 시각·deadline·원장·표시·revision을
+저장하며 fingerprint/generation은 재구성한다. HealthStatus enum 값만 재사용하고
+Operational State 객체와 cursor/원장은 분리한다.
+
+reduce_health(previous, item, policy=..., reference_time=...)는 immutable snapshot과
+HealthObservation 또는 HealthTick(token)을 받고 HealthResult(snapshot, decision,
+changes)를 반환한다. 원본 입력/snapshot은 변경하지 않으며 현재 시각을 읽지 않는다.
+불일치 policy/profile/dependency·표현/계약 version은 INCOMPATIBLE_SNAPSHOT이다.
+부적합 primitive는 INVALID_OBSERVATION, 구조/API 오류는 생성 시 예외다.
+
+최초 유효 관측은 HEALTHY 초기화 1개, 최초 무입력 만료는 STALE 초기화 1개다.
+health_revision은 표시 변화에만 증가하고 수용 no-op은 snapshot_revision만 증가한다.
+새 관측은 last_seen/deadline을 갱신하며 이미 만료된 관측·중복·충돌·역순·동시각·잘못된
+입력은 snapshot 전체를 보존한다. tick이 먼저 만료되면 STALE 뒤 복구 HEALTHY,
+관측이 먼저 수용되면 옛 token은 무효다. 과거 deadline 경과만으로 미처리 이력을
+합성하지 않는다. 옛 token은 평가 cursor도 전진시키지 못한다.
+
+Health 변화는 기존 state_change_id와 별도 health_change_id를 사용한다. 장비·profile/
+정책·epoch·Health revision/이전 change chain·전후 표시·초기화/전이 종류·관측 또는
+세대/deadline cause의 canonical SHA-256이며 현재 시각/random UUID는 없다. 같은
+snapshot·입력·평가 시각 replay는 동일 결과이며 늦은 같은 만료의 출력 ID도 동일하다.
+이미 확정된 snapshot의 반복 tick/관측은 변화 이벤트를 재생성하지 않는다.
+
+### 테스트 우선 실행과 실제 검증
+
+테스트 두 파일을 먼저 작성해 health 모듈 부재로 collection error 2건을 확인한 뒤
+코어를 구현했다. 최초 90개 통과 후 신규 복구·평가 시각 API·snapshot 형식/계약 version·
+처리 지연 ID·boot/event 세대 충돌 방어를 추가하여 최종 98개가 통과했다.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-core-red tests/unit/phase4/test_health.py tests/unit/phase4/test_health_timer.py
+# ModuleNotFoundError: streaming.state.health, collection error 2건
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-core-unit tests/unit/phase4/test_health.py tests/unit/phase4/test_health_timer.py
+# 98 passed in 0.10s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-core-phase4 tests/unit/phase4
+# 393 passed in 0.28s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-core-regression -m 'not integration'
+# 1107 passed, 10 deselected, 1 warning in 3.52s
+```
+
+경고는 기존 Authlib httpx deprecation 1건이다. 외부 integration 10개는 제외했다.
+AST 구문·79열·문서 링크/표·git diff --check와 보호 파일 hash를 최종 확인한다.
+
+26개 설계 시나리오 중 25개를 로컬 코어 테스트에 대응했다. 20번은 승인된 fault
+code/source·latch/reset·순서 계약이 없으므로 후속 fault 코어 담당으로 보류했다.
+현재 코어는 fault_supported=True 정책·비어 있지 않은 active_faults·FAULT snapshot
+복원을 거부하며 미지원 FaultSignal 입력으로 Health를 바꾸지 않는다. FAULT enum은
+존재하지만 numeric 고장 추론·발생/해제를 임의 구현하지 않았다.
+10/19번은 테스트 helper가 모든 필드를 JSON으로 재구성한 모델 복원 검증이다.
+production codec·영속 원장/snapshot 원자적 재적재·실제 checkpoint 재시작 검증이 아니다.
+기록된 입력 순서 replay는 매 단계 모델을 재구성해 전체 snapshot/result와 초기화,
+STALE, 복구의 ID/revision chain을 비교했다. 순서를 바꾼 이력의 수렴은 주장하지 않는다.
+
+### 계약 차이·미구현과 Git
+
+기존 계약과 Operational 구현을 바꿔야 하는 충돌은 발견하지 않았다. 미정인 항목을
+기본값으로 채우지 않고 명시 정책 주입으로 분리했다. 논리 snapshot 필드 중 정책
+fingerprint·timer generation은 저장한 정책/원문 ID에서 파생하고 FAULT 관련 활성화는
+보류했다. 기본 지원은 단일 채널의 네 numeric 유형과 schema 1.0.0으로 제한한다.
+
+원장은 무제한 tuple이며 source 실제 권한/등록 로더, 다중 필수 metric, 원장 TTL,
+저장 codec·policy migration·CAS, scheduler·tick liveness, Registry/Job 4 연결, History/
+Kafka/DynamoDB sink·wire envelope·outbox/ACK·분산 복구는 미구현·미검증이다.
+AWS/Databricks/Confluent나 Spark/Kafka/DynamoDB를 실행·연결하지 않았다.
+이번 단위는 순수 Python Health 계산 검증이며 Phase 4 전체 완료·E2E 증거가 아니다.
+
+정확한 staging 대상은 위 6개 파일뿐이다. 권장 메시지:
+`feat(phase4): add deterministic health freshness core`.
+Git add/commit/push/merge는 수행하지 않았고 사용자 검토를 기다린다.

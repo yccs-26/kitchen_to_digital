@@ -1,10 +1,10 @@
-# Equipment Health Freshness / Timer 계약 — 설계 전용
+# Equipment Health Freshness / Timer 계약과 로컬 Core
 
 작성일: 2026-10-17 (Asia/Seoul). 검토 HEAD:
 `8bed0f7b41f4a2d10c7064137ddf0bea410bb9c8`, `feat/phase-4-twin-state`.
-상태: **계약과 기대 테스트 시나리오 정의. 구현·Health 동작 검증 없음**.
-이 문서의 필드·명령·판정 이름은 후속 구현을 위한 논리 계약이며 Python 클래스,
-Registry API, Avro 또는 state.changes wire schema를 추가한 것이 아니다.
+최신 상태(2026-10-20): **단일 채널 Health Core와 순수 tick 평가 로컬 단위 구현**.
+1~9절은 확정된 논리 계약과 최초 설계표이며, 실제 API·시나리오별 구현 상태는
+10절을 따른다. Registry 연결·Avro/state.changes wire·scheduler·sink는 미구현이다.
 
 ## 1. 근거와 책임
 
@@ -197,7 +197,8 @@ revision에 대한 compare-and-set 또는 동등한 직렬화가 필요하다. �
 
 ## 6. 최소 논리 Snapshot과 복원 조건
 
-아래는 설계 필드다. 새 dataclass나 현재 ProfileSnapshot의 필드를 구현하지 않았다.
+아래는 논리 snapshot 계약이다. 실제 HealthSnapshot의 저장/파생 필드 매핑은
+10절을 따른다. 기존 Operational ProfileSnapshot은 변경하지 않았다.
 
 | 필드 | 필요 이유 |
 |---|---|
@@ -265,7 +266,7 @@ snapshot/평가 로그에 따로 보관한다. 출력 wire timestamp 명칭과 p
 해결하지 못한다. snapshot과 pending intent/outbox의 원자적 확정 또는 동등한 복구
 계약이 필요하며 이는 구현·검증하지 않았다.
 
-## 8. 구현 전 테스트 시나리오 — 전부 미실행
+## 8. 구현 전 테스트 시나리오 기준표 — 최신 대응은 10절
 
 표의 P는 승인 source가 테스트용으로 명시된 Hood Health profile, fault 미지원,
 T는 **미확정 양수 timeout을 나타내는 기호**, ε=1μs다. t0는 고정 UTC 시각이고
@@ -313,7 +314,8 @@ fan_rpm/rpm/1.0.0, 새로운 event_id를 사용하며 표에 사건 시각이 �
 
 번호 20의 수치 fault 임계값은 만들지 않으며 실제 fault payload/권한 테스트는
 별도 계약 확정 후 작성한다.
-이 표는 executable test/fixture가 아니며 어떤 케이스도 Health 테스트 통과로 집계하지 않는다.
+이 표 자체는 executable test/fixture가 아니다. 최초 설계 당시 전부 미실행이었으며,
+2026-10-20의 실제 단위 테스트 대응과 보류 항목은 10절에 별도로 기록한다.
 
 ## 9. 미결정 선택·권장안·진입 조건
 
@@ -331,5 +333,125 @@ fan_rpm/rpm/1.0.0, 새로운 event_id를 사용하며 표에 사건 시각이 �
 
 이번에 결정한 것은 책임·시간 기준·경계·수용/거부·세대 token·재실행 identity의
 논리 정책이다. 실제 timeout/source와 운영 scheduler/storage 선택은 확정하지 않았다.
-다음 구현은 이 계약 검토 후 별도로 승인된 범위에서 진행한다. Health FSM·scheduler·
-Spark Job 4·Kafka/DynamoDB Sink·Alert Lifecycle은 이번에 구현하지 않는다.
+최초 설계 단위에서는 구현을 수행하지 않았다. 후속 승인된 Health Core의 현재 범위는
+10절을 따른다. scheduler·Spark Job 4·Kafka/DynamoDB Sink·Alert Lifecycle은 미구현이다.
+
+
+## 10. Health Core Reducer — 2026-10-20 로컬 구현
+
+검토 HEAD `f03203fe81613dcf2194d55c5b191686a30c8158`, 시작 작업 트리 clean.
+`streaming/state/health.py`만 새 구현 파일로 추가했다. tick도 같은 Health snapshot과
+정책에 대한 순수 계산이므로 별도 health_timer.py나 scheduler를 만들지 않았다.
+기존 Fryer/Hood 전이·Registry·bindings·contracts와 config는 변경하지 않았다.
+기존 HealthStatus enum은 공통 값 타입으로 재사용하되 StateObservation/TwinState,
+HoodSnapshot·Operational 원장/cursor는 공유하지 않는다.
+
+### 실제 API와 저장/외부 입력 경계
+
+- `HealthPolicy`: numeric EquipmentBinding, binding_revision, input_contract_revision,
+  별도 Health ProfileKey, 양수 freshness_timeout, 단일 metric/unit, schema_versions,
+  sources를 명시적으로 받는다. Operational ProfileKey를 Health key로 자동 해석하지
+  않는다. binding.profile은 의존 Operational profile/version을 보존한다.
+- `initialize_health(policy, monitoring_epoch=..., monitoring_started_at=...)`:
+  명시적 활성화로 health_status=None인 snapshot과 boot deadline을 만든다.
+- `HealthObservation`: 기존 numeric 이벤트와 동일한 10필드, 내부 aware UTC 시각.
+  wire decode는 하지 않는다. bool/string/None/비유한 primitive를 담아 코어에서
+  INVALID_OBSERVATION으로 거부할 수 있으나 수용 원장에는 정상 관측만 저장한다.
+  naive 시간·빈 식별자·mutable 값 등 구조 오류는 생성 시 예외다.
+- `timer_token(snapshot)`: 현재 policy/epoch/관측 세대/deadline token을 재구성한다.
+  boot와 event generation은 `(태그, identity)` tuple로 구분하여 같은 문자열의
+  epoch/event_id가 충돌하지 않게 한다. 실제 timer 예약은 하지 않는다.
+- `reduce_health(previous, item, policy=..., reference_time=...)`: HealthObservation
+  또는 HealthTick(token)을 판정하여 HealthResult(snapshot, decision, changes)를
+  반환한다. 다른 입력은 UNSUPPORTED_INPUT이다. 시계·thread·I/O 호출이 없다.
+
+snapshot은 immutable 정책 본문(장비 identity·profile/dependency 포함), epoch/start,
+last_seen·last_accepted_event_id, deadline·last_evaluated_at, canonical receipts tuple,
+Health 표시·health_revision·last_health_change_id, snapshot_revision, schema/contract
+version을 저장한다. fingerprint와 timer generation은 이 필드들에서 결정적으로
+재구성하므로 중복된 가변 필드로 저장하지 않는다. 시작 시각·deadline·원장 시간순서·
+마지막 수용 관측·표시/평가 시각·revision의 모순은 모델 생성에서 거부한다.
+
+모든 profile/version·timeout/source/binding dependency는 immutable 정책에 명시한다.
+기존 config를 읽거나 실제 장비/승인 source를 자동 등록하지 않는다. 현재 네 numeric
+유형의 단일 metric/unit 및 schema 1.0.0만 지원하고 미지원 policy는 생성 시 거부한다.
+실제 timeout/source는 여전히 미정이며 테스트의 10초와 fixture-simulator는 명시적
+테스트 파라미터다. 운영 장비에 적용된 값·인증된 source라는 의미가 아니다.
+
+### 전이·원장·timer와 identity
+
+수용 순서는 4~5절을 따른다. 정책/표현/계약 version 불일치는
+INCOMPATIBLE_SNAPSHOT, 장비 불일치는 IDENTITY_MISMATCH이며 거부는 원본 snapshot을
+반환한다. 원장의 동일 ID·canonical payload는 DUPLICATE, 변조는 ID_CONFLICT다.
+시간 거부와 부적합 관측은 원장·last_seen·deadline·평가 cursor를 갱신하지 않는다.
+UTC 동등 시각과 int/float 동등값은 중복이지만 bool을 숫자로 취급하지 않는다.
+
+최초 수용 관측은 HEALTHY/INITIALIZED 출력 1개, 최초 무입력 timeout은
+STALE/INITIALIZED 출력 1개다. 관측 age는 timeout 미만이어야 하며 tick은 deadline
+정확히 일치부터 STALE이다. STALE 후 더 최신의 fresh 관측은 HEALTHY로 복구한다.
+수치 값에서 FAULT를 추론하지 않는다. 표시가 유지되는 관측은 deadline과 원장은
+갱신하지만 health 변화 출력은 없다. 옛 token은 평가 시각 검사보다 먼저 무효화하여
+새 세대의 cursor를 진행시키지 못한다.
+
+관측/tick은 매번 단일 순서로 호출한다. 동일 시각 관측 먼저면 옛 tick 무효/변화 없음,
+tick 먼저면 STALE→HEALTHY 두 변화다. 결과 이력의 순열 불변성은 보장하지 않는다.
+수용 관측·유효 tick은 snapshot_revision을 진행한다. 같은 평가 시각의 상태 불변 tick은
+원본 snapshot을 반환하며 늦은 반복 tick은 평가 cursor만 진행할 수 있다. 두 경우 모두
+Health 변화 출력·health_revision 증가는 없다. snapshot_revision은 로컬 counter일 뿐
+외부 CAS 구현이나 동시 쓰기 안전성의 증거가 아니다.
+
+health_change_id는 7절의 canonical SHA-256 정책을 따른다. version/profile fingerprint,
+장비·epoch, Health revision/이전 변화 chain, 이전/다음 표시, 초기화/전이 종류와
+원본 관측 또는 세대/deadline cause를 포함한다. 초기 boot root도 명시적 policy·epoch·
+start에서 계산한다. reference_time·random/현재 시각은 ID 재료가 아니다. 같은 만료를
+늦게 평가해도 변화 ID는 같지만 last_evaluated_at이 다른 snapshot 자체는 다를 수 있다.
+정책 fingerprint는 timeout 정수 μs·정렬된 allowlist·적합성/fault 지원 규칙 및
+binding/profile/입력 계약 revision까지 포함한다.
+
+### 26개 설계 시나리오의 구현 대응
+
+`H`는 tests/unit/phase4/test_health.py, `T`는 test_health_timer.py의 함수다.
+아래의 단위 검증은 실제 scheduler/영속 복구/분산 sink 검증과 구분한다.
+
+| 설계 번호 | 실제 테스트 함수 | 현재 범위 |
+|---|---|---|
+| 1 | H.test_first_observation_initializes_without_touching_original | 로컬 통과 |
+| 2, 3, 3b, 4 | T.test_deadline_boundary_and_sensor_silence | 등호/직전/직후·무입력 tick 로컬 통과 |
+| 4b | T.test_boot_silence_does_not_invent_prior_healthy_state | 초기 무관측 로컬 통과 |
+| 5 | H.test_new_event_after_stale_recovers_and_preserves_operational_objects | 신규 관측 복구 로컬 통과 |
+| 6 | H.test_duplicate_precedes_time_guard_and_never_extends_timeout | 중복 연장 방지 로컬 통과 |
+| 7, 14 | H.test_old_or_equal_event_time_cannot_rollback | 역순/동시각 로컬 통과 |
+| 8 | H.test_conflict_preserves_canonical_before_time_and_semantic_checks | 충돌 방어 로컬 통과 |
+| 9 | T.test_delayed_tick_identity_and_repeated_tick_have_no_duplicate_change | 만료 ID/반복 출력 억제 로컬 통과 |
+| 10 | H.test_json_snapshot_restore_and_same_input_give_same_result | 모든 필드 JSON 테스트 재구성 로컬 통과 |
+| 11a, 11b | T.test_same_time_race_preserves_explicit_order | 같은 시각 양쪽 호출 순서 로컬 통과 |
+| 11c, 11d | H.test_delayed_observation_recovers_only_inside_freshness_window | 지연 관측 fresh/age=T 경계 로컬 통과 |
+| 12 | H.test_valid_rpm_value_never_implies_fault / test_unsupported_input_cannot_create_fault | fault 비추론/미지원 입력 거부 로컬 통과 |
+| 13 | H.test_policy_or_dependency_mismatch_rejects_observation_and_tick | profile·정책·binding/dependency 불일치 로컬 통과 |
+| 15 | H.test_bad_sample_cannot_preempt_valid_sample_or_extend_deadline | 부적합/정상 혼재 로컬 통과 |
+| 16 | H.test_future_retry_and_before_activation | 미래 재시도/활성화 전 사건 로컬 통과 |
+| 17 | T.test_reference_reversal_for_observation_and_current_tick | 평가 시각 역행 거부 로컬 통과 |
+| 18, 18b | T.test_old_generation_then_current_deadline_tick | 옛 token 거부 후 새 deadline 판정 로컬 통과 |
+| 19 | T.test_recovery_rebuilds_current_token_without_resetting_epoch | 로컬 모델 재적재/overdue 평가만 통과 |
+| 20 | 실행 보류 | fault 보고·code/source·latch/reset·다중 고장 계약과 후속 fault 코어 담당 |
+
+25개 시나리오의 로컬 코어 동작을 테스트했고 20번은 보류다. 10/19번은 테스트에서
+모든 dataclass 필드를 JSON으로 내보내 재구성한 것이며 production storage codec,
+원자적 snapshot/원장 재적재 또는 실제 checkpoint 재시작 증거가 아니다.
+추가 recorded sequence replay는 매 단계 snapshot을 재구성해 두 번 실행하고 전체
+snapshot/result·세 개의 초기화/STALE/복구 ID chain을 비교한다.
+
+### 확정 계약과 구현 범위의 차이·미검증
+
+판정 순서·deadline·age·초기화·세대 무효화·ID 규칙은 변경하지 않았다. 기존
+HealthStatus.FAULT enum 값은 유지하지만 fault_supported=True인 정책과 비어 있지 않은
+active_faults/FAULT snapshot의 복원은 거부한다. 미정인 fault 계약을 임의 구현하여
+수치 관측으로 고장을 해제하는 것을 막는 제한이다. fault 입력은 UNSUPPORTED_INPUT,
+실제 다중 fault lifecycle은 미구현이다.
+
+원장은 무제한 immutable tuple이다. 승인 source의 실제 권한 확인·등록 파일 로더,
+다중 필수 metric, 원장 TTL/저장·정책 migration, 실제 timer/scheduler, 직렬화/CAS,
+Registry/Job 4 연결, History·Kafka·DynamoDB sink, wire envelope·outbox/ACK는 미구현이다.
+따라서 로컬 결정성만 검증했고 분산 exactly-once나 운영 복구를 보장하지 않는다.
+신규 Health 테스트 98개, Phase 4 393개, 전체 로컬 회귀 1107개가 통과했다.
+명령·실행 시간·경고와 변경 범위는 검증 보고서의 Health Core 절에 기록한다.

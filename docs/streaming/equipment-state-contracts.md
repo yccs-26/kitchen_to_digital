@@ -594,7 +594,8 @@ replay·중복/충돌·역순/동시각, 잘못된 계약과 cross-profile 입�
 [Health 전용 계약](equipment-health-contracts.md)에 책임·상태 전이·last_seen·
 시간 모델·snapshot 복원·출력 identity와 구현 전 테스트 시나리오를 정의했다.
 기존 이 문서의 Operational State/Registry 구현과 중복되지 않도록 Health 상세
-규범은 해당 문서에서 관리한다. Health FSM·timer scheduler·Job 4·sink는 미구현이다.
+규범은 해당 문서에서 관리한다. 후속 로컬 Health Core 구현은 해당 문서 10절을
+따른다. timer scheduler·Job 4·sink는 미구현이다.
 
 last_seen은 Health가 수용한 유효 관측의 event_time이며 Operational last_event_time과
 독립이다. 실제 numeric metric을 장비별 allowlist로 사용하고 별도 heartbeat/fault
@@ -608,5 +609,6 @@ last_seen은 Health가 수용한 유효 관측의 event_time이며 Operational l
 health_change_id를 정의하며 기존 Operational state_change_id는 변경하지 않는다.
 
 FAULT는 승인된 고장 계약이 있을 때만 가능하다. 현재 네 장비에는 해당 입력이 없고
-Health/Alert를 Operational enum에 합치지 않는다. 설계 테스트 표는 미실행이며,
-기존 Phase 4 회귀 통과는 새 Health 동작의 검증 증거가 아니다.
+Health/Alert를 Operational enum에 합치지 않는다. 설계표와 실행 가능한 Health
+단위 테스트의 대응은 해당 문서 10절을 따른다. 기존 Operational 테스트 통과를
+새 Health 동작이나 외부 실행의 검증 증거로 사용하지 않는다.
