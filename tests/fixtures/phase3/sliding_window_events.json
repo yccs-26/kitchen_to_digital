@@ -1,0 +1,508 @@
+{
+  "version": 1,
+  "window_duration": "5 minutes",
+  "slide_duration": "1 minute",
+  "watermark_delay": "10 minutes",
+  "output_mode": "append",
+  "target_equipment_ids": [
+    "fridge-001",
+    "hood-001"
+  ],
+  "natural_key": [
+    "window_start",
+    "window_type",
+    "store_id",
+    "equipment_id",
+    "metric_name"
+  ],
+  "notes": [
+    "Expected counts and statistics are manually tabulated, not Spark output.",
+    "Control events only advance test event time and use separate equipment.",
+    "Different valid metrics have their existing fixed units; no conversion.",
+    "No production sliding implementation is introduced by this fixture."
+  ],
+  "steps": [
+    {
+      "name": "initial",
+      "events": [
+        {
+          "event_id": "a",
+          "event_time": "2026-10-20T12:00:00Z",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "equipment_type": "refrigerator",
+          "metric_name": "temperature_celsius",
+          "metric_value": 2.0,
+          "unit": "celsius",
+          "schema_version": "1.0.0",
+          "source": "phase3-sliding-local-fixture"
+        },
+        {
+          "event_id": "b",
+          "event_time": "2026-10-20T12:00:59Z",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "equipment_type": "refrigerator",
+          "metric_name": "temperature_celsius",
+          "metric_value": 4.0,
+          "unit": "celsius",
+          "schema_version": "1.0.0",
+          "source": "phase3-sliding-local-fixture"
+        },
+        {
+          "event_id": "rpm-a",
+          "event_time": "2026-10-20T12:01:00Z",
+          "store_id": "store-001",
+          "equipment_id": "hood-001",
+          "equipment_type": "hood",
+          "metric_name": "fan_rpm",
+          "metric_value": 100.0,
+          "unit": "rpm",
+          "schema_version": "1.0.0",
+          "source": "phase3-sliding-local-fixture"
+        }
+      ],
+      "final_row_count": 0
+    },
+    {
+      "name": "cross_batch",
+      "events": [
+        {
+          "event_id": "c",
+          "event_time": "2026-10-20T12:01:00Z",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "equipment_type": "refrigerator",
+          "metric_name": "temperature_celsius",
+          "metric_value": 8.0,
+          "unit": "celsius",
+          "schema_version": "1.0.0",
+          "source": "phase3-sliding-local-fixture"
+        },
+        {
+          "event_id": "d",
+          "event_time": "2026-10-20T12:04:59Z",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "equipment_type": "refrigerator",
+          "metric_name": "temperature_celsius",
+          "metric_value": 16.0,
+          "unit": "celsius",
+          "schema_version": "1.0.0",
+          "source": "phase3-sliding-local-fixture"
+        },
+        {
+          "event_id": "a",
+          "event_time": "2026-10-20T12:00:00Z",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "equipment_type": "refrigerator",
+          "metric_name": "temperature_celsius",
+          "metric_value": 2.0,
+          "unit": "celsius",
+          "schema_version": "1.0.0",
+          "source": "phase3-sliding-local-fixture"
+        },
+        {
+          "event_id": "rpm-b",
+          "event_time": "2026-10-20T12:04:59Z",
+          "store_id": "store-001",
+          "equipment_id": "hood-001",
+          "equipment_type": "hood",
+          "metric_name": "fan_rpm",
+          "metric_value": 300.0,
+          "unit": "rpm",
+          "schema_version": "1.0.0",
+          "source": "phase3-sliding-local-fixture"
+        }
+      ],
+      "final_row_count": 0
+    },
+    {
+      "name": "end_boundary",
+      "events": [
+        {
+          "event_id": "e",
+          "event_time": "2026-10-20T12:05:00Z",
+          "store_id": "store-001",
+          "equipment_id": "fridge-001",
+          "equipment_type": "refrigerator",
+          "metric_name": "temperature_celsius",
+          "metric_value": 32.0,
+          "unit": "celsius",
+          "schema_version": "1.0.0",
+          "source": "phase3-sliding-local-fixture"
+        }
+      ],
+      "final_row_count": 0
+    },
+    {
+      "name": "idle",
+      "events": [],
+      "final_row_count": 0
+    },
+    {
+      "name": "partial_close",
+      "events": [
+        {
+          "event_id": "clock-partial",
+          "event_time": "2026-10-20T12:16:30Z",
+          "store_id": "store-001",
+          "equipment_id": "clock-001",
+          "equipment_type": "refrigerator",
+          "metric_name": "temperature_celsius",
+          "metric_value": 1.0,
+          "unit": "celsius",
+          "schema_version": "1.0.0",
+          "source": "phase3-sliding-local-fixture"
+        }
+      ],
+      "final_row_count": 11,
+      "closed_before": "2026-10-20T12:06:30+00:00"
+    },
+    {
+      "name": "all_close",
+      "events": [
+        {
+          "event_id": "clock-final",
+          "event_time": "2026-10-20T12:25:30Z",
+          "store_id": "store-001",
+          "equipment_id": "clock-001",
+          "equipment_type": "refrigerator",
+          "metric_name": "temperature_celsius",
+          "metric_value": 1.0,
+          "unit": "celsius",
+          "schema_version": "1.0.0",
+          "source": "phase3-sliding-local-fixture"
+        }
+      ],
+      "final_row_count": 18,
+      "closed_before": "2026-10-20T12:15:30+00:00"
+    }
+  ],
+  "expected_rows": [
+    {
+      "window_start": "2026-10-20T11:56:00+00:00",
+      "window_end": "2026-10-20T12:01:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "metric_name": "temperature_celsius",
+      "unit": "celsius",
+      "count": 2,
+      "sum": 6.0,
+      "min": 2.0,
+      "max": 4.0,
+      "avg": 3.0,
+      "member_event_ids": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T11:57:00+00:00",
+      "window_end": "2026-10-20T12:02:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "metric_name": "temperature_celsius",
+      "unit": "celsius",
+      "count": 3,
+      "sum": 14.0,
+      "min": 2.0,
+      "max": 8.0,
+      "avg": 4.666666666666667,
+      "member_event_ids": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T11:58:00+00:00",
+      "window_end": "2026-10-20T12:03:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "metric_name": "temperature_celsius",
+      "unit": "celsius",
+      "count": 3,
+      "sum": 14.0,
+      "min": 2.0,
+      "max": 8.0,
+      "avg": 4.666666666666667,
+      "member_event_ids": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T11:59:00+00:00",
+      "window_end": "2026-10-20T12:04:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "metric_name": "temperature_celsius",
+      "unit": "celsius",
+      "count": 3,
+      "sum": 14.0,
+      "min": 2.0,
+      "max": 8.0,
+      "avg": 4.666666666666667,
+      "member_event_ids": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T12:00:00+00:00",
+      "window_end": "2026-10-20T12:05:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "metric_name": "temperature_celsius",
+      "unit": "celsius",
+      "count": 4,
+      "sum": 30.0,
+      "min": 2.0,
+      "max": 16.0,
+      "avg": 7.5,
+      "member_event_ids": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T12:01:00+00:00",
+      "window_end": "2026-10-20T12:06:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "metric_name": "temperature_celsius",
+      "unit": "celsius",
+      "count": 3,
+      "sum": 56.0,
+      "min": 8.0,
+      "max": 32.0,
+      "avg": 18.666666666666668,
+      "member_event_ids": [
+        "c",
+        "d",
+        "e"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T12:02:00+00:00",
+      "window_end": "2026-10-20T12:07:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "metric_name": "temperature_celsius",
+      "unit": "celsius",
+      "count": 2,
+      "sum": 48.0,
+      "min": 16.0,
+      "max": 32.0,
+      "avg": 24.0,
+      "member_event_ids": [
+        "d",
+        "e"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T12:03:00+00:00",
+      "window_end": "2026-10-20T12:08:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "metric_name": "temperature_celsius",
+      "unit": "celsius",
+      "count": 2,
+      "sum": 48.0,
+      "min": 16.0,
+      "max": 32.0,
+      "avg": 24.0,
+      "member_event_ids": [
+        "d",
+        "e"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T12:04:00+00:00",
+      "window_end": "2026-10-20T12:09:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "metric_name": "temperature_celsius",
+      "unit": "celsius",
+      "count": 2,
+      "sum": 48.0,
+      "min": 16.0,
+      "max": 32.0,
+      "avg": 24.0,
+      "member_event_ids": [
+        "d",
+        "e"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T12:05:00+00:00",
+      "window_end": "2026-10-20T12:10:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "metric_name": "temperature_celsius",
+      "unit": "celsius",
+      "count": 1,
+      "sum": 32.0,
+      "min": 32.0,
+      "max": 32.0,
+      "avg": 32.0,
+      "member_event_ids": [
+        "e"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T11:57:00+00:00",
+      "window_end": "2026-10-20T12:02:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "hood-001",
+      "metric_name": "fan_rpm",
+      "unit": "rpm",
+      "count": 1,
+      "sum": 100.0,
+      "min": 100.0,
+      "max": 100.0,
+      "avg": 100.0,
+      "member_event_ids": [
+        "rpm-a"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T11:58:00+00:00",
+      "window_end": "2026-10-20T12:03:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "hood-001",
+      "metric_name": "fan_rpm",
+      "unit": "rpm",
+      "count": 1,
+      "sum": 100.0,
+      "min": 100.0,
+      "max": 100.0,
+      "avg": 100.0,
+      "member_event_ids": [
+        "rpm-a"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T11:59:00+00:00",
+      "window_end": "2026-10-20T12:04:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "hood-001",
+      "metric_name": "fan_rpm",
+      "unit": "rpm",
+      "count": 1,
+      "sum": 100.0,
+      "min": 100.0,
+      "max": 100.0,
+      "avg": 100.0,
+      "member_event_ids": [
+        "rpm-a"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T12:00:00+00:00",
+      "window_end": "2026-10-20T12:05:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "hood-001",
+      "metric_name": "fan_rpm",
+      "unit": "rpm",
+      "count": 2,
+      "sum": 400.0,
+      "min": 100.0,
+      "max": 300.0,
+      "avg": 200.0,
+      "member_event_ids": [
+        "rpm-a",
+        "rpm-b"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T12:01:00+00:00",
+      "window_end": "2026-10-20T12:06:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "hood-001",
+      "metric_name": "fan_rpm",
+      "unit": "rpm",
+      "count": 2,
+      "sum": 400.0,
+      "min": 100.0,
+      "max": 300.0,
+      "avg": 200.0,
+      "member_event_ids": [
+        "rpm-a",
+        "rpm-b"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T12:02:00+00:00",
+      "window_end": "2026-10-20T12:07:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "hood-001",
+      "metric_name": "fan_rpm",
+      "unit": "rpm",
+      "count": 1,
+      "sum": 300.0,
+      "min": 300.0,
+      "max": 300.0,
+      "avg": 300.0,
+      "member_event_ids": [
+        "rpm-b"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T12:03:00+00:00",
+      "window_end": "2026-10-20T12:08:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "hood-001",
+      "metric_name": "fan_rpm",
+      "unit": "rpm",
+      "count": 1,
+      "sum": 300.0,
+      "min": 300.0,
+      "max": 300.0,
+      "avg": 300.0,
+      "member_event_ids": [
+        "rpm-b"
+      ]
+    },
+    {
+      "window_start": "2026-10-20T12:04:00+00:00",
+      "window_end": "2026-10-20T12:09:00+00:00",
+      "window_type": "5m_sliding",
+      "store_id": "store-001",
+      "equipment_id": "hood-001",
+      "metric_name": "fan_rpm",
+      "unit": "rpm",
+      "count": 1,
+      "sum": 300.0,
+      "min": 300.0,
+      "max": 300.0,
+      "avg": 300.0,
+      "member_event_ids": [
+        "rpm-b"
+      ]
+    }
+  ]
+}

@@ -5,7 +5,9 @@
 최신 확인: 2026-10-20. progress 공식 JSON 저장으로 최소 수정한 뒤 기존 Streaming
 **7 passed / 0 failed / 0 skipped**, Phase 3 Python 회귀 **98 passed**를 확인했다.
 직전 실행의 7건 FAILED는 progress UUID 직렬화 오류이며 역사 기록으로 보존한다.
-최신 명령·관측값·변경 범위는 문서 끝 「Progress 직렬화 수정 및 재검증」을 참조한다.
+추가로 5분/1분 sliding의 신규 3건과 기존 Streaming 7건을 함께 실행해 **10 passed**를
+확인했다. 신규 3건은 Python 독립 대조 1건과 실제 Spark 실행 2건이다.
+최신 명령·관측값·변경 범위는 문서 끝 「5분 Sliding Window 실제 검증」을 참조한다.
 아래 초기 구현 기록의 PySpark 부재/skip은 이전 실행 결과이며 최신 실행과 구분한다.
 
 ## 구현 범위
@@ -425,3 +427,146 @@ Git staging/commit/push/PR/merge, AWS/Databricks 실행은 하지 않았다.
 UC/Kafka/DBR, 임의 충돌 payload의 영속 검증은 여전히 미검증이다.
 다음 최소 논리 작업은 **5분 sliding/1분 slide의 UTC 경계·중첩 window·샘플 가중 평균을
 별도 fixture와 로컬 테스트로 검증**하는 것이다. 이번에는 해당 기능을 구현하지 않았다.
+
+## 5분 Sliding Window 실제 검증 — 2026-10-20
+
+### 사전 확인과 범위
+
+branch `feat/phase-3-gold-windows`, HEAD `e76531e`, 시작 시 working tree clean을 확인했다.
+`streaming/jobs/metric_aggregation.py`는 없으며 `windows.py`는 1분 tumbling만 구현한다.
+설계의 5분 sliding은 미래 계획으로, 생산 구현이 존재하지 않는 점을 테스트 작성 전에 보고했다.
+이번 검증은 새 테스트 안의 Spark native 식으로만 수행했다. 생산 Job/builder, 별도 운영 query,
+원장, Kafka/Delta/클라우드는 추가하지 않았다. 기존 생산 코드·1분 테스트·fixture는 보존했다.
+
+추가 파일은 다음 두 개이며 기존 보고서인 이 파일만 갱신했다.
+
+- `tests/fixtures/phase3/sliding_window_events.json`: 수동 기대 행과 batch/시간 진행 입력.
+- `tests/integration/test_phase3_sliding_window.py`: 독립 oracle 대조와 로컬 sliding 검증.
+
+기존 `local_spark` fixture와 `run_available` helper를 재사용했다. 별도 테스트 격리를 위한
+checkpoint만 사용하며 query는 같은 checkpoint로 AvailableNow를 순차 재시작하는 기존 패턴이다.
+실시간 sleep은 사용하지 않는다.
+
+### 실제 API·환경·실행 명령
+
+환경은 기존 임시 venv의 Python 3.11.15 / PySpark 4.0.0 / Temurin Java 21.0.12.1이다.
+`local[2]`, session timezone UTC, correctness check true를 그대로 사용했다.
+API는 `withWatermark(event_time, "10 minutes")`,
+`dropDuplicatesWithinWatermark(["event_id"])`,
+`window(event_time, "5 minutes", "1 minute")`, Append + foreachBatch 관측이다.
+집계는 count/sum/min/max 후 `avg = sum / count`다. window 평균의 평균을 사용하지 않는다.
+unit은 분리 속성이며 자연키는
+`(window_start, window_type, store_id, equipment_id, metric_name)`이고 type은 `5m_sliding`이다.
+
+```sh
+env JAVA_HOME='/private/tmp/ktd-spark4-sFWBFypd/jdk/jdk-21.0.12.1+1/Contents/Home' \
+  PYSPARK_PYTHON=/private/tmp/ktd-spark4-sFWBFypd/venv/bin/python \
+  PYTHONDONTWRITEBYTECODE=1 \
+  /private/tmp/ktd-spark4-sFWBFypd/venv/bin/python -m pytest \
+  -vv -s -p no:cacheprovider \
+  --basetemp /private/tmp/ktd-sliding-0XSyzMri/pytest \
+  --junitxml /private/tmp/ktd-sliding-0XSyzMri/junit.xml \
+  tests/integration/test_phase3_sliding_window.py \
+  tests/integration/test_phase3_streaming.py \
+  > /private/tmp/ktd-sliding-0XSyzMri/spark.log 2>&1
+# 10 passed in 37.03s, exit code 0
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider \
+  --basetemp /private/tmp/ktd-sliding-0XSyzMri/python-unit tests/unit/phase3
+# 98 passed in 0.06s
+```
+
+| 신규 테스트 | 결과 | 검증 |
+|---|---|---|
+| test_manual_sliding_rows_against_existing_python_contract | PASS | 수동 18행·고유 ID membership·기존 Python 수치/unit 계약 대조 |
+| test_sliding_multibatch_overlap_dedup_and_append | PASS | 실제 query, 겹침·경계·batch 합산·중복·metric/unit·단계별 final |
+| test_sliding_idle_does_not_finalize_tail | PASS | 별도 격리 query에서 미래 진행 입력 없이 W/미확정 유지 |
+
+기존 normal/cross_batch_duplicate/payload_conflict/utc_boundary/watermark_late/idle/batch_replay도
+7건 모두 PASS였다. 기존 Python 회귀는 98 PASS다. 전체 unit을 추가로 재실행하지는 않았다.
+API/AnalysisException/query 시작/수치/기대값 불일치 실패는 없었다.
+기대값·watermark 임계값을 실행 후 바꾸지 않았다.
+
+### 수동 기대값과 실제 결과
+
+유효한 기존 metric/unit인 refrigerator temperature_celsius/celsius와 hood fan_rpm/rpm을 썼다.
+온도 입력은 a=2@12:00:00, b=4@12:00:59, c=8@12:01:00,
+d=16@12:04:59, e=32@12:05:00Z다. a는 다음 source batch에서 한 번 더 전달한다.
+rpm은 100@12:01:00, 300@12:04:59Z다. 모든 이벤트는 기존 wire 10필드를 유지한다.
+
+수동 표는 Spark 출력에서 생성하지 않았다. 각 window에 시간 범위로 선택한 입력을 기존
+aggregate_minutes에 넘기고 minute 결과의 sum/count/min/max를 조합해 독립 대조했다.
+기존 함수에는 sliding 기능을 추가하지 않았다. 고유 이벤트 7개 각각이 5개 window에 포함돼
+전체 결과의 sample_count 합은 35다. 기대/실제 18행의 전체 필드 비교도 정확히 일치했다.
+테스트 수치 assertion은 기존 설계처럼 rel/abs tolerance 1e-12를 사용한다.
+
+아래 온도 행은 날짜 2026-10-20 UTC, store-001/fridge-001/temperature_celsius/celsius,
+window_type=5m_sliding이다. 각 종료는 시작+5분이며 전체 자연키·end는 fixture에 명시했다.
+
+| 시작 | count | sum | min | max | avg | 실제 |
+|---|---:|---:|---:|---:|---:|---|
+| 11:56 | 2 | 6 | 2 | 4 | 3 | 일치 |
+| 11:57 | 3 | 14 | 2 | 8 | 14/3 | 일치 |
+| 11:58 | 3 | 14 | 2 | 8 | 14/3 | 일치 |
+| 11:59 | 3 | 14 | 2 | 8 | 14/3 | 일치 |
+| 12:00 | 4 | 30 | 2 | 16 | 7.5 | 일치 |
+| 12:01 | 3 | 56 | 8 | 32 | 56/3 | 일치 |
+| 12:02 | 2 | 48 | 16 | 32 | 24 | 일치 |
+| 12:03 | 2 | 48 | 16 | 32 | 24 | 일치 |
+| 12:04 | 2 | 48 | 16 | 32 | 24 | 일치 |
+| 12:05 | 1 | 32 | 32 | 32 | 32 | 일치 |
+
+hood-001/fan_rpm/rpm의 8행도 일치했다. 시작 11:57~11:59는 count=1/sum=100/min=max=avg=100,
+12:00~12:01은 count=2/sum=400/min=100/max=300/avg=200,
+12:02~12:04는 count=1/sum=300/min=max=avg=300이다.
+기존 고정 단위 계약을 유지했고 같은 metric의 상이한 단위 허용·변환을 검증한 것은 아니다.
+
+`[12:00,12:05)`는 a,b,c,d를 포함하고 정확히 end의 e를 제외한다.
+`[12:05,12:10)`는 정확히 start의 e를 포함하고 d는 제외한다.
+`[11:56,12:01)`은 c를 제외한다. 따라서 start 포함/end 제외와 겹침을 모두 검증한다.
+온도 12:00 window의 avg는 30/4=7.5다. minute 평균 3,8,16을 단순 평균한 9와 다르다.
+중복 a는 dedup operator의 numDroppedDuplicateRows=1로 관측됐고 수치에는 한 번만 반영됐다.
+
+### 실제 watermark와 Append 시점
+
+시간 진행 입력은 별도 `clock-001` 장비이며 검증 대상 행에서 제외한다. 운영 heartbeat가 아니다.
+적용 W는 progress에서 읽었으며 각 final 행을 내보낸 batch의 W가 그 window_end보다 큰지
+확인했다. 등호의 구현 차이를 피하도록 진행 입력은 30초 경계를 사용했다.
+
+| 단계 | 실제 W (2026-10-20 UTC) | 누적 대상 final 행 |
+|---|---|---:|
+| initial | 11:51:00 | 0 |
+| cross_batch | 11:54:59 | 0 |
+| end_boundary | 11:55:00 | 0 |
+| idle | 11:55:00 | 0 |
+| partial_close | 12:06:30 | 11 |
+| all_close | 12:15:30 | 18 |
+
+batch 7에서 11행, batch 9에서 나머지 7행이 출력됐다. 처음부터 final을 즉시 내보내거나
+마지막 입력의 wall-clock age로 닫지 않았다. 별도 idle 테스트에서도 동일 W 유지와
+state 제거 0을 확인했다. 파일 순서만으로 W 진전을 추정하지 않았다.
+
+### 실제 실행 증거와 변경 확인
+
+- [Spark/pytest 로그](/private/tmp/ktd-sliding-0XSyzMri/spark.log)
+- [JUnit 10건 결과](/private/tmp/ktd-sliding-0XSyzMri/junit.xml)
+- [18행 expected/actual·W·출력 batch 요약](/private/tmp/ktd-sliding-0XSyzMri/summary.json)
+- [sliding 원본 progress](/private/tmp/ktd-sliding-0XSyzMri/pytest/test_sliding_multibatch_overla0/progress.json)
+- [단계별 W와 출력 수](/private/tmp/ktd-sliding-0XSyzMri/pytest/test_sliding_multibatch_overla0/stages.json)
+- [callback 실제 행](/private/tmp/ktd-sliding-0XSyzMri/pytest/test_sliding_multibatch_overla0/attempts.json)
+- [독립 idle progress](/private/tmp/ktd-sliding-0XSyzMri/pytest/test_sliding_idle_does_not_fin0/progress.json)
+- [Python 회귀 로그](/private/tmp/ktd-sliding-0XSyzMri/python-unit.log)
+
+증거는 Git에 추가하지 않은 임시 파일이며 OS 정리 시 없어질 수 있다.
+변경은 신규 테스트·fixture와 이 보고서뿐이다. 작업 전 hash 대조에서 기존 streaming test·
+fixture·생산 Python 코드·validated·의존성 파일의 변경이 없음을 확인했다.
+새 Python의 79열·구문, fixture JSON 파싱, 기존/신규 파일 공백 검사도 통과했다.
+
+### 미검증 범위와 다음 최소 논리 작업
+
+이번 결과는 native sliding 식의 실제 로컬 실행 증거이며 생산용 5분 구현 완료가 아니다.
+생산 metric_aggregation Job은 여전히 미구현이다. 장기 연속 query/별도 process kill,
+Gold Delta MERGE/UC/Kafka/DBR/영속 payload 충돌 판정은 미검증이다.
+다음 최소 작업은 **Gold 자연키의 절대 집계값 쓰기 계약: 신규 INSERT, 동일 final no-op,
+상이 final 실패와 재시도 수렴을 순수 테스트로 고정**하는 것이다. 이번에는 구현하지 않았다.
+Git staging/commit/push/PR/merge, 유료 클라우드 실행은 수행하지 않았다.
