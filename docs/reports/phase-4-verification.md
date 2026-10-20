@@ -495,3 +495,83 @@ Phase 2/3 변경, AWS/Databricks 실행, Spark/Kafka/DynamoDB 연결은 수행�
 다음 논리 작업 후보는 Operational State와 독립적인 Health freshness/timer 계약이다.
 별도 last_seen·평가 시각 단조성·timeout 경계·관측 갱신과 timer 경합을 먼저 정한다.
 이번 연결 단위 완료 후 사용자 검토를 기다린다.
+
+## Health Freshness / Timer — 계약 및 테스트 시나리오 설계
+
+검토일: 2026-10-17 (Asia/Seoul). 브랜치 `feat/phase-4-twin-state`, 시작 HEAD
+`8bed0f7b41f4a2d10c7064137ddf0bea410bb9c8`, 시작 git status clean.
+이번 작업은 **문서 설계만**이며 Health FSM·Scheduler·Job 4·sink를 구현하지 않았다.
+
+### 확인 근거와 문서 배치
+
+현재 adapters/registry/bindings/contracts/FSM/Hood/README, 기존 Ordering·Dedup·
+Hood 관련 테스트와 장비 계약·이 보고서, config의 장비/metric/unit/버전·Job 2 설정을
+직접 확인했다. 원본 checkout의 기준 실행 계획 Phase 4, 기존 ADR 두 개와
+architecture/design-decisions.md·planning-update.md·state-and-alerts.md도 대조했다.
+Health 전용 ADR 및 실제 freshness timeout/profile 설정은 발견되지 않았다.
+worktree에는 AGENTS.md가 없어 제공된 PEP 8 지침과 원본 checkout의 AGENTS.md를
+읽었다. 계획서 사본이나 새 AGENTS.md를 생성하지 않았다.
+
+기존 장비 계약·README에는 Health 분리와 후속 방향만 있어 상세 규범은 별도
+`docs/streaming/equipment-health-contracts.md`에 모았다. 기존 장비 계약은 10절 링크와
+요약만 추가해 상세 내용을 중복 관리하지 않는다. 수정/신규 대상은 이 세 문서뿐이다.
+
+### 논리적으로 결정한 정책
+
+- HEALTHY는 승인 관측의 freshness, STALE은 timeout 만료, FAULT는 승인된 명시적
+  고장이다. Operational State와 Phase 5 Alert를 변경하지 않는다. active fault
+  우선 표시를 정의하되 현재 numeric 장비의 fault 입력은 미지원으로 유지한다.
+- last_seen은 수용한 유효 관측의 UTC event_time이며 수신/ingestion/processing
+  timestamp와 다르다. 장비별 실제 metric을 증거로 삼고 새 heartbeat를 가정하지 않는다.
+- timeout T는 미정이다. Health 전용 exact-match profile에 명시적 양수 T·source
+  allowlist가 있어야 활성화한다. Hood max_sample_gap을 freshness timeout으로 쓰지 않는다.
+- 관측 age<T만 freshness 수용한다. 이미 만료된 지연 이벤트는 upstream에서 valid여도
+  복구/연장을 하지 않는다. dedup/conflict/역순/동시각·부적합 입력은 last_seen을
+  연장하지 않고 canonical snapshot을 보존한다.
+- 별도 주입 tick의 평가 시각 >= deadline부터 만료한다. 명시적 활성화 epoch/start로
+  최초 무입력도 다루며 재시작 때 start를 현재 시각으로 리셋하지 않는다.
+- 관측 세대+deadline+profile+epoch token이 다른 timer는 폐기한다. 평가 시각의 단조성과
+  직렬화된 관측/tick 순서를 보존한다. 경합 순서를 바꾼 이력의 수렴은 보장하지 않는다.
+- Health snapshot·관측 원장·revision과 별도 health_change_id를 정의한다. 원본
+  Operational state_change_id 규칙을 바꾸지 않는다. 같은 기록 명령/시각의 replay와
+  실제 현재 시각으로 재평가하는 동작을 구별한다. 출력 ACK/outbox는 미구현이다.
+
+### 테스트 설계와 실행한 회귀의 구분
+
+Health 계약 8절의 표에 최초 관측, timeout 직전/등호/직후·무입력·초기 무관측,
+복구·만료된 지연 입력·중복/충돌·동시각·부적합 입력 혼재, timer 반복·snapshot
+복원·신규 관측 경합 양쪽 순서·과거 token·평가 시각 역전·fault 미지원·profile
+비호환의 입력, 초기 snapshot, 평가 시각, 기대 상태/출력을 명시했다.
+T는 기호이며 실제 설정값이나 runtime fixture를 추가하지 않았다.
+**모든 Health 시나리오는 미구현·미실행**이다. 가상 fault profile 사례도 설계뿐이다.
+
+기존 코드의 회귀 확인으로 아래만 실행했다:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-contract-phase4 tests/unit/phase4
+# 295 passed in 0.22s
+```
+
+이 숫자는 기존 Operational FSM/Registry/Hood 테스트 결과이며 신규 Health 검증이
+아니다. 문서 변경만 있어 전체 로컬 회귀는 재실행하지 않았고 이전 1009 passed를
+이번 실행으로 재사용하지 않는다. 문서 링크·시나리오 표의 구조, 최종 git diff --check,
+보호 대상 state 코드/Phase 4 테스트·fixture/config의 시작/종료 SHA-256 동일성을
+확인한다. 실행/설정 파일 변경은 없다.
+
+### 미결정 사항과 완료 경계
+
+장비별 T·source 권한, tick runtime·주기/시계 동기화, 원장 TTL/영속 저장·CAS,
+fault source/code/latch/reset, Health wire schema·outbox/sink 복구는 선택지·권장안·
+근거를 별도로 기록했다. timeout/source·runtime 선택이 닫히기 전 운영 Health
+활성화를 허용하지 않는다. 새 계약의 단위 테스트와 Health 동작은 미검증이다.
+AWS/Databricks/Confluent 실행, Spark/Kafka/DynamoDB 연결, Alert 구현은 하지 않았다.
+
+이번 정확한 git add 대상은 아래 세 문서다:
+
+```sh
+git add -- docs/streaming/equipment-health-contracts.md docs/streaming/equipment-state-contracts.md docs/reports/phase-4-verification.md
+```
+
+권장 메시지: `docs(phase4): define health freshness and timer contracts`.
+위 명령과 commit/push/merge는 실행하지 않았다. 이 설계 단위 완료 후 멈추며
+사용자 검토 없이 다음 구현으로 진행하지 않는다.

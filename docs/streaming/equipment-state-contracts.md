@@ -587,3 +587,26 @@ replay·중복/충돌·역순/동시각, 잘못된 계약과 cross-profile 입�
 다음 논리 작업 후보는 Health freshness/timer의 별도 snapshot·이벤트 계약이다.
 운영 cursor와 Health last_seen을 공유하지 않고 시간 단조성·timer 경합을 먼저
 설계해야 한다. 이 연결 단위에서 Health나 외부 실행을 자동 진행하지 않는다.
+
+
+## 10. Health freshness / timer 계약 — 설계 전용
+
+[Health 전용 계약](equipment-health-contracts.md)에 책임·상태 전이·last_seen·
+시간 모델·snapshot 복원·출력 identity와 구현 전 테스트 시나리오를 정의했다.
+기존 이 문서의 Operational State/Registry 구현과 중복되지 않도록 Health 상세
+규범은 해당 문서에서 관리한다. Health FSM·timer scheduler·Job 4·sink는 미구현이다.
+
+last_seen은 Health가 수용한 유효 관측의 event_time이며 Operational last_event_time과
+독립이다. 실제 numeric metric을 장비별 allowlist로 사용하고 별도 heartbeat/fault
+센서를 가정하지 않는다. Health profile·timeout/source 승인은 현재 설정에 없으므로
+임의 숫자나 기본 profile을 넣지 않는다. Hood의 max_sample_gap을 timeout으로 쓰지 않는다.
+
+명시적인 외부 tick 평가와 관측 세대별 deadline token으로 무입력 STALE을 설계한다.
+평가 시각 >= deadline부터 만료이며, 신규 관측 뒤의 이전 token은 무효다. 같은 순서의
+관측과 기록된 평가 시각을 replay해야 결정성을 비교할 수 있다. timer/관측의 순서를
+바꾼 이력이 수렴한다는 보장은 하지 않는다. current용 Health revision과 별도
+health_change_id를 정의하며 기존 Operational state_change_id는 변경하지 않는다.
+
+FAULT는 승인된 고장 계약이 있을 때만 가능하다. 현재 네 장비에는 해당 입력이 없고
+Health/Alert를 Operational enum에 합치지 않는다. 설계 테스트 표는 미실행이며,
+기존 Phase 4 회귀 통과는 새 Health 동작의 검증 증거가 아니다.
