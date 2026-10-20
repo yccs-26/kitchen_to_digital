@@ -2,7 +2,10 @@
 
 확인일: 2026-10-17 (Asia/Seoul). 기준 HEAD: `92b5620`.
 브랜치: `feat/phase-3-gold-windows`. 시작 시 working tree clean.
-상태: fixture·Python 계약 테스트 완료, 실제 Spark 실행 미검증.
+최신 상태: 별도 로컬 Spark 4.0.0 실행 완료, 기존 Streaming 7건 모두 FAILED.
+공통 원인은 마지막 progress JSON 저장의 UUID 직렬화 오류다. 집계 결과와 query 실행의
+관측 사실은 아래 「로컬 Spark 실제 실행」에 기록한다. 전체 성공 판정은 보류한다.
+아래 초기 구현 기록의 PySpark 부재/skip은 이전 실행 결과이며 최신 실행과 구분한다.
 
 ## 구현 범위
 
@@ -126,3 +129,180 @@ Python 구문·79열·네 신규 파일 공백 검사 통과, 기존 tracked 파
 
 검토 후 staging 대상은 위 네 신규 파일만이다. staging/commit은 실행하지 않았다.
 제안 commit 메시지: `test(phase3): add multi-batch streaming contract fixtures`.
+
+## 로컬 Spark 실제 실행 — 2026-10-17
+
+### 환경과 격리
+
+실행 기준 HEAD는 `22ecebe`이며 브랜치는 `feat/phase-3-gold-windows`, 시작 시 Git clean이었다.
+macOS 26.6.2 / Darwin 25.6.0 / ARM64 환경이다. 기존 의존성 관리는 uv/pyproject/uv.lock이며
+프로젝트 `.venv`는 Python 3.11.15, PySpark 미설치 상태를 유지했다.
+
+별도 검증 루트는 `/private/tmp/ktd-spark4-sFWBFypd`다.
+
+| 항목 | 실제 사용 값 |
+|---|---|
+| Python | CPython 3.11.15 ARM64, 별도 `venv/bin/python` |
+| PySpark / Py4J | 4.0.0 / 0.10.9.9 |
+| pytest | 9.1.1 |
+| JDK | Eclipse Temurin OpenJDK 21.0.12.1+1-LTS ARM64 |
+| Spark master | 기존 fixture의 `local[2]` |
+| SQL | session timezone UTC, shuffle 2, correctness check true |
+| Source / sink | 로컬 JSON 파일 / 기존 foreachBatch 관측 journal |
+
+초기 시스템에는 Oracle Java 24만 있었고 JAVA_HOME은 unset이었다.
+Temurin의 공식 macOS aarch64 tar.gz를 임시 디렉터리에 풀었으며 관리자 설치·전역 Java 교체·
+쉘 설정 변경을 하지 않았다. JAVA_HOME은 pytest 프로세스에만 전달했다.
+JDK 다운로드 SHA-256은 공식 API metadata와 일치했다:
+`3623232f33a9c3baadf304480b2535f9a3cba8a58d42ecbb438ba267315d9998`.
+
+준비 명령은 임시 cache/venv 대상으로만 실행했다.
+
+```sh
+uv --cache-dir /private/tmp/ktd-spark4-sFWBFypd/uv-cache venv \
+  --python .venv/bin/python /private/tmp/ktd-spark4-sFWBFypd/venv
+uv --cache-dir /private/tmp/ktd-spark4-sFWBFypd/uv-cache pip install \
+  --python /private/tmp/ktd-spark4-sFWBFypd/venv/bin/python \
+  'pyspark==4.0.0' 'pytest==9.1.1'
+```
+
+이 환경은 [Spark 4.0의 Java 17/21·Python 3.9+ 요구](https://spark.apache.org/docs/4.0.0/)를
+충족한다. JDK는 [공식 archive 방식](https://adoptium.net/installation/archives/)으로 준비했다.
+AWS/Databricks/유료 클라우드·Delta·외부 Kafka는 실행하지 않았다.
+
+### 실행 명령과 테스트 결과
+
+기존 테스트·fixture·집계 로직을 수정하지 않은 첫 실행:
+
+```sh
+env JAVA_HOME='/private/tmp/ktd-spark4-sFWBFypd/jdk/jdk-21.0.12.1+1/Contents/Home' \
+  PYSPARK_PYTHON=/private/tmp/ktd-spark4-sFWBFypd/venv/bin/python \
+  PYTHONDONTWRITEBYTECODE=1 \
+  /private/tmp/ktd-spark4-sFWBFypd/venv/bin/python -m pytest \
+  -vv -s -p no:cacheprovider \
+  --basetemp /private/tmp/ktd-spark4-sFWBFypd/pytest \
+  --junitxml /private/tmp/ktd-spark4-sFWBFypd/streaming-junit.xml \
+  tests/integration/test_phase3_streaming.py \
+  > /private/tmp/ktd-spark4-sFWBFypd/streaming.log 2>&1
+```
+
+결과: **0 passed / 7 failed / 0 skipped, 33.53초, exit code 1**.
+7건 모두 `test_phase3_streaming.py:237`의 `json.dumps(progress, indent=2)`에서 동일 예외:
+`TypeError: Object of type UUID is not JSON serializable`.
+
+| 기존 시나리오 | 최종 판정 | 오류 전 실제 관측 |
+|---|---|---|
+| normal | FAIL: UUID JSON 저장 | Append final count=3,sum=12,avg=4,min=2,max=6 |
+| cross_batch_duplicate | FAIL: 동일 원인 | 다른 source batch의 a 재전달 제거, final 3/12 |
+| payload_conflict | FAIL: 동일 원인 | 두 번째 a=99는 ID dedup에 숨겨짐, 최초 a=2만 final 1/2 |
+| utc_boundary | FAIL: 동일 원인 | UTC 두 window에 각각 count/sum=1/2,1/4 |
+| watermark_late | FAIL: 동일 원인 | ID eviction 뒤 old a/late-new 2행 late drop, final 2/6 유지 |
+| idle | FAIL: 동일 원인 | final 없음, W 정지, 열린 집계 state 유지 |
+| batch_replay | FAIL: 동일 원인 | 의도한 callback 실패 후 batch ID 3에서 동일 final 2/6 두 번 관측 |
+
+모든 시나리오가 결과 비교·개별 metric assertion을 지나 마지막 로그 저장에서 실패했다.
+따라서 시나리오의 관측 결과가 기대와 일치했다는 사실과 pytest PASS 여부를 분리한다.
+`PHASE3_LOCAL_OUTPUT_BEFORE_CHECKPOINT` 예외는 batch_replay의 의도한 오류 주입이며,
+최종 실패의 최초 원인인 UUID JSON 오류와 다르다.
+
+별도 로컬 회귀는 기존 프로젝트 `.venv`에서 실행했다.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider \
+  --basetemp /private/tmp/ktd-spark4-sFWBFypd/unit tests/unit/phase3
+# 98 passed in 0.07s
+```
+
+이번에 전체 unit 812개를 다시 실행한 것은 아니다. 전체 812개 결과는 위의 이전 실행 기록이다.
+
+### 로그 확보와 실제 watermark/state 관측
+
+원래 테스트는 마지막 JSON 저장에 실패하므로 progress.json 증거도 정상 생성되지 않았다.
+기존 코드 수정 없이 정확한 진단을 위해 임시 pytest hook `ktd_progress_capture.py`를 추가한
+관측 재실행을 한 번 수행했다. 이 hook은 실패 프레임의 `progress`, `final`, `attempts_list`를
+읽고 progress의 공식 `.json` 표현을 보존할 뿐 assertion·query·skip·실패 판정을 바꾸지 않는다.
+새 query builder나 새 기능을 추가하지 않았고 기존 7개를 그대로 재실행했다.
+관측 재실행도 **0 passed / 7 failed / 0 skipped, 29.52초, exit code 1**이었다.
+
+재실행 명령은 위 명령의 로그/basetemp/JUnit을 각각 `streaming-observed.log`, `pytest-observed`,
+`streaming-observed-junit.xml`로 분리하고 다음 값만 추가했다.
+
+```text
+PYTHONPATH=/private/tmp/ktd-spark4-sFWBFypd
+-p ktd_progress_capture
+```
+
+이 실행의 공식 progress JSON에서 query UUID/runId·batchId·W·state operator들을 보존했다.
+관측값은 fixture 순서로 추측하지 않고 이 자료와 callback journal에서 추출했다.
+
+- 두 state operator 이름은 `stateStoreSave`와 `dedupeWithinWatermark`다.
+  로컬 Spark 4.0.0은 correctness check를 켠 상태에서 이 dedup→window Append 조합의
+  query 시작·실제 batch 처리를 허용했다. unsupported operator/AnalysisException은 없었다.
+- `normal`, `cross_batch_duplicate`: W가 `2026-10-15T23:50:20Z` → `23:50:30Z` →
+  `2026-10-16T00:15:00Z` → `00:16:00Z`로 진행했다. batch 5, W=00:15:00Z에서
+  `[00:00,00:01)` final이 관측됐다. 집계 state 1개, ID state 3개 제거가 기록됐다.
+- 중복 사례 batch 2의 `customMetrics.numDroppedDuplicateRows=1`, final count=3/sum=12.
+  입력 batch마다 query를 같은 checkpoint로 다시 시작한 뒤에도 이 결과가 유지됐다.
+- late 사례: batch 3, W=00:15:00Z에서 dedup `numRowsRemoved=2`가 먼저 기록됐다.
+  이후 batch 6, W=00:16:00Z에서 `numRowsDroppedByWatermark=2`가 기록됐다.
+  집계 operator의 late drop은 0이고 dedup operator가 두 입력을 제외했다.
+  이는 이 fixture의 두 행 관측값이며 전체 운영 고유 late 이벤트 수로 확대하지 않는다.
+- idle 사례: 입력 처리 뒤 W는 `2026-10-15T23:50:20Z`로 유지됐다.
+  집계 state 최대 1행, ID state 최대 2행이 남고 제거 수는 각각 0, final은 없었다.
+- replay 사례: 실패 전 관측 journal과 재실행 journal 모두 batch ID 3의 count=2/sum=6을 담는다.
+  이는 동일 결과 재실행 증거이며 Delta/Gold commit의 멱등성을 검증한 것은 아니다.
+- 충돌 사례는 Spark가 payload 충돌을 탐지하지 않는 기존 한계와 일치한다.
+  충돌을 정상 검증했다고 판정하지 않는다.
+
+### 최초 원인·최소 재현·분류
+
+분류는 **테스트 관측 코드의 Spark 4.0 progress API 직렬화 호환성 오류**다.
+환경/의존성 오류, AnalysisException, query 시작 실패, watermark 기대값 불일치,
+수치 집계 assertion 실패는 이번 7건의 최종 원인이 아니다.
+
+설치된 `pyspark/sql/streaming/listener.py`에서 StreamingQueryProgress는 Spark 4.0부터
+`dict` subclass이고 내부 id/runId를 UUID로 저장한다. `progress['id']`는 호환성 때문에
+문자열로 반환하지만 `json.dumps`가 순회하는 내부 dict 값은 UUID다.
+공식 `.json` property는 JVM 또는 원본 JSON 표현을 사용한다.
+
+새 Spark query 없이 실제 progress JSON 하나를 재구성해 아래 최소 오류도 재현했다.
+
+```python
+progress = StreamingQueryProgress.fromJson(actual_progress_json)
+json.dumps([progress])  # TypeError: Object of type UUID ...
+json.loads(progress.json)  # 정상 JSON 객체
+```
+
+후속 최소 수정 후보는 테스트 마지막의 progress 저장만
+`[json.loads(p.json) for p in progress]`로 정규화하는 것이다.
+이번에는 적용하지 않았다. generic default=str로 모든 타입 오류를 숨기는 수정은 제안하지 않는다.
+해당 직렬화만 수정한 별도 작업에서 7개를 다시 실행해 PASS를 확보해야 한다.
+
+### 증거 파일
+
+아래는 모두 Git 비추적 임시 검증 루트의 산출물이다. `/private/tmp` 정리 시 없어질 수 있다.
+보고서의 수치 요약은 보존하지만 로그 영구 보관이 필요하면 별도 승인된 위치로 복사해야 한다.
+
+- [실행 환경](/private/tmp/ktd-spark4-sFWBFypd/environment.txt)
+- [첫 실행 Spark/pytest 로그](/private/tmp/ktd-spark4-sFWBFypd/streaming.log)
+- [첫 실행 JUnit](/private/tmp/ktd-spark4-sFWBFypd/streaming-junit.xml)
+- [관측 재실행 로그](/private/tmp/ktd-spark4-sFWBFypd/streaming-observed.log)
+- [관측 재실행 JUnit](/private/tmp/ktd-spark4-sFWBFypd/streaming-observed-junit.xml)
+- [실제 progress·결과 요약](/private/tmp/ktd-spark4-sFWBFypd/observations-summary.json)
+- [late 원본 progress](/private/tmp/ktd-spark4-sFWBFypd/diagnostics/watermark_late.json)
+- [idle 원본 progress](/private/tmp/ktd-spark4-sFWBFypd/diagnostics/idle.json)
+- [replay 원본 progress/journal](/private/tmp/ktd-spark4-sFWBFypd/diagnostics/batch_replay.json)
+- [Python 회귀 로그](/private/tmp/ktd-spark4-sFWBFypd/python-contract.log)
+- [UUID 최소 재현 결과](/private/tmp/ktd-spark4-sFWBFypd/uuid-reproduction.log)
+
+### 범위·변경·다음 작업
+
+기존 7개는 1분 tumbling만 구성한다. **5분 sliding 결과는 미검증**이다.
+새 query 추가 금지 범위를 지켜 임의 sliding query를 만들지 않았다.
+별도 process kill, 장기 연속 query, Gold Delta MERGE/UC/Kafka/DBR도 미검증이다.
+
+Git 변경은 이 보고서 한 파일의 최신 상태 설명과 실행 기록 추가뿐이다.
+테스트·fixture·설계·Python 집계·Phase 2·pyproject·uv.lock은 변경하지 않았다.
+시스템 Java 기본값과 기존 `.venv`도 보존했다. commit/push/PR/merge는 수행하지 않았다.
+다음 최소 작업은 **progress JSON 저장 호환성만 수정한 뒤 기존 7건 재실행**이다.
+집계 설계 재작성이나 Gold 구현에 앞서 이 테스트 실패를 해소해야 한다.
