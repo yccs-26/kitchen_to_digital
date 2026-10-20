@@ -408,3 +408,457 @@ metadata Python snippet 구문, 생성 flag·partition 수, 비용 산식을 확
 시작 시 존재한 추적·미추적 파일의 SHA-256은 모두 동일했다.
 문서만 추가했으므로 전체 unit 회귀는 재실행하지 않았다. 예시의 Kafka/Python
 명령은 원격 실행하지 않았으며 구문 검사를 runtime 검증으로 간주하지 않는다.
+
+## 11. P2-8e 읽기 전용 preflight 결과 — 2026-10-17
+
+판정: **로컬 설정·사양 대조 정상, 실제 생성 실행은 차단, 두 topic 존재는 미확인.**
+기존 문서에 결과를 기록할 수 있어 별도 P2-8e 파일은 만들지 않았다.
+아래는 이번 재조회 결과이며 앞 절의 과거 관측과 구분한다.
+
+### 저장소와 확인 파일
+
+- branch `feat/phase2-validation-silver`, HEAD
+  `f2fa1f275e04535ccb85646b63d32543b6f024ef`.
+- P2-8d는 위 HEAD에서 커밋됐으며 시작 시 해당 문서 diff는 없었다.
+  다른 기존 수정 5개와 미추적 파일은 보존했다.
+- AGENTS.md, platform.md, data-contract.md, 두 로컬 계획서의 P2-8을 확인했다.
+  platform.md의 Job 2 미구현·복구 미결정 표현은 현재 코드보다 오래된 설명이다.
+  이번에는 그 표현을 현재 구현 상태의 증거로 사용하거나 광범위하게 수정하지 않았다.
+- `config/job2-runtime.json`과 `config/job2-runtime.example.json`의 broker/region,
+  SASL_SSL/AWS_MSK_IAM, 세 topic 이름, source credential `ktd-msk-consumer`,
+  producer credential `ktd-msk-job2-credential`이 일치했다.
+- `streaming/jobs/runtime_config.py`, `sensor_validation_job.py`,
+  `scripts/run_job2_databricks.py`, `tests/unit/test_job2_databricks_entrypoint.py`를
+  대조했다. source는 databricks.serviceCredential, Python producer는
+  OAUTHBEARER/oauth_cb 경로다. Java Admin의 AWS_MSK_IAM과 API별 표현 차이이며
+  자격 증명 이름을 임의 변경할 이유가 아니다. acks=all과 자동 생성 비활성화를 유지한다.
+- `infra/docker/compose.yml`, `.env.example`, `kafka/init-topics.sh`를 확인했다.
+  init script는 PLAINTEXT 로컬 raw 전용이고 RF=1·생성 명령을 포함한다.
+  MSK Admin preflight로 실행하지 않았다. 저장소에서 client.properties 실물은
+  발견하지 못했다. 이것은 EC2에도 파일이 없다는 증거가 아니다.
+
+### AWS 읽기 전용 결과와 역할별 권한
+
+AWS 기존 인증은 성공했다. STS의 현재 관리 API 호출 주체는 IAM user `chan`이다.
+MSK/IAM 재조회 시작 시각은 2026-10-17 13:51:44 UTC (22:51:44 KST)다.
+
+| 항목 | 이번 결과 |
+|---|---|
+| cluster | ktd-msk-serverless / ACTIVE / SERVERLESS / ap-northeast-2 |
+| ARN | 본문 §2의 cluster ARN과 동일 |
+| 인증·bootstrap | IAM 활성, §2의 boot-aersevd2...:9098과 동일 |
+| EC2 | i-08e374efb0c31160d / stopped / t3.micro |
+| profile 실제 role | ktd-msk-producer-role |
+| SSM 관리 인스턴스 조회 | 대상 필터 결과 빈 목록. 현재 원격 CLI 실행 가능성을 확인하지 못함 |
+| EC2 role | cluster Connect, raw만 CreateTopic/DescribeTopic/WriteData, AmazonSSMManagedInstanceCore |
+| Job 2 producer role | 두 output DescribeTopic/WriteData, cluster Connect. CreateTopic 없음 |
+| source consumer role | raw DescribeTopic/ReadData, group DescribeGroup/AlterGroup, self-assume |
+| boundary | 위 세 role에서 미관측 |
+
+기존 EC2 role에는 output CreateTopic/DescribeTopic/DescribeTopicDynamicConfiguration이
+없다. Job 2 role의 CreateTopic 부재는 의도한 분리이며 runtime 권한 결함으로 보지 않는다.
+`ktd-msk-topic-provisioner-role`은 조회된 MSK 관련 역할 목록에 없고 여전히 제안명이다.
+현재 관측한 실행 후보는 EC2 profile role이지만 권한이 부족하며, 별도 관리
+principal은 선택·검증되지 않았다. 로컬 IAM user를 Kafka 실행 주체로 전용하지 않았다.
+SCP·session policy·cluster policy와 실제 Kafka 요청의 유효 권한은 미검증이다.
+이는 조회 정책의 범위 판정이며 broker가 반환한 AccessDenied 실행 증빙은 아니다.
+
+UC credential의 이름과 코드 전달 경로는 로컬에서 일치한다. 이번에는 Databricks
+API/Compute를 호출하지 않았으므로 credential→IAM role의 실제 연결·토큰 발급은
+새로 검증하지 않았다. 기존 §1의 token refresh 실패를 성공으로 덮어쓰지 않는다.
+
+### 사양·실행 가능 조건과 미검증 범위
+
+§3의 partitions=3, cleanup.policy=delete, retention.ms=604800000,
+retention.bytes=-1은 사용자 요구와 생성 명령에 일치한다. cleanup/retention은
+Serverless 지원 설정이고 RF는 옵션 생략, min ISR은 미지정으로 유지한다.
+§4 정책 초안의 CreateTopic은 wildcard 없이 두 정확한 output ARN에만 제한됐다.
+정책 초안과 실제 적용 정책은 다르다. 실제 topic 설정/RF/ISR은 조회하지 못했다.
+[재확인한 Serverless 설정 제한](https://docs.aws.amazon.com/msk/latest/developerguide/serverless-config.html),
+[공식 생성 예시](https://docs.aws.amazon.com/msk/latest/developerguide/msk-serverless-create-topic.html)
+
+실행 변수는 MSK_BOOTSTRAP_SERVERS, KTD_KAFKA_TOPICS, KTD_KAFKA_CONFIGS,
+KTD_CLIENT_PROPERTIES이며 IAM JAR이 classpath에 있어야 한다. EC2의 실제 CLI/JAR
+버전·절대 경로와 properties 경로는 문서화되지 않았고 §5 placeholder 상태다.
+stopped EC2를 시작하거나 SSM 원격 명령을 보내지 않아 그 안을 검사하지 않았다.
+개발자 Mac에서 private broker를 직접 probe하지 않았으며 두 output 모두 존재
+**미확인**이다. 이전 validated 부재 보고도 이번 최신 metadata 확인으로 대체하지 않았다.
+§7 notebook metadata 예시는 토큰 획득에 Spark scalar UDF를 사용하므로 이번
+Compute 실행 금지 범위에서는 사용하지 않았다.
+
+생성 전에 필요한 최소 조건은 별도 관리 principal 선택 및 두 output에 한정된
+Connect/CreateTopic/DescribeTopic/DescribeTopicDynamicConfiguration 권한 확인,
+승인된 가용 VPC client, 실제 CLI/JAR/properties 경로 확인, broker Describe/config
+결과 확인이다. 기존 topic이면 재생성하지 않고 불일치 시 멈춘다. 부재를 확인한
+topic만 별도 명시적 생성 지시 후 대상이 된다. 이번에는 어떤 조건도 자동 변경하지 않았다.
+
+checkpoint는 두 설정 모두 `/Volumes/ktd/silver/checkpoints/job2/sensor-validation`이다.
+Job 2 전용 경로 및 Job 1 재사용 거부 테스트를 확인했다. 설정에 bronze_checkpoint가
+없으므로 실제 배포의 Job 1 경로와 중복 여부는 별도 확인이 필요하다. 현재 checkpoint
+commit 파일, raw earliest offset/retention은 조회하지 않았다. topic 준비만으로
+재시작 누락 방지·부분 실패 복구·기존 원본 재처리 가능성이 증명되지는 않는다.
+
+### 실행 명령과 검증 결과
+
+실행한 AWS 조회는 다음뿐이며 모두 성공했다. 계정/role secret 값은 출력하지 않았다.
+
+- `aws sts get-caller-identity`
+- `aws kafka describe-cluster-v2`, `get-bootstrap-brokers` (본 cluster ARN)
+- `aws ec2 describe-instances` (본 instance ID)
+- `aws ssm describe-instance-information` (본 instance ID 필터)
+- `aws iam get-instance-profile`, `list-roles` (MSK 이름 필터)
+- 위 세 role의 `get-role`, `list-role-policies`, `get-role-policy`,
+  `list-attached-role-policies`, attached policy의 `get-policy`, `get-policy-version`
+
+로컬 검증 명령:
+
+```text
+.venv/bin/python -m streaming.jobs.sensor_validation_job --check-config --runtime-config config/job2-runtime.json
+.venv/bin/python -m streaming.jobs.sensor_validation_job --check-config --runtime-config config/job2-runtime.example.json
+각각 config OK (offline; cloud access not checked), exit 0
+
+.venv/bin/python -m pytest -q tests/unit/test_runtime_config.py::test_job1_checkpoint_cannot_be_reused tests/unit/test_runtime_config.py::test_service_credential_source_matches_job1_options tests/unit/test_runtime_config.py::test_driver_credential_failure_never_starts_query tests/unit/test_job2_databricks_entrypoint.py::test_example_routes_distinct_credentials --basetemp=/tmp/ktd-p2-8e-unit
+4 passed, 1 warning in 0.15s
+```
+
+각 config 검사와 pytest에서 기존 Authlib/httpx deprecation 경고가 있었다.
+정책 JSON/생성 옵션·bash 구문·10필드 스키마 정적 검사와 git diff --check도 통과했다.
+기존 문서 본문은 prefix 비교로 보존을 확인했고 다른 기존 파일은 SHA-256이 같았다.
+정상은 로컬 참조·계약·설정 검사, 준비 부족은 관리 권한·실경로 미확인,
+실제 topic 조회·설정 일치·ACK·재시작은 미검증으로 구분한다.
+제품 코드·운영 설정·데이터·offset·checkpoint·AWS 리소스·IAM·다른 Phase를
+변경하지 않았다. 문서의 이번 결과만 추가하고 사용자 검토 대기에서 멈춘다.
+
+## 12. P2-8f 실행 경로 결정 — 2026-10-20
+
+**1순위: 기존 EC2를 잠시 사용하고, 기존 EC2 role에 두 output 전용 임시 inline
+policy를 추가한 뒤 회수한다.** 정책 적용·EC2 시작/중지·topic 생성은 사용자 승인
+후의 별도 작업이다. 이번에는 조회·시뮬레이션·문서 검증만 수행했다.
+Job 2 producer role에는 CreateTopic을 추가하지 않는다.
+
+### 12.1 현재 관측과 관리 주체
+
+branch/HEAD는 `feat/phase2-validation-silver` /
+`f2fa1f275e04535ccb85646b63d32543b6f024ef`다. 시작 시 이미 있던 P2-8e 문서
+추가분과 수정 5개·미추적 파일을 보존한다. 이번 절만 추가한다.
+AGENTS.md, P2-8d/e, platform.md, data-contract.md, 계획서 P2-8, infra와
+Job 2 runtime/auth 코드를 재확인했다. 구현/설정/checkpoint를 바꾸지 않는다.
+
+2026-10-20 03:14:58 UTC (12:14:58 KST)부터 기존 인증으로 읽기 조회했다.
+
+| 대상 | 이번 관측 |
+|---|---|
+| 관리 API 호출자 | arn:aws:iam::048715026902:user/chan |
+| chan 정책 | AdministratorAccess, IAMUserChangePassword, AmazonS3FullAccess; inline·그룹 없음 |
+| EC2 role | ktd-msk-producer-role, EC2 trust, raw 전용 기존 권한과 AmazonSSMManagedInstanceCore |
+| Job 2 role | ktd-msk-job2-producer-role, output DescribeTopic/WriteData와 cluster Connect |
+| boundary·Deny | 위 user/두 role에 boundary 없음. 조회한 identity 정책에 명시적 Deny 없음 |
+| Organizations | describe-organization이 AWSOrganizationsNotInUseException 반환. 이 계정은 조직 미사용으로 관측돼 상속 SCP 대상이 아님 |
+| MSK cluster policy | get-cluster-policy는 NotFoundException. topic 부재를 뜻하지 않음 |
+| MSK | 기존 ARN/bootstrap 유지, ACTIVE/SERVERLESS, IAM 활성 |
+| EC2 | i-08e374efb0c31160d, stopped, Linux/UNIX x86_64 t3.micro |
+| 보존 디스크 | vol-07bfdb021de1900f2, gp3 8 GiB, 기존 연결 유지 |
+
+chan은 실제 Kafka 관리 Action도 identity 정책상 허용되지만 AdministratorAccess
+주체라 최소 권한 실행안에 적합하지 않다. chan은 승인 후 일회성 IAM/EC2 관리 API
+조작 주체로만 사용하고 user key/secret을 EC2에 복사하거나 새 access key를 만들지 않는다.
+Kafka Admin 주체는 EC2 instance profile의
+`arn:aws:iam::048715026902:role/ktd-msk-producer-role`로 결정한다.
+기존 raw 권한은 남으므로 전체 role이 오직 네 Action만 갖는다고 주장하지 않는다.
+이번에 추가할 권한 범위만 두 output 관리 최소 집합으로 제한한다.
+
+요청의 네 줄 `kafka-cluster`에는 구체 Action이 없으므로 기존 §4의 Connect,
+CreateTopic, DescribeTopic, DescribeTopicDynamicConfiguration으로 해석했다.
+네 Action만으로 생성/조회/config 조회를 설계하고 produce/consume 시험은 분리한다.
+
+### 12.2 IAM Policy Simulator 결과
+
+현재 principal 정책은 `simulate-principal-policy`, 초안 단독의 범위는
+`simulate-custom-policy`로 평가했다. Connect는 정확한 cluster ARN, 나머지는
+각 output topic ARN을 하나씩 지정해 평가했다. 유효 입력 기준 결과는 다음과 같다.
+
+| 평가 주체 | Connect | CreateTopic (양쪽) | DescribeTopic (양쪽) | DescribeTopicDynamicConfiguration (양쪽) |
+|---|---|---|---|---|
+| chan 현재 | allowed | allowed | allowed | allowed |
+| EC2 role 현재 | allowed | implicitDeny | implicitDeny | implicitDeny |
+| Job 2 role 현재 | allowed | implicitDeny | allowed | implicitDeny |
+| EC2 role + §4 초안 (미적용) | allowed | allowed | allowed | allowed |
+
+principal 4종×7조합=28개, 초안 단독의 3 resource×4 action=12개로 총 40개를
+평가했다. MissingContextValues는 모두 빈 목록이었다. 초안 단독은 output 두 곳의
+CreateTopic만 허용하고 raw CreateTopic 및 raw/output의 WriteData·DeleteTopic·
+AlterTopicDynamicConfiguration을 implicitDeny했다. 실제 EC2 role의 기존 raw
+권한까지 이 초안으로 제한되는 것은 아니다.
+초기 CLI의 policy-input-list 전달 형식 오류(ValidationError/InvalidInput)는
+`--cli-input-json`으로 교정했다. 이를 권한 거부나 정책 적용 결과로 해석하지 않는다.
+
+시뮬레이션은 IAM 평가 근거다. 네트워크·실제 Java credential 선택·broker 인증과
+권한 확인의 성공 증거는 아니다. 서비스의 모든 조건을 재현하지 않았고, 요청 시점에
+변경된 정책·session 제한 등은 실제 실행 전에 다시 확인한다.
+[IAM Simulator의 범위와 한계](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_testing-policies.html)
+
+### 12.3 실행 환경 후보 비교
+
+| 항목 | A. 기존 EC2 잠시 사용 (선정) | B. 기존 가용 VPC 환경 재사용 | C. 로컬 사설 연결 재사용 |
+|---|---|---|---|
+| 접근 근거 | 같은 KTD VPC의 local route, MSK SG가 client SG의 TCP 9098 허용 | KTD VPC EC2 조회는 stopped client 한 대뿐, SSM Online 없음 | route get 10.20.0.1 결과 default/en0. 사설 경로 미확인 |
+| 인증 | EC2 profile의 임시 자격 증명 + Java IAM client | 해당 환경 role/credential 미확인 | chan 자체 권한은 있지만 private 연결·Java credential 준비 미확인 |
+| CLI 준비 | 과거 사용 이력 있음. 현재 실제 경로/JAR/버전 미확인 | 재사용 가능한 client를 확인하지 못함 | 로컬 kafka-topics/configs는 PATH에서 발견 못함 |
+| 추가 권한 | EC2 role의 output 관리 임시 policy, 운영자의 start/stop/SSM | 발견된 환경에 따라 달라져 미확정 | 기존 경로 없으면 새 VPN/터널이 필요하나 이번 기본안에서 제외 |
+| 신규 리소스 | EC2/VPC/NAT/VPN/bastion 신규 생성 없음 | 새 환경을 만들지 않는 조건 | 새 네트워크 자원 만들지 않는 조건 |
+| 비용 | 실행 시간 EC2·public IPv4 가능 비용, 기존 EBS 지속 | 이미 실행 중이면 증분이 낮을 수 있으나 해당 환경 미확인 | 경로가 이미 있으면 compute 증분은 작지만 실제 경로 미확인 |
+| 종료 후 | EC2 중지로 compute 종료, EBS/MSK/생성 topic 과금 유지 | 원래 환경의 지속 비용과 구분 필요 | 기존 연결 요금이 있다면 지속 |
+| 검증 범위 | 승인 후 broker Describe/config/Create가 가능할 설계 | 경로·인증·CLI 확인 전 실물 검증 불가 | 실제 사설 경로 확인 전 실물 검증 불가 |
+
+KTD VPC는 `vpc-0e0dc19b3825259f0`, client SG는 `sg-0ccc0d9fadac1d090`이며
+MSK SG `sg-0ce6cb2afcc2cc2ca`의 9098 ingress에 명시돼 있다. client subnet
+`subnet-094cde0457fcc97e7`의 route table에는 VPC local과 기존 IGW default route가
+있다. 이것만으로 NACL·egress·DNS·SSM outbound·broker listener 도달까지 보장하지 않는다.
+로컬 route는 sandbox 안에서 읽기가 거부돼 같은 읽기 확인을 허용된 네트워크
+환경에서 수행했다. en0 default만으로 VPN이 전혀 없다고 단정하지 않는다.
+
+B의 조회 범위는 KTD VPC EC2와 계정 SSM 관리 인스턴스다. ECS/Lambda 및 다른
+VPC/Databricks 실행 환경 전체를 전수 조사한 것은 아니다. 확인되지 않은 환경을
+무료 가용 client로 가정하지 않는다. 현재 확인된 자산 기준으로 A가 변경 종류와
+준비 불확실성을 가장 작게 하므로 선정했다. 모든 가능한 환경 중 절대 최저 비용을
+증명한 것은 아니다. 별도 provisioning role 생성·trust 설정도 이번 기본안에는 불필요하다.
+
+### 12.4 최소 정책과 사용자 승인 후의 관리 단말 명령
+
+**최소 정책 JSON은 §4의 실제 cluster ARN과 두 정확한 topic ARN을 그대로 사용한다.**
+기존 raw policy를 편집하지 않고 아래 새 이름의 임시 inline policy로 별도 적용한다.
+output WriteData/ReadData, DeleteTopic, AlterTopic, config 변경 권한은 추가하지 않는다.
+Connect는 이미 있지만 JSON에 명시해 §4 초안을 독립적으로 검토 가능하게 유지한다.
+권한은 정리 단계에서 회수해야 하며 이번 초안에는 자동 만료 조건이 없다.
+
+다음 블록은 **승인 후** chan의 기존 인증으로 실행할 순서다. 이번에는 실행하지 않았다.
+§4 JSON을 관리 단말의 `/tmp/ktd-output-topic-admin.json`에 저장하고 파싱·scope 확인 후
+사용한다. 이 파일은 실행 시 만들 임시 파일이며 저장소 새 파일이 아니다.
+
+```bash
+export KTD_AWS_REGION=ap-northeast-2
+export KTD_CLIENT_INSTANCE=i-08e374efb0c31160d
+export KTD_ADMIN_ROLE=ktd-msk-producer-role
+export KTD_TEMP_POLICY=ktd-p2-output-topics-admin-temporary
+aws sts get-caller-identity --query Arn --output text
+aws iam get-role-policy --role-name "$KTD_ADMIN_ROLE" \
+  --policy-name "$KTD_TEMP_POLICY"
+```
+
+get-role-policy가 **NoSuchEntity**일 때만 새 이름으로 진행한다. 이미 같은 이름이 있으면
+중단해 소유/본문을 확인하며 덮어쓰지 않는다. AccessDenied나 연결 실패도 중단한다.
+승인 범위가 정책 적용·EC2 시작까지 포함할 때에만 다음을 실행한다.
+
+```bash
+aws iam put-role-policy --role-name "$KTD_ADMIN_ROLE" \
+  --policy-name "$KTD_TEMP_POLICY" \
+  --policy-document file:///tmp/ktd-output-topic-admin.json
+aws iam get-role-policy --role-name "$KTD_ADMIN_ROLE" \
+  --policy-name "$KTD_TEMP_POLICY"
+aws ec2 start-instances --region "$KTD_AWS_REGION" \
+  --instance-ids "$KTD_CLIENT_INSTANCE"
+aws ec2 wait instance-running --region "$KTD_AWS_REGION" \
+  --instance-ids "$KTD_CLIENT_INSTANCE"
+aws ec2 describe-instance-status --region "$KTD_AWS_REGION" \
+  --instance-ids "$KTD_CLIENT_INSTANCE"
+aws ssm describe-instance-information --region "$KTD_AWS_REGION" \
+  --filters "Key=InstanceIds,Values=$KTD_CLIENT_INSTANCE"
+```
+
+SSM Online과 EC2 status check를 확인할 때까지 client 명령을 실행하지 않는다.
+10분 안에 준비되지 않으면 원인과 비용을 기록하고 승인된 정리 절차로 종료한다.
+SG/route/NAT를 자동 변경하지 않는다. 접속 방법은 기존 Console Session Manager 또는
+아래 명령이다. CLI plugin이 없으면 Console을 사용한다.
+
+```bash
+aws ssm start-session --region "$KTD_AWS_REGION" \
+  --target "$KTD_CLIENT_INSTANCE"
+```
+
+EC2 세션에서는 `aws sts get-caller-identity --query Arn --output text`가 이 계정의
+`assumed-role/ktd-msk-producer-role/…`인지 확인한다. Java도 EC2 profile만 선택하도록
+환경/JVM 설정/공유 profile의 다른 credential 주입·JAAS override 유무를 점검한다.
+token·access key·환경변수 전체를 출력하지 않는다. 기본 chain에 다른 credential이
+있으면 멈추며 chan key를 복사해 해결하지 않는다.
+
+### 12.5 CLI와 인증 파일 준비, Describe와 생성
+
+EC2에서 읽기 inventory를 먼저 수행한다. `rg`가 없다면 아래는 기본 도구로 대체하고
+없다는 이유로 설치를 자동 실행하지 않는다. 탐색 결과가 여러 개면 버전과 기존 사용
+이력을 대조해 실제 바이너리를 한 개 선택한다.
+
+```bash
+command -v java
+command -v kafka-topics.sh
+command -v kafka-configs.sh
+rg --files --hidden --no-ignore /opt /usr/local /home/ec2-user 2>/dev/null \
+  | rg '/(kafka-topics[.]sh|kafka-configs[.]sh|client[.]properties|aws-msk-iam-auth-.*-all[.]jar)$'
+```
+
+CLI/JAR 부재라면 별도의 설치 승인을 받고 Kafka 배포·AWS IAM JAR의 실제 버전과
+공식 배포 hash를 고정한다. 설치할 버전은 이번 stopped host에서 확인하지 못해
+`<KAFKA_VERSION>` / `<IAM_JAR_VERSION>`으로 남긴다. 임의 최신 버전을 자동 설치하지 않는다.
+기존 설치가 있으면 그대로 사용하며 `/opt/kafka`를 EC2 실제 경로로 추측하지 않는다.
+[공식 Serverless client 준비](https://docs.aws.amazon.com/msk/latest/developerguide/msk-serverless-create-topic.html)
+
+실제 경로 선택 뒤 변수와 전용 Admin 설정 파일을 준비한다.
+기존 properties는 보존하고 별도 새 파일명으로만 작성한다. 아래 properties에는
+인증값이 없고 EC2 instance profile credential chain을 사용한다.
+
+```bash
+export KTD_KAFKA_TOPICS='<실제 kafka-topics.sh 절대 경로>'
+export KTD_KAFKA_CONFIGS='<실제 kafka-configs.sh 절대 경로>'
+export KTD_IAM_JAR='<실제 aws-msk-iam-auth-버전-all.jar 절대 경로>'
+export KTD_CLIENT_PROPERTIES='<새 Admin properties 절대 경로>'
+export MSK_BOOTSTRAP_SERVERS=boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098
+export CLASSPATH="$KTD_IAM_JAR${CLASSPATH:+:$CLASSPATH}"
+test -x "$KTD_KAFKA_TOPICS"
+test -x "$KTD_KAFKA_CONFIGS"
+test -r "$KTD_IAM_JAR"
+test -r "$KTD_CLIENT_PROPERTIES"
+"$KTD_KAFKA_TOPICS" --version
+```
+
+```properties
+security.protocol=SASL_SSL
+sasl.mechanism=AWS_MSK_IAM
+sasl.jaas.config=software.amazon.msk.auth.iam.IAMLoginModule required;
+sasl.client.callback.handler.class=software.amazon.msk.auth.iam.IAMClientCallbackHandler
+request.timeout.ms=10000
+default.api.timeout.ms=30000
+```
+
+test·인증 설정·CLI 확인이 하나라도 실패하면 Describe로 진행하지 않는다.
+실제 경로 placeholder는 승인 후 host 조회로 채운다. Java IAM 설정은
+[AWS 공식 client](https://github.com/aws/aws-msk-iam-auth)를 근거로 한다.
+
+Describe/config는 §5의 두 완전 일치 regex와 entity-name 명령을 실행한다.
+생성은 §6 명령을 **topic별로** 판단해 사용한다. 모두 이 절의 bootstrap/properties
+변수를 사용한다. validated 한 건의 구체적인 순서는 다음과 같다.
+
+```bash
+"$KTD_KAFKA_TOPICS" --bootstrap-server "$MSK_BOOTSTRAP_SERVERS" \
+  --command-config "$KTD_CLIENT_PROPERTIES" \
+  --describe --topic '^kitchen[.]sensor[.]validated$'
+```
+
+존재하면 다음 config 조회로 진행한다. 3 partitions·delete·7일·bytes=-1이 일치하면
+생성을 건너뛰고 불일치하면 중단한다. config 조회는 topic이 존재할 때만 수행한다.
+
+```bash
+"$KTD_KAFKA_CONFIGS" --bootstrap-server "$MSK_BOOTSTRAP_SERVERS" \
+  --command-config "$KTD_CLIENT_PROPERTIES" --entity-type topics \
+  --entity-name kitchen.sensor.validated --describe --all
+```
+
+명시적 부재 응답과 대상 Describe 권한, 생성 승인까지 확인한 경우에만 다음을 실행한다.
+regex 일치 항목이 없는 빈 응답이나 종료 코드만으로 부재를 판정하지 않는다.
+필요하면 대상 하나의 AdminClient metadata로 UnknownTopic 응답인지 확인한다.
+
+```bash
+"$KTD_KAFKA_TOPICS" --bootstrap-server "$MSK_BOOTSTRAP_SERVERS" \
+  --command-config "$KTD_CLIENT_PROPERTIES" \
+  --create --if-not-exists --topic kitchen.sensor.validated --partitions 3 \
+  --config cleanup.policy=delete --config retention.ms=604800000 \
+  --config retention.bytes=-1
+```
+
+quarantine은 §5/6의 **실제 이름 kitchen.sensor.quarantine**에 대한 Describe/config/
+create를 같은 순서로 사용한다. 전체 명령을 복사해 무조건 연속 생성하지 않는다.
+RF·min ISR을 지정하지 않고 schema·payload·Job 2·기존 topic 설정을 변경하지 않는다.
+
+### 12.6 검증·실패 대응·종료 정리
+
+생성 후 두 topic을 다시 Describe해 partition 0/1/2, 유효 leader, replica/ISR,
+실측 RF, cleanup/retention을 기록한다. if-not-exists의 exit 0은 설정 일치 증거가 아니다.
+그다음 runtime metadata→ACK→읽기 대사→checkpoint 복구는 §7의 별도 승인 시험이다.
+이번 네 Action만으로는 produce/consume할 수 없다. 관리 role에 WriteData를 추가해
+ACK를 대신 검증하지 않는다. 두 topic의 현재 존재 여부는 이번에도 미확인이다.
+
+| 실패 상황 | 중단·복구 절차 설계. 이번에는 장애 주입 미실행 |
+|---|---|
+| IAM AccessDenied | ARN/action·실제 principal 확인. simulator implicitDeny와 broker 거부를 구분. runtime 권한 확장 금지 |
+| SASL 실패 | JAR/classpath·시각·credential chain/expiry 확인. topic 부재로 해석 금지 |
+| VPC timeout | SG/egress/NACL/DNS/listener/SSM outbound 읽기 확인. 새 NAT/VPN 생성 금지 |
+| TopicAlreadyExists | Describe/config 재조회. 일치 시 재사용, 불일치 시 중단. 삭제 금지 |
+| CLI/properties 누락 | 실제 경로·버전 기록 후 중단. 설치는 별도 승인 필요 |
+| 한쪽만 생성·결과 timeout | 생성된 topic 보존. 다시 조회해 미완료 쪽만 판단. 무조건 재생성 금지 |
+| 정리 실패 | EC2 상태와 잔여 policy를 각각 기록. 한쪽 실패와 별개로 다른 정리도 확인하고 비용·권한 잔존 보고 |
+
+실행 승인에는 성공·중간 실패 모두에 대한 **EC2 중지와 이번 추가 권한만의 회수**를
+포함한다. 기존 raw policy·AmazonSSMManagedInstanceCore·instance profile은 제거하지 않는다.
+topic·기존 EBS·checkpoint·offset도 정리 대상으로 삼지 않는다.
+
+```bash
+aws ec2 stop-instances --region ap-northeast-2 \
+  --instance-ids i-08e374efb0c31160d
+aws ec2 wait instance-stopped --region ap-northeast-2 \
+  --instance-ids i-08e374efb0c31160d
+aws iam get-role-policy --role-name ktd-msk-producer-role \
+  --policy-name ktd-p2-output-topics-admin-temporary
+```
+
+이번에 새로 적용한 policy와 내용·소유가 같다는 것을 확인하고 승인된 회수를 진행한다.
+
+```bash
+aws iam delete-role-policy --role-name ktd-msk-producer-role \
+  --policy-name ktd-p2-output-topics-admin-temporary
+aws ec2 describe-instances --region ap-northeast-2 \
+  --instance-ids i-08e374efb0c31160d \
+  --query 'Reservations[].Instances[].State.Name'
+aws iam get-role-policy --role-name ktd-msk-producer-role \
+  --policy-name ktd-p2-output-topics-admin-temporary
+```
+
+마지막 policy 조회의 NoSuchEntity가 회수 확인이다. 다른 오류를 성공으로 취급하지 않는다.
+SSM session을 종료하고 이번에만 만든 임시 properties/JSON은 보관 방침에 따라 정리한다.
+EC2는 terminate하지 않고 stopped로 돌린다. 자동 할당 public IPv4 해제는 중지 후
+상태에서 확인하며 기존 Elastic IP가 있다면 임의 release하지 않는다.
+
+### 12.7 비용과 남은 조건
+
+AWS Price List에서 **서울** 리전으로 재조회한 단가와 계산이다.
+
+| 항목 | 단가·계산 | 비용 구분 |
+|---|---|---|
+| Linux t3.micro | $0.013/시간 (SKU NYVHMS44MY8N2F3M) | 실행 중 증분. Linux 초 단위, 최소 60초 |
+| public IPv4 한 개 사용 시 | $0.005/시간 | stopped 상태 PublicIp는 null. 시작 후 할당·SSM outbound 미검증 |
+| EC2+IPv4 한 개 30분 | (0.013+0.005)×0.5=$0.009 | 세금·전송·CPU credit 초과 등 제외한 예상 |
+| 기존 gp3 8 GiB | 8×$0.0912=$0.7296/월 (SKU MTK7D9SGKGYR3JD6) | 기존 비용. 중지 후에도 보존돼 계속 과금 |
+| output 6 partitions | §9의 $0.0108/시간, 730시간=$7.884 | 생성 후 지속 증분. EC2 중지로 멈추지 않음 |
+
+EC2/EBS 단가는 이번 API에서 확인했다. MSK 단가는 §9의 10/17 관측값이며 이번에는
+재조회하지 않았다. 기존 cluster, topic 입출력·저장, network/log 비용도 남는다.
+새 NAT/VPN/bastion/EC2/endpoint는 만들지 않는다. T3 Unlimited의 CPU credit 추가
+과금 가능성이 있어 장시간 build·부하 시험은 이 절차에서 제외한다.
+[EC2 과금](https://aws.amazon.com/ec2/pricing/on-demand/),
+[public IPv4 과금](https://aws.amazon.com/vpc/pricing/)
+
+Billing/크레딧 적용은 미조회다. 기존 AWS 크레딧으로 상쇄된다고 가정하지 않고
+차감 전 비용을 제시한다. 중지·임시 권한 회수를 승인된 실험 종료 조건으로 삼되,
+계속 과금되는 MSK/EBS/topic 삭제는 별도 작업이므로 이 승인에 포함하지 않는다.
+
+남은 조건은 사용자 실행 승인, 임시 policy 이름의 미사용 확인, EC2 재개 후의
+SSM/CLI/Java identity/실제 네트워크 확인, 최신 topic Describe/config다.
+현재 policy로는 EC2 단독 관리가 불가능하며 임시 policy 적용 후에도 실제 broker
+도달을 실행 전에 단정하지 않는다. 이번 실행 경로 설계와 IAM 평가를 마치고 중단한다.
+
+### 12.8 이번 실행 명령과 문서 검증
+
+실제로 호출한 것은 STS get-caller-identity, IAM user/role/group/managed policy의
+읽기 API, Organizations describe-organization, MSK describe-cluster-v2/
+get-bootstrap-brokers/get-cluster-policy, EC2 describe-instances/route-tables/
+security-groups/volumes, SSM describe-instance-information, IAM의
+simulate-principal-policy/simulate-custom-policy, Pricing get-products다.
+로컬에서는 route 조회·CLI 경로 조회·Git 읽기·파일 hash·구문 검사만 수행했다.
+외부 조회의 오류는 앞 절에 표시했고 Organizations 미사용/cluster policy 미발견을
+일반적인 조회 성공이나 topic 부재로 바꾸어 기록하지 않았다.
+
+정책 JSON 파싱과 두 정확한 topic ARN scope, bash 블록 17개 bash -n,
+기존 Python 예시 구문, 비용 산식, 유효한 simulator 결과 40개를 확인했다.
+초안 단독의 음성 평가는 12개 중 10개 implicitDeny, output CreateTopic 두 개만 allowed다.
+본절 이전 문서는 세션 시작 사본과 prefix가 같고, 다른 추적·미추적 파일은 모두
+SHA-256이 동일했다. git diff와 git diff --check로 최종 범위를 확인한다.
+제품 코드가 바뀌지 않아 pytest 회귀는 반복하지 않았다.
+실제 IAM AccessDenied/SASL/네트워크/TopicAlreadyExists 장애 주입과
+EC2·Spark 재시작·Kafka 생성·발행은 수행하지 않았다. 실패·재실행 절차는 설계 검토다.
