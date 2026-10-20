@@ -2,9 +2,10 @@
 
 확인일: 2026-10-17 (Asia/Seoul). 기준 HEAD: `92b5620`.
 브랜치: `feat/phase-3-gold-windows`. 시작 시 working tree clean.
-최신 상태: 별도 로컬 Spark 4.0.0 실행 완료, 기존 Streaming 7건 모두 FAILED.
-공통 원인은 마지막 progress JSON 저장의 UUID 직렬화 오류다. 집계 결과와 query 실행의
-관측 사실은 아래 「로컬 Spark 실제 실행」에 기록한다. 전체 성공 판정은 보류한다.
+최신 확인: 2026-10-20. progress 공식 JSON 저장으로 최소 수정한 뒤 기존 Streaming
+**7 passed / 0 failed / 0 skipped**, Phase 3 Python 회귀 **98 passed**를 확인했다.
+직전 실행의 7건 FAILED는 progress UUID 직렬화 오류이며 역사 기록으로 보존한다.
+최신 명령·관측값·변경 범위는 문서 끝 「Progress 직렬화 수정 및 재검증」을 참조한다.
 아래 초기 구현 기록의 PySpark 부재/skip은 이전 실행 결과이며 최신 실행과 구분한다.
 
 ## 구현 범위
@@ -306,3 +307,121 @@ Git 변경은 이 보고서 한 파일의 최신 상태 설명과 실행 기록 
 시스템 Java 기본값과 기존 `.venv`도 보존했다. commit/push/PR/merge는 수행하지 않았다.
 다음 최소 작업은 **progress JSON 저장 호환성만 수정한 뒤 기존 7건 재실행**이다.
 집계 설계 재작성이나 Gold 구현에 앞서 이 테스트 실패를 해소해야 한다.
+
+## Progress 직렬화 수정 및 재검증 — 2026-10-20
+
+### 범위와 정확한 원인
+
+기준 HEAD `22ecebe`, branch `feat/phase-3-gold-windows`를 재확인했다.
+시작 시 이 보고서에는 이전 실행의 미커밋 변경이 있었으며 이를 그대로 보존하고 최신 기록을 추가했다.
+코드 변경은 `tests/integration/test_phase3_streaming.py`의 마지막 JSON 저장 부분뿐이다.
+fixture·assertion·기대 집계값·입력 순서·watermark·집계·validated 계약은 변경하지 않았다.
+
+기존 별도 환경 `/private/tmp/ktd-spark4-sFWBFypd/venv`와 Temurin JDK를 재사용했다.
+실제 버전은 Python 3.11.15 / PySpark 4.0.0 / Py4J 0.10.9.9 / Temurin Java 21.0.12.1+1-LTS다.
+프로젝트 `.venv`, pyproject, uv.lock, 시스템 Java 기본값을 변경하지 않았다.
+
+실제 타입은 `StreamingQueryProgress`이며 Spark 4.0의 dict subclass다.
+설치된 PySpark 소스와 이전 실제 progress를 재구성하여 내부 id가 UUID임을 다시 확인했다.
+`json.dumps([progress])`는 동일 TypeError로 재현됐고,
+`json.loads(progress.json)`은 원본 progress JSON 전체와 같았다.
+UUID 문자열 변환 외의 중첩 구조·통계 의미를 바꾸는 일반 변환은 필요하지 않았다.
+현재 `recentProgress` 경로는 plain dict가 아니므로 불필요한 dict fallback을 추가하지 않았다.
+
+변경 전:
+
+```python
+(tmp_path / "progress.json").write_text(json.dumps(progress, indent=2))
+```
+
+변경 후:
+
+```python
+serialized_progress = [json.loads(item.json) for item in progress]
+(tmp_path / "progress.json").write_text(
+    json.dumps(serialized_progress, indent=2)
+)
+```
+
+공식 `.json`으로 UUID·중첩 state/source/sink 통계의 표현을 보존한 뒤 파일에 저장한다.
+`default=str`, 오류 무시, 예외 catch, assertion 삭제, skip/xfail 추가는 하지 않았다.
+새 helper/query/운영 기능도 추가하지 않았다.
+
+### 실제 실행 명령과 결과
+
+새 로그·checkpoint·관측 루트는 `/private/tmp/ktd-progressfix-rifh4F8Z`다.
+기존 진단 hook 없이 수정된 원래 테스트만 실행했다.
+
+```sh
+env JAVA_HOME='/private/tmp/ktd-spark4-sFWBFypd/jdk/jdk-21.0.12.1+1/Contents/Home' \
+  PYSPARK_PYTHON=/private/tmp/ktd-spark4-sFWBFypd/venv/bin/python \
+  PYTHONDONTWRITEBYTECODE=1 \
+  /private/tmp/ktd-spark4-sFWBFypd/venv/bin/python -m pytest \
+  -vv -s -p no:cacheprovider \
+  --basetemp /private/tmp/ktd-progressfix-rifh4F8Z/pytest \
+  --junitxml /private/tmp/ktd-progressfix-rifh4F8Z/streaming-junit.xml \
+  tests/integration/test_phase3_streaming.py \
+  > /private/tmp/ktd-progressfix-rifh4F8Z/streaming.log 2>&1
+# 7 passed in 36.78s, exit code 0
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider \
+  --basetemp /private/tmp/ktd-progressfix-rifh4F8Z/python-unit tests/unit/phase3
+# 98 passed in 0.05s
+```
+
+| 시나리오 | 최종 결과 | 기대값과 실제값 / 관측 |
+|---|---|---|
+| normal | PASS | count=3,sum=12,avg=4,min=2,max=6 일치 |
+| cross_batch_duplicate | PASS | duplicate drop 1건, final count=3/sum=12 일치 |
+| payload_conflict | PASS | 두 번째 충돌 payload는 ID dedup에 숨겨짐, 최초 값 count=1/sum=2 일치. 충돌 탐지 성공은 아님 |
+| utc_boundary | PASS | UTC 인접 두 window의 count/sum 각각 1/2,1/4 일치 |
+| watermark_late | PASS | ID state 2개 제거, 이후 late drop 2건, final count=2/sum=6 유지 |
+| idle | PASS | W가 2026-10-15T23:50:20Z에 유지, final 없음 |
+| batch_replay | PASS | 의도한 callback 실패 뒤 동일 batch ID 3의 같은 count=2/sum=6 재관측 |
+
+모두 실제 `local[2]` query 시작·micro-batch 처리를 거쳐 기존 모든 assertion과 JSON 저장을 완료했다.
+correctness check를 켠 dedup→1분 window→Append 연결에서 AnalysisException은 없었다.
+`batch_replay` 로그의 `PHASE3_LOCAL_OUTPUT_BEFORE_CHECKPOINT`는 pytest가 기대한 오류 주입이며
+새 미처리 실패가 아니다. 환경/unsupported/query 시작/집계/기대값 불일치도 새로 발생하지 않았다.
+
+### 저장된 JSON과 실제 관측 증거
+
+각 테스트의 `progress.json` 7개를 다시 파싱했다. 각각 기록 수는 fixture 순서대로
+8/8/7/8/9/3/5개이며 id/runId는 UUID로 역해석 가능한 문자열이었다.
+`durationMs`는 dict, `stateOperators`는 list, `customMetrics`는 dict,
+`batchId`는 숫자로 유지됐다. callback journal의 실제 결과도 fixture 기대값과 일치했다.
+
+정상/중복 사례는 적용 W가 23:50:20Z → 23:50:30Z → 다음 날 00:15:00Z → 00:16:00Z로
+실제 진행했고, batch 5에서 `[00:00,00:01)` final을 출력했다.
+late 사례의 state 제거·late drop은 `dedupeWithinWatermark`의 실제 metric이다.
+idle은 벽시계 진행과 무관하게 W·미확정 window를 유지했다.
+원본 nested progress와 callback journal은 다음 위치에서 확인할 수 있다.
+
+- [Spark/pytest 실행 로그](/private/tmp/ktd-progressfix-rifh4F8Z/streaming.log)
+- [JUnit 7건 결과](/private/tmp/ktd-progressfix-rifh4F8Z/streaming-junit.xml)
+- [7개 progress·결과·state metric 요약](/private/tmp/ktd-progressfix-rifh4F8Z/summary.json)
+- [normal progress](/private/tmp/ktd-progressfix-rifh4F8Z/pytest/test_native_multibatch_contrac0/progress.json)
+- [중복 progress](/private/tmp/ktd-progressfix-rifh4F8Z/pytest/test_native_multibatch_contrac1/progress.json)
+- [충돌 한계 progress](/private/tmp/ktd-progressfix-rifh4F8Z/pytest/test_native_multibatch_contrac2/progress.json)
+- [UTC 경계 progress](/private/tmp/ktd-progressfix-rifh4F8Z/pytest/test_native_multibatch_contrac3/progress.json)
+- [late progress](/private/tmp/ktd-progressfix-rifh4F8Z/pytest/test_native_multibatch_contrac4/progress.json)
+- [idle progress](/private/tmp/ktd-progressfix-rifh4F8Z/pytest/test_native_multibatch_contrac5/progress.json)
+- [replay progress](/private/tmp/ktd-progressfix-rifh4F8Z/pytest/test_native_multibatch_contrac6/progress.json)
+- [Python 회귀 로그](/private/tmp/ktd-progressfix-rifh4F8Z/python-unit.log)
+
+증거는 Git 비추적 임시 디렉터리에 있고 OS 정리 시 삭제될 수 있다. 결과와 주요 관측값은
+이 보고서에 보존한다. 이번에 전체 unit 812개를 다시 실행한 것은 아니다.
+
+### 변경 검증·남은 범위·다음 최소 작업
+
+허용한 두 파일만 변경했으며 보고서의 이전 미커밋 기록도 보존했다.
+테스트 diff는 저장 부분 1줄을 공식 JSON 정규화·저장 4줄로 바꾼 것뿐이다.
+구문·79열·공백 검사를 통과했다. 작업 전 추적 파일 128개 hash 대조에서 허용한 두 파일만
+변경됐고, 모든 기존 assert 노드는 AST 비교로 동일함을 확인했다.
+Git staging/commit/push/PR/merge, AWS/Databricks 실행은 하지 않았다.
+
+검증 범위는 local classic 파일 source, 같은 Spark process 내 동일 checkpoint query restart,
+1분 tumbling, 테스트 관측 callback이다. 5분 sliding, 별도 process kill, Delta MERGE,
+UC/Kafka/DBR, 임의 충돌 payload의 영속 검증은 여전히 미검증이다.
+다음 최소 논리 작업은 **5분 sliding/1분 slide의 UTC 경계·중첩 window·샘플 가중 평균을
+별도 fixture와 로컬 테스트로 검증**하는 것이다. 이번에는 해당 기능을 구현하지 않았다.

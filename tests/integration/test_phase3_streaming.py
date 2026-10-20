@@ -234,4 +234,7 @@ def test_native_multibatch_contract(local_spark, tmp_path, scenario):
             for p in progress if p.get("eventTime", {}).get("watermark")
         ]
         assert max(last) == watermark_before_idle
-    (tmp_path / "progress.json").write_text(json.dumps(progress, indent=2))
+    serialized_progress = [json.loads(item.json) for item in progress]
+    (tmp_path / "progress.json").write_text(
+        json.dumps(serialized_progress, indent=2)
+    )
