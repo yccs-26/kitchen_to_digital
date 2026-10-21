@@ -775,3 +775,91 @@ AWS/Databricks/Confluent 실행, Spark Job 4, Kafka/DynamoDB/History Sink·Alert
 정확한 staging 대상은 위 5개 파일뿐이다. 권장 메시지:
 `feat(phase4): add health snapshot codec and local recovery tests`.
 Git add/commit/push/merge는 수행하지 않았다. 이 단위를 완료한 뒤 사용자 검토를 기다린다.
+
+## Health Timer Coordinator — 순수 조정 및 로컬 재시작 검증
+
+검증일: 2026-10-21 (Asia/Seoul). 브랜치 `feat/phase-4-twin-state`, 시작 HEAD
+`a564beba1fd6006687c81a02f9eff2464de09e20`, 시작 git status clean.
+최근 5개 commit과 Codec commit 반영을 확인하고 실제 Core·Codec·Registry·Health/장비
+계약·이 보고서 및 관련 Health/Timer/Codec/Recovery 테스트를 읽었다.
+worktree에 AGENTS.md가 없어 제공된 지침과 원본 checkout의 AGENTS.md를 확인했다.
+동등한 Coordinator는 없었다. 기존 timer_token/HealthTick/Codec을 재사용했다.
+
+### 변경 파일과 책임
+
+- `streaming/state/health_timer_coordinator.py`: plan_health_timer,
+  coordinate_health_timer, restore_health_timer와 최소 요청/결과 descriptor.
+- `tests/unit/phase4/test_health_timer_coordinator.py`: 신규 36개 테스트.
+- `docs/streaming/equipment-health-contracts.md`: 최신 상태와 12절 API·요청 상태·
+  재시작/ACK 경계·테스트 증거.
+- `docs/reports/phase-4-verification.md`: 이번 실행 기록.
+
+Coordinator는 최신 snapshot과 정책/명시 시각을 caller에게 받는 순수 함수다.
+현재 token은 기존 timer_token을 재사용하며 snapshot을 내부에 저장하지 않는다.
+plan은 WAITING/DUE/ALREADY_EVALUATED/REFERENCE_REVERSED 요청을 구성한다.
+coordinate는 현재 대기 token을 실행하지 않고, 실제 전달된 만료·중복·옛 token·
+역행 시각은 원본 reduce_health에 위임한다. 반환 상태/ID/직렬화를 재구현하지 않았다.
+완료 timer 조회는 상태 불변이며, 늦은 중복 전달의 no-op cursor 갱신은 기존 Core
+결과를 그대로 보존한다. 옛 token 전달로 새 현재 timer까지 자동 실행하지 않는다.
+
+restore는 decode_health_snapshot으로 payload 검증 후 요청을 재구성하며 자동 예약·
+평가·파일 I/O를 하지 않는다. 대기 복원은 재등록 필요성을 caller에게 넘기고 만료
+복원은 명시적 coordinate 호출로 평가한다. 이미 완료된 STALE 복원은 새 예약을
+요구하지 않는다. 장비/policy/profile/version 문맥이 다르면 요청 구성 전에 거부하며
+교차 장비 token은 Core에서 OBSOLETE_TIMER다. 여러 장비의 자동 Registry/consumer
+라우팅은 없고 각 장비의 정책·snapshot은 호출자가 명시한다.
+
+### 로컬 재시작·경합·실패 주입
+
+기존 Codec bytes를 tmp_path에 저장한 뒤 새 snapshot으로 읽어 deadline 전/정확한
+경계/후, STALE, 신규 관측 직후 옛 token 잔존, 반복 복원, timer 평가 전후 재시작을
+검증했다. 원본 snapshot 전체 필드·token·요청 상태·health_change_id가 유지되었고
+기록된 순서 replay는 매 단계 파일 재적재와 Core 직접 실행의 결과를 대조했다.
+관측 먼저면 옛 tick 무효, tick 먼저면 STALE→HEALTHY라는 이력 차이를 유지했다.
+
+두 장비의 서로 다른 deadline과 store/equipment 문맥을 검증했다. 장비 A 평가가
+장비 B를 갱신하지 않고 다른 store의 같은 equipment_id token도 교차 적용되지 않는다.
+이 추가 binding과 10/20초 timeout은 로컬 fixture 가정이며 실등록·운영 정책이 아니다.
+
+주입한 reducer는 계산 전 또는 계산 직후·caller의 다음 snapshot 확정 전에 예외를
+발생시킨다. 이미 저장한 이전 파일 bytes가 그대로이며, 그 파일에서 재시도한 결과/
+논리 Health ID가 직접 실행과 같음을 확인했다. 저장된 snapshot만으로 외부에 전달한
+출력·실행 ACK를 복구했다고 주장하지 않는다.
+
+### 실제 테스트 실행
+
+테스트를 먼저 작성하여 모듈 부재의 collection error 1건을 확인한 뒤 구현했다.
+완료 요청 조회와 실제 중복 tick 전달을 분리해 Core의 no-op cursor 정책을 보존했다.
+최종 결과는 아래와 같다.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-timer-coordinator-red tests/unit/phase4/test_health_timer_coordinator.py
+# ModuleNotFoundError: streaming.state.health_timer_coordinator, collection error 1건
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-timer-coordinator-final-unit tests/unit/phase4/test_health_timer_coordinator.py
+# 36 passed in 0.09s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-timer-coordinator-phase4 tests/unit/phase4
+# 518 passed in 0.43s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-timer-coordinator-regression -m 'not integration'
+# 1232 passed, 10 deselected, 1 warning in 3.30s
+```
+
+경고는 기존 Authlib httpx deprecation 1건이고 외부 integration 10개는 제외했다.
+79열·AST·문서 링크/표·git diff --check를 최종 확인한다. 기존 Core/Codec·Operational
+FSM/Qualifier/Registry·기존 테스트·fixture/config 26개 파일의 시작/종료 SHA-256을
+대조해 변경하지 않았음을 확인한다. 기존 미커밋 변경은 시작 시 없었다.
+
+### 미구현·미검증과 Git
+
+실제 scheduler/background thread·clock·영속 timer queue·CAS 기반 snapshot 확정,
+Spark checkpoint, timer ACK/재시도 영속 관리, Kafka/History/DynamoDB 이중·삼중 쓰기,
+outbox/부분 실패 복구·외부 exactly-once는 미구현·미검증이다. 프로세스 종료 후
+Coordinator/예약이 자동 유지된다는 보장이 없고 저장한 snapshot의 현재 세대만
+재구성한다. 저장하지 않은 관측이나 출력 전달 여부를 snapshot에서 복원하지 않는다.
+AWS/Databricks/Confluent 실행, Job 4 연결·외부 sink·Alert 구현은 하지 않았다.
+
+정확한 staging 대상은 위 4개 파일이다. 권장 메시지:
+`feat(phase4): add health timer coordinator and local restart tests`.
+Git add/commit/push/merge는 수행하지 않았고 이번 논리 단위 완료 후 사용자 검토를 기다린다.

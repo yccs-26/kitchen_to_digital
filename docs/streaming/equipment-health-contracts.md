@@ -2,10 +2,10 @@
 
 작성일: 2026-10-17 (Asia/Seoul). 검토 HEAD:
 `8bed0f7b41f4a2d10c7064137ddf0bea410bb9c8`, `feat/phase-4-twin-state`.
-최신 상태(2026-10-21): **Health Core + Snapshot Codec·로컬 파일 복원 검증**.
+최신 상태(2026-10-21): **Health Core + Snapshot Codec + 순수 Timer Coordinator**.
 1~9절은 확정된 논리 계약과 최초 설계표이며, 실제 API·시나리오별 구현 상태는
-10절을 따르고 Snapshot JSON Codec은 11절을 따른다. Registry 연결·Avro/
-state.changes wire·scheduler·sink는 미구현이다.
+10절을 따르고 Snapshot JSON Codec은 11절, 로컬 Timer Coordinator는 12절을 따른다.
+Registry 연결·Avro/state.changes wire·실제 scheduler·sink는 미구현이다.
 
 ## 1. 근거와 책임
 
@@ -581,3 +581,114 @@ UTC 동등 표현, int/float 수치 표현, malformed·비호환·누락·타입
 직렬화·복원** 증거이며 Spark checkpoint, DynamoDB 내구성, scheduler 복구, 장애 후
 출력 ACK/exactly-once를 검증한 것이 아니다. 저장 포맷 migration·실제 파일 원자적
 교체/fsync·외부 sink·outbox·원장 TTL은 구현하지 않았다.
+
+
+## 12. Health Timer Coordinator — 순수 조정과 로컬 재시작 검증
+
+검토 HEAD `a564beba1fd6006687c81a02f9eff2464de09e20`, 시작 작업 트리 clean.
+기존 token/tick·Core·Codec을 재사용하는
+`streaming/state/health_timer_coordinator.py`를 추가했다. 실제 예약/실행 loop, thread,
+외부 clock, Spark timer, 영속 queue를 만들지 않았다. 현재 상태를 내부에 보관하는
+manager도 아니며 caller가 최신 장비별 snapshot을 명시적으로 전달하는 순수 함수다.
+Health 판정·변화 ID·직렬화 규칙은 기존 코드에 위임하고 수정하지 않았다.
+
+### 인터페이스와 요청 상태
+
+- `plan_health_timer(snapshot, policy=..., evaluation_time=...)`:
+  HealthTimerRequest(token, status)를 반환한다. token은 기존 timer_token(snapshot)을
+  그대로 재사용하며 요청 ID·deadline·generation을 새로 만들지 않는다.
+- `coordinate_health_timer(snapshot, token, policy=..., evaluation_time=...,
+  reducer=reduce_health)`: HealthTimerResult(snapshot, status, reduction)을 반환한다.
+  changes는 reduction의 원본 출력이며 상태 판정/ID를 다시 만들지 않는다.
+- `restore_health_timer(payload, policy=..., evaluation_time=...)`:
+  기존 decode_health_snapshot으로 복원하고 RestoredHealthTimer(snapshot, request)를
+  반환한다. 복원만으로 timer를 실행하지 않는다. 파일 읽기/쓰기 또한 하지 않는다.
+
+| 상태 | 의미 | 조정 계층의 동작 |
+|---|---|---|
+| WAITING | 현재 generation, 평가 시각 < deadline | 현재 token 전달은 reducer 미호출, snapshot/cursor 유지 |
+| DUE | 현재 deadline 도달/경과, 해당 만료가 아직 평가되지 않음 | caller가 요청을 전달하면 Core tick 평가 |
+| ALREADY_EVALUATED | last_evaluated_at >= 현재 deadline | 새 예약 불필요; 실제 중복 tick이 전달되면 Core no-op 평가 |
+| REFERENCE_REVERSED | 평가 시각 < 저장된 last_evaluated_at | plan에서 실행 불가 표시; 전달된 현재 token의 거부는 Core에 위임 |
+| OBSOLETE | 전달 token이 현재 장비/profile/policy/epoch/generation/deadline과 다름 | Core의 OBSOLETE_TIMER를 보존; 새 timer를 함께 실행하지 않음 |
+| EVALUATED | 현재 만료 요청을 Core에 전달함 | 원본 HealthResult 및 다음 snapshot/변화 의도 반환 |
+
+TimerStatus는 Equipment Health enum이 아니라 실행 요청의 분류다. DUE/WAITING은
+snapshot의 deadline과 명시 시각으로 구분하며 Health 상태를 추정하지 않는다.
+완료 여부는 현재 deadline이 저장된 평가 cursor에서 이미 평가되었는지로 판단한다.
+이는 timer ACK 또는 변화 발행 완료의 증거가 아니다.
+
+단순 plan/restore는 상태를 바꾸지 않는다. deadline 전의 **현재 token**은 미평가라
+cursor도 전진하지 않는다. 반면 명시적으로 전달된 완료/중복 tick은 기존 Core의
+규칙대로 늦은 평가 cursor를 진행할 수 있지만 새 Health change/revision은 만들지
+않는다. 같은 시각의 중복 tick은 Core대로 snapshot도 유지한다. 완료 요청 조회와
+실제 tick 전달을 구별하므로 Core의 no-op 동작을 조정 계층에서 재작성하지 않는다.
+
+옛 token/역행 시각은 Core로 보내 기존 정책의 obsolete 우선순위를 보존한다.
+옛 token과 역행 시각이 함께 있으면 OBSOLETE_TIMER이며 현재 timer까지 대신 평가하지
+않는다. caller는 반환 snapshot으로 다음 요청을 별도로 구성해야 한다. 임의의 입력
+batch 정렬이나 숨은 catch-up loop를 추가하지 않았다.
+
+### Snapshot 복원과 재등록 경계
+
+복원 요청은 codec version·장비 identity·policy/profile/fingerprint·상태 불변식 검사를
+거친다. 손상/비호환 payload는 기존 HealthCodecError 그대로 실패하며 timer를 생성하지
+않는다. 직접 plan/coordinate에서도 정책/의존 binding·snapshot/계약 version 불일치는
+HealthTimerCoordinatorError(INCOMPATIBLE_SNAPSHOT)으로 거부한다. 잘못된 Python 타입과
+naive 시각은 API 오류다. UTC offset이 다른 같은 순간은 동일하게 처리한다.
+
+- deadline 이전 복원: 같은 token의 WAITING 요청. 프로세스의 예약 상태는 잃었으므로
+  실제 재등록이 필요할 수 있지만 이 모듈은 예약을 수행하지 않는다.
+- deadline/직후 복원: DUE 요청. caller가 coordinate를 호출하면 누락된 만료를 평가한다.
+- STALE/평가 완료 snapshot 복원: ALREADY_EVALUATED. 자동 재예약·재출력하지 않는다.
+  외부 중복 전달은 Core로 보내 기존 멱등성/평가 시각 규칙대로 처리한다.
+- 신규 관측 직후 복원: 최신 event generation/deadline을 재구성한다. 외부에 남은 옛
+  token을 전달하면 OBSOLETE이며 최신 snapshot을 바꾸지 않는다.
+- 같은 snapshot 반복 복원: 같은 token·상태를 만든다. 같은 snapshot과 명시 시각의
+  만료 평가에는 같은 health_change_id가 생성되지만 각 실행이 전달되었는지는 알 수 없다.
+
+복원은 저장된 epoch/start·deadline·원장·revision을 그대로 보존한다. 아직 저장하지
+않은 신규 관측, 실제 과거 timer 등록/전달/ACK, 외부에 발행한 변화를 snapshot에서
+임의로 재구성하지 않는다. snapshot 저장 전 종료라면 이전 snapshot에서 계산을
+재실행할 수 있으나, snapshot만 저장하고 출력 의도를 잃었다면 이를 자동 복구하지
+못한다. pending intent/outbox와 원자적 저장·실행 원장은 후속 계약이다.
+
+### 관측 경합·여러 장비 격리
+
+관측은 기존 reduce_health에 caller가 직접 전달한다. 새 관측이 수용된 snapshot을
+이후 조정 호출에 사용하면 기존 generation/deadline 비교로 옛 timer가 무효화된다.
+같은 평가 시각의 관측 먼저는 옛 tick 무효/변화 없음, tick 먼저는 STALE→HEALTHY
+두 변화라는 기존 계약을 유지한다. Coordinator가 처리 순서를 정하거나 이력을
+다시 쓰지 않는다. 결정성에는 초기 snapshot·정책·명령 순서·평가 시각 기록이 필요하다.
+
+각 호출은 하나의 명시적 장비 정책/snapshot을 사용하며 전역 상태·fallback이 없다.
+다른 장비/store의 token은 Core에서 OBSOLETE_TIMER다. 다른 장비 또는 profile/version의
+정책과 snapshot 혼용은 요청 구성 전에 거부한다. 여러 장비를 쓰는 caller는
+store/equipment와 정책 문맥을 정확히 선택해야 하며, 전체 장비 목록/Registry 자동
+등록·consumer 라우팅을 구현한 것은 아니다. 두 장비/store 격리 테스트의 추가 장비
+binding과 10/20초 timeout은 명시적 fixture 가정이며 실제 등록·운영값이 아니다.
+
+### 제어 가능한 로컬 장애·재시작 테스트
+
+`tests/unit/phase4/test_health_timer_coordinator.py`의 신규 36개 테스트는 다음을 포함한다.
+
+| 요구 시나리오 | 증거 |
+|---|---|
+| deadline 생성/직전 미평가/등호·이후 평가 | boot/관측 token 재사용, 현재 대기 token의 reducer 호출 차단, 원본 Core 결과 대조 |
+| 반복·옛 generation·시각 역전 | 중복 변화 없음, obsolete 우선순위·cursor 보존, 전달된 tick의 원본 거부 결과 |
+| deadline 전/후·STALE·관측 직후 복원 | tmp_path 파일 bytes → Codec → 같은 timer와 요청 상태 재구성 |
+| 평가 직전/직후·반복 복원 | 같은 Health ID와 원장/revision, 이미 평가한 변화 재생성 없음 |
+| 관측/tick 경합·replay | 양쪽 명시 순서를 반복 실행하고 단계별 파일 재적재 결과를 Core와 비교 |
+| 여러 장비/store·profile/정책 혼용 | 독립 deadline, 교차 token 무효, 잘못된 context/손상 payload 거부 |
+| 계산 전/후 실패 주입 | 저장한 이전 bytes 유지, 실패 전 snapshot으로 재시도 시 동일 논리 ID |
+
+reducer 의존성을 주입해 계산 전 또는 결과 계산 직후에 동기 예외를 발생시켰다.
+Coordinator는 예외를 숨기거나 snapshot을 내부 확정하지 않는다. 테스트는 이미 저장한
+이전 파일을 다시 읽어 재시도 결과/ID를 직접 실행과 비교한다. 이때 Health 의도가
+외부에 전달되었는지 판별한 것은 아니며 end-to-end exactly-once 검증이 아니다.
+
+신규 36개, Phase 4 518개, 전체 로컬 회귀 1232개가 통과했다. 실제 명령·시간은 검증
+보고서의 Coordinator 절을 따른다. 기존 Core/Codec·Operational FSM/Qualifier/Registry·
+기존 테스트·config는 변경하지 않았다. 실제 scheduler·영속 timer queue·CAS·checkpoint·
+Timer ACK/재시도 영속 기록·외부 sink의 이중/삼중 쓰기·outbox·부분 실패 복구는
+미구현·미검증이다. 자동 background 실행이나 외부 서비스 연결을 하지 않았다.
