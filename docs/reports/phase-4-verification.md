@@ -684,3 +684,94 @@ AWS/Databricks/Confluent나 Spark/Kafka/DynamoDB를 실행·연결하지 않았�
 정확한 staging 대상은 위 6개 파일뿐이다. 권장 메시지:
 `feat(phase4): add deterministic health freshness core`.
 Git add/commit/push/merge는 수행하지 않았고 사용자 검토를 기다린다.
+
+## Health Snapshot Codec — 로컬 직렬화·손상·복원 검증
+
+검증일: 2026-10-21 (Asia/Seoul). 시작 브랜치 `feat/phase-4-twin-state`, HEAD
+`721fb4502965d441ebc7aecb3a73d85398469964`, 시작 git status clean.
+직전 Health Core commit 반영을 git log와 실제 소스로 확인했다. Health/장비 계약,
+이 보고서·Core·adapters/registry·관련 테스트를 읽었다. 기존 직렬화/checkpoint 패턴을
+탐색했으며 동등한 Codec은 없고 test_health.py에 테스트 helper만 있었다.
+worktree에는 AGENTS.md가 없어 제공된 지침과 원본 checkout의 AGENTS.md를 확인했다.
+
+### 변경 파일
+
+- `streaming/state/health_codec.py`: 명시 schema의 canonical UTF-8 JSON bytes encode/
+  decode, codec version, 정책/무결성/타입/상태 검증, HealthCodecError.
+- `tests/unit/phase4/test_health_codec.py`: 전체 필드·bytes 결정성·비호환/손상 거부.
+- `tests/unit/phase4/test_health_recovery.py`: tmp_path 파일 저장/새 객체 복원 이후
+  연속 실행과 결과/ID/원장/token 비교, 손상 파일 거부.
+- `docs/streaming/equipment-health-contracts.md`: 최신 상태와 11절 wire/API/한계.
+- `docs/reports/phase-4-verification.md`: 이번 기록.
+
+health.py 수정은 필요하지 않았다. 기존 모델·타입은 재사용하고 policy payload를
+새 정책으로 생성/활성화하지 않는다. 기존 Core·Operational FSM·Qualifier·Registry·
+관련 테스트·fixture·config 23개 파일은 시작/종료 SHA-256으로 보존 확인한다.
+
+### Codec 계약과 복원 검증
+
+encode_health_snapshot(snapshot)는 canonical JSON bytes, decode_health_snapshot(
+payload, policy=...)는 검증된 새 HealthSnapshot을 반환한다. 순수 함수이며 I/O를
+수행하지 않는다. 파일 쓰기/읽기는 테스트에서만 수행한다.
+
+codec_version="1", snapshot_schema_version="1", health_contract_version=
+"health-freshness-v1"을 별도로 관리한다. root에 장비 identity, Health profile,
+policy fingerprint·명시 정책 본문, 전체 snapshot 상태, content_sha256을 보존한다.
+정확한 필드 목록과 nullable/타입 규칙은 Health 계약 11절을 따른다.
+
+객체 키 정렬·고정 구분자·UTF-8·6자리 UTC 시각·정수 μs timeout을 사용한다.
+원장은 원래 strict 시간순 전체 배열이며 정렬/중복 제거로 복구하지 않는다.
+동일 구체 snapshot은 동일 bytes이고 int/float 원문 표현은 보존한다.
+revision의 bool/float/string coercion, 비유한 원장 수치, 누락/미지 필드·중복 JSON
+key·naive/부정확 timestamp·FAULT/active fault 복원은 거부한다. Profile/version·
+정책/fingerprint·의존 binding 변경도 거부하며 자동 migration은 없다.
+
+기존 HealthSnapshot 불변식에 더해 revision/수용 원장 길이의 도달 가능 상한/하한을
+Codec 경계에서 검사한다. content_sha256은 canonical 본문 digest로, 정상 수치 한 자리
+변경 같은 우발적 손상을 검출한다. 인증 서명이 아니며 본문/digest를 함께 다시 쓴
+일관된 변조·원장 유실·과거 change ID 진위까지 증명하지 않는다.
+
+전체 dataclass 필드 round-trip, 초기·복수 원장·STALE·초과 2^53 정수 revision,
+120000일+1μs timeout·Unicode·int/float 표현을 확인했다. 정책/버전·identity,
+누락·잘못된 타입·원장 순서/중복/cursor·last_seen/deadline/Health 모순은 복원 거부했다.
+
+tmp_path에서 관측→encode→파일→decode→동일 후속 입력을 적용해 연속 실행과 매 단계
+결과를 대조했다. 중복/충돌·역순 거부, 옛 timer 무효·새 timer 만료·STALE 복구,
+같은 시각 관측/tick 순서별 이력, 원장/revision/health_change_id chain이 동일했다.
+잘린 JSON·수치 한 자리 변경·잘못된 UTF-8 파일의 복원 거부도 확인했다.
+
+### 실제 실행 결과
+
+먼저 테스트 두 파일을 작성하고 모듈 부재로 collection error 2건을 확인한 뒤
+구현했다. 초기 80개 통과 후 Unicode·중첩 필드 누락·정책 타입·revision/원장
+도달 가능성 사례를 보강하여 신규 테스트는 89개다.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-codec-red tests/unit/phase4/test_health_codec.py tests/unit/phase4/test_health_recovery.py
+# ModuleNotFoundError: streaming.state.health_codec, collection error 2건
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-codec-unit tests/unit/phase4/test_health_codec.py tests/unit/phase4/test_health_recovery.py
+# 89 passed in 0.13s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-codec-phase4 tests/unit/phase4
+# 482 passed in 0.41s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-codec-regression -m 'not integration'
+# 1196 passed, 10 deselected, 1 warning in 3.53s
+```
+
+최종 Phase 4/전체 회귀는 79열 정리 후 실행했다. 경고는 기존 Authlib httpx
+ deprecation 1건이고 외부 integration 10개는 제외했다. AST·79열·문서 링크/표와
+최종 git diff --check 및 보호 대상 hash를 확인한다.
+
+### 범위 한계와 Git
+
+로컬 Codec/파일 재적재만 검증했다. 실제 저장소, 파일 원자적 교체/fsync,
+Spark checkpoint·DynamoDB 내구성·scheduler 복구, snapshot/원장 원자성,
+원장 TTL·migration, 출력 outbox/ACK·exactly-once·외부 E2E는 미구현·미검증이다.
+AWS/Databricks/Confluent 실행, Spark Job 4, Kafka/DynamoDB/History Sink·Alert 구현은
+하지 않았다. Health 상태 판정/ID 규칙·기존 Operational 코드는 바꾸지 않았다.
+
+정확한 staging 대상은 위 5개 파일뿐이다. 권장 메시지:
+`feat(phase4): add health snapshot codec and local recovery tests`.
+Git add/commit/push/merge는 수행하지 않았다. 이 단위를 완료한 뒤 사용자 검토를 기다린다.

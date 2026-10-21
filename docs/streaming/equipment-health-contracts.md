@@ -2,9 +2,10 @@
 
 작성일: 2026-10-17 (Asia/Seoul). 검토 HEAD:
 `8bed0f7b41f4a2d10c7064137ddf0bea410bb9c8`, `feat/phase-4-twin-state`.
-최신 상태(2026-10-20): **단일 채널 Health Core와 순수 tick 평가 로컬 단위 구현**.
+최신 상태(2026-10-21): **Health Core + Snapshot Codec·로컬 파일 복원 검증**.
 1~9절은 확정된 논리 계약과 최초 설계표이며, 실제 API·시나리오별 구현 상태는
-10절을 따른다. Registry 연결·Avro/state.changes wire·scheduler·sink는 미구현이다.
+10절을 따르고 Snapshot JSON Codec은 11절을 따른다. Registry 연결·Avro/
+state.changes wire·scheduler·sink는 미구현이다.
 
 ## 1. 근거와 책임
 
@@ -455,3 +456,128 @@ Registry/Job 4 연결, History·Kafka·DynamoDB sink, wire envelope·outbox/ACK�
 따라서 로컬 결정성만 검증했고 분산 exactly-once나 운영 복구를 보장하지 않는다.
 신규 Health 테스트 98개, Phase 4 393개, 전체 로컬 회귀 1107개가 통과했다.
 명령·실행 시간·경고와 변경 범위는 검증 보고서의 Health Core 절에 기록한다.
+
+
+## 11. Health Snapshot JSON Codec — 2026-10-21
+
+검토 HEAD `721fb4502965d441ebc7aecb3a73d85398469964`. 기존 Health Core commit이
+반영된 clean worktree에서 시작했다. 동등한 저장 Codec은 없었고 기존 test_health.py의
+reload_snapshot은 테스트 전용 helper였다. 이를 운영 표현으로 승격하지 않고 별도
+명시적 schema를 `streaming/state/health_codec.py`에 정의했다. 기존 Core와 테스트
+helper·Operational FSM·Qualifier·Registry는 수정하지 않았다.
+
+### 인터페이스와 적용 범위
+
+- `encode_health_snapshot(snapshot) -> bytes`: canonical UTF-8 JSON bytes.
+- `decode_health_snapshot(payload: bytes, *, policy: HealthPolicy) -> HealthSnapshot`:
+  caller 정책과 schema·무결성·Core 불변식을 검증한 새 snapshot.
+- `HealthCodecError(ValueError)`: `.code`, `.field`로 거부 사유/경로를 제공한다.
+  bytes가 아닌 payload 등 잘못된 API 사용은 TypeError다.
+
+함수는 파일·시계·외부 서비스를 사용하지 않는다. encode 결과만 보관하며 decode는
+현재 wall-clock으로 재평가하거나 timer를 예약하지 않는다. deadline이 지난 상태의
+복원도 저장된 last_evaluated_at을 그대로 보존한다. 현재성 재평가는 caller가 원래
+reduce_health에 명시적 tick/reference_time을 전달해야 한다.
+
+### 명시적 JSON schema와 version
+
+JSON root는 아래 **9개 필드만** 가진다. 모든 객체의 키는 필수이며 알 수 없는 키도
+거부한다. null은 명시적으로 nullable인 필드에만 허용한다. Python 클래스 이름,
+__dict__, dataclasses.asdict 결과나 pickle에 wire 표현을 의존하지 않는다.
+
+| root 필드 | JSON 표현/검증 |
+|---|---|
+| codec_version | 문자열 `"1"`, 이 JSON 표현의 독립 버전 |
+| snapshot_schema_version | 문자열 `"1"`, 기존 Core snapshot 표현 버전 |
+| health_contract_version | 문자열 `"health-freshness-v1"`, 기존 판정 계약 버전 |
+| equipment | store_id, equipment_id, equipment_type 문자열; 주입 정책과 exact-match |
+| health_profile | equipment_type, profile_id, version 문자열; 주입 정책과 exact-match |
+| policy_fingerprint | 기존 HealthPolicy.fingerprint, 재생성 값과 일치 |
+| policy | 아래 명시 정책 객체; 주입 정책의 canonical 표현과 타입까지 동일 |
+| snapshot | 아래 전체 snapshot 상태 객체 |
+| content_sha256 | 이 필드를 제외한 root의 canonical JSON bytes에 대한 SHA-256 hex |
+
+policy 객체의 필수 키는 binding_revision, input_contract_revision,
+operational_profile(위와 같은 profile 3필드), input_kind, freshness_timeout_us,
+metric_name, unit, schema_versions, sources, fault_supported다. timeout은 float 초가
+아닌 **정수 μs**이고 allowlist는 Core에서 정렬한 문자열 배열이다. fault_supported는
+현재 false만 가능하다. payload의 정책을 임의로 활성화하지 않고 caller가 주입한
+정책의 표현과 비교한다. True/1, false/0, 1/1.0의 Python 동등 비교로 타입을 숨기지
+않도록 canonical JSON 표현으로 정책을 비교한다.
+
+snapshot 객체의 필수 키는 monitoring_epoch, monitoring_started_at,
+freshness_deadline, last_evaluated_at, last_seen, last_accepted_event_id, health_status,
+receipts, health_revision, snapshot_revision, last_health_change_id, active_faults다.
+last_seen/last_accepted_event_id는 초기 null, health_status는 null/HEALTHY/STALE,
+last_health_change_id는 초기 null 또는 Core가 검증하는 SHA-256 hex다.
+active_faults는 빈 배열만 지원한다. FAULT/활성 고장은 명시적으로 거부한다.
+
+receipts는 수용된 전체 원문 배열이며 각 항목은 기존 10필드인 event_id, event_time,
+store_id, equipment_id, equipment_type, metric_name, metric_value, unit,
+schema_version, source를 모두 보존한다. metric_value는 finite int/float만 허용하고
+bool/string/null/NaN/Inf를 원장 수치로 복원하지 않는다. 원장 payload와 cursor의
+identity·시간·최종 ID 일치는 기존 HealthSnapshot 생성 검증을 재사용한다.
+
+### Canonical 표현과 타입 보존
+
+객체 키는 정렬하고 UTF-8·ensure_ascii=False·공백 없는 고정 구분자·allow_nan=False를
+사용한다. 시각은 `YYYY-MM-DDTHH:MM:SS.ffffff+00:00`의 UTC·6자리 μs 문자열이다.
+encoder는 UTC로 정규화하며 decoder는 이 정확한 시각 표현만 허용한다. naive/Z/다른
+offset·6자리 초과 소수부를 추측·잘라서 복원하지 않는다. 다른 offset을 가진 내부
+aware datetime도 Core가 UTC로 정규화하므로 인코딩 결과는 같다.
+
+revision과 timeout은 정수이며 JSON bool·float·문자열을 정수로 coercion하지 않는다.
+metric_value의 int/float 표기와 -0.0도 보존한다. 같은 구체 snapshot은 같은 bytes를
+만들지만, 숫자 원문의 int/float 표현만 다른 논리 동등 snapshot까지 같은 bytes라는
+보장은 하지 않는다. 기존 Core의 numeric 동등성·중복·ID 규칙은 그대로다.
+
+원장은 이미 strict event_time 순서인 전체 tuple을 그대로 배열로 만든다. 정렬로
+원장을 복구하거나 중복을 지우지 않는다. 뒤집힌 순서·중복 ID·cursor와 불일치하는
+누락은 거부한다. decoder는 JSON 공백/객체 키 표시 순서 차이는 허용한다. 이는
+동일한 논리 bytes 생성 규칙과 실제 상태 평가의 결정성을 혼동하는 근거가 아니다.
+중복 JSON key·비유한 JSON token·잘못된 UTF-8·잘린 JSON도 거부한다.
+
+### 검증·거부 정책과 무결성 한계
+
+version 불일치, 장비 identity 불일치, Health profile/version 불일치, fingerprint
+불일치, 정책/Operational dependency 변경은 각각 명시적으로 거부한다. migration,
+latest profile 선택, 기본 HEALTHY 초기화, 알 수 없는 필드 무시는 하지 않는다.
+필드 누락·타입 오류·잘못된 timestamp/enum/revision/ledger·상태/시각 모순도 실패다.
+
+구조/호환성/원시 타입 검사 후 content_sha256을 확인하고 기존 HealthSnapshot의
+불변식으로 상태를 재구성한다. 단일 채널·fault 미지원 코어의 도달 가능한 revision
+근거도 확인한다: snapshot_revision >= 수용 원장 길이, health_revision <=
+2×원장 길이+1(초기 boot 만료와 관측별 HEALTHY/STALE 변화 상한).
+Core 전이/ID를 바꾸지 않고 Codec 경계에서 모순을 거부하는 검사다.
+
+Codec 거부 코드는 MISSING_FIELD, UNKNOWN_FIELD, INVALID_SCHEMA, INVALID_JSON,
+CODEC_VERSION_MISMATCH, SNAPSHOT_VERSION_MISMATCH, CONTRACT_VERSION_MISMATCH,
+EQUIPMENT_IDENTITY_MISMATCH, PROFILE_MISMATCH, POLICY_FINGERPRINT_MISMATCH,
+POLICY_MISMATCH, INVALID_TIMESTAMP, INVALID_HEALTH, INVALID_REVISION, INVALID_LEDGER,
+INCONSISTENT_SNAPSHOT, UNSUPPORTED_FAULT, INTEGRITY_MISMATCH다. 복수 오류에서는
+검사 순서상 먼저 발견한 사유가 반환되며 전 오류를 한 번에 열거하지 않는다.
+
+content_sha256은 정상 수치가 다른 정상 수치로 바뀌는 등의 **우발적 손상**을
+검출한다. 인증 서명이 아니므로 공격자가 본문과 digest를 함께 다시 만들면 이를
+구별할 수 없다. 원래 원장의 완전한 존재, 이전 Health ID chain의 진위, 실제 source
+권한을 증명하지 않는다. 정책 fingerprint도 상태 저장의 진위를 증명하는 값이 아니다.
+원장 전체와 snapshot이 일관된 논리 경계에서 저장되었다는 외부 보장은 별도다.
+
+### 로컬 복원 검증
+
+신규 테스트는 test_health_codec.py와 test_health_recovery.py다. 초기/HEALTHY/STALE/
+복수 원장 snapshot의 **전체 필드** round-trip과 deterministic bytes를 검증한다.
+120000일+1μs timeout과 2^53 초과 revision도 float 변환 없이 보존한다. Unicode,
+UTC 동등 표현, int/float 수치 표현, malformed·비호환·누락·타입 오류 거부도 포함한다.
+
+실제 pytest tmp_path 파일에 bytes를 쓰고 새 객체로 읽어, 정상 관측 이후 중복·충돌·
+새 관측·옛 tick 무효·새 deadline 만료·중복 tick·역순·복구를 연속 실행과 단계별로
+비교했다. 같은 시각의 timer/관측 양쪽 처리 순서도 파일 재적재를 거쳐 비교했다.
+원장·revision·파생 token/fingerprint와 동일 후속 입력의 health_change_id를 확인했다.
+잘린 파일·정상 RPM 한 자리 손상·잘못된 UTF-8 파일은 복원 거부했다.
+
+신규 89개, 기존 포함 Phase 4 482개, 전체 로컬 회귀 1196개가 통과했다. 명령과
+실행 결과는 검증 보고서의 Snapshot Codec 절을 따른다. 이는 **순수 Codec+로컬 파일
+직렬화·복원** 증거이며 Spark checkpoint, DynamoDB 내구성, scheduler 복구, 장애 후
+출력 ACK/exactly-once를 검증한 것이 아니다. 저장 포맷 migration·실제 파일 원자적
+교체/fsync·외부 sink·outbox·원장 TTL은 구현하지 않았다.
