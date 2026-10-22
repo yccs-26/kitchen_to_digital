@@ -5,6 +5,9 @@ Worktree: `/Users/uchan/Downloads/DE/02_project/ktd-worktrees/phase-3-gold-windo
 Branch: `feat/phase-3-gold-windows`, 기준 HEAD `c0b28d4`, 시작 시 working tree clean.
 
 **결과: 테스트 전용 메모리 참조 모델 25 passed, 기존 Phase 3 Python 회귀 98 passed.**
+후속 물리 매핑·수치 동일성 명세는 **48 passed**, 기존 회귀는 **123 passed(25+98)**다.
+최신 매핑과 비교 정책은 아래 「Gold 물리 행 매핑·수치 동일성 확정안」을 참조한다.
+앞부분의 매핑/허용오차 미결정 기록은 이전 저장 참조 모델 단계의 이력으로 보존한다.
 생산 Gold sink/helper는 없으므로 생산용 저장 계약 구현의 검증 완료가 아니다.
 실제 Delta MERGE·트랜잭션·별도 프로세스 재시작·Kafka E2E는 미검증이다.
 이번에는 순수 Python 저장 명세의 기대 동작을 고정했다.
@@ -153,3 +156,206 @@ dict의 키 유일성은 모델의 구조적 성질이며 물리 table의 중복
 변경되지 않았음을 확인했다. 새 Python 구문/79열·두 신규 파일 공백 검사도 통과했다.
 Git staging/commit/push/PR/merge,
 유료 클라우드 실행과 의존성 변경은 수행하지 않았다.
+
+## Gold 물리 행 매핑·수치 동일성 확정안 — 2026-10-21
+
+### 확인 기준과 결정 수준
+
+이번 작업 기준 HEAD는 `ff6cc63`, branch `feat/phase-3-gold-windows`, 시작 시 Git clean이다.
+설계, windows.py, MinuteAggregate, Gold 참조 모델 25건과 본 보고서를 다시 읽었다.
+`metric_aggregation.py`, 생산 Gold Mapper/Sink, 실제 Gold DDL은 여전히 없다.
+따라서 아래는 **저장 명세의 확정안이며 실제 테이블 생성·생산 Mapper 구현 증거가 아니다.**
+생산 코드·기존 기대값·fixture·의존성은 변경하지 않는다.
+
+### 논리 필드 → 물리 컬럼
+
+현재 Python의 실제 명명과 타입을 입력으로 유지한다. 기존 논리 모델 문서의
+sample_count/avg_value/min_value/max_value를 물리 별칭으로 채택한다.
+sum_value는 기존 sum을 같은 `_value` 계열로 저장하기 위해 이번에 정한 물리 별칭이다.
+새 측정값·계산식·version 컬럼을 추가한 것이 아니다.
+
+| Python 논리 필드 | 현재 Python 타입 | 물리 컬럼 | 저장 타입 | NULL 허용 | 역할 |
+|---|---|---|---|---|---|
+| key.window_start | aware datetime | window_start | TIMESTAMP_LTZ | 아니오 | 자연키, UTC instant |
+| key.window_type | 현재 Literal 1m_tumbling | window_type | STRING | 아니오 | 자연키, 아래 namespace |
+| key.store_id | str | store_id | STRING | 아니오 | 자연키, 원문 유지 |
+| key.equipment_id | str | equipment_id | STRING | 아니오 | 자연키, 원문 유지 |
+| key.metric_name | str | metric_name | STRING | 아니오 | 자연키, 원문 유지 |
+| window_end | aware datetime | window_end | TIMESTAMP_LTZ | 아니오 | 설정으로 결정되는 불변 경계 |
+| unit | str | unit | STRING | 아니오 | 키 아님, 불변 속성 |
+| count | int | sample_count | BIGINT | 아니오 | 고유 이벤트 수, 양의 정수 |
+| sum | float | sum_value | DOUBLE | 아니오 | 절대 합계 |
+| min | float (입력이 int면 실제 int일 수도 있음) | min_value | DOUBLE | 아니오 | 절대 최솟값 |
+| max | float (입력이 int면 실제 int일 수도 있음) | max_value | DOUBLE | 아니오 | 절대 최댓값 |
+| avg | float | avg_value | DOUBLE | 아니오 | sum_value/sample_count |
+
+Python dataclass의 타입 힌트 자체가 NULL을 강제 차단하는 것은 아니다. NOT NULL은 이번
+저장 명세이며 실제 SQL provider enforcement는 미검증이다. 문자열은 nonblank, 시각은 aware
+UTC instant/microsecond 의미로 보존하고 session timezone UTC를 요구한다. NTZ나 문자열로
+시각 의미를 바꾸지 않는다. 이름을 lower/strip하여 다른 키를 합치지도 않는다.
+
+count는 `1 <= count <= 2**63-1`이고 bool·실수는 거부한다. count를 DOUBLE로 바꾸어
+비교하지 않는다. 빈 window는 기존 계약대로 만들지 않으므로 count=0 행은 수용하지 않는다.
+집계 수치는 유한 DOUBLE이어야 한다. Python int 수치도 DOUBLE로 손실 없이 표현될 때만
+변환한다. 표현 불가능한 큰 정수를 조용히 반올림하지 않는다.
+
+추가 필드 현황:
+
+- equipment_type: 논리 Gold 문서에만 있고 현재 MinuteAggregate에는 없다. 초기 12컬럼
+  계약에서는 자동 추가/NULL 채움하지 않는다. dimension 매핑 방식과 포함 여부는 미결정이다.
+- policy_version/rules_version/schema version: 현재 최종 집계 행에 실제 필드가 없다.
+  validated의 schema_version을 Gold 정책 버전으로 복사하지 않는다. 컬럼명·타입·값 모두 미정이다.
+- batch_id, query epoch, is_final 등 새 설정/완료 컬럼을 추가하지 않는다.
+
+Spark의 BIGINT/DOUBLE/TIMESTAMP_LTZ 의미는
+[공식 Spark 4.0 타입 문서](https://spark.apache.org/docs/4.0.0/sql-ref-datatypes.html)를 확인했다.
+실제 DDL·카탈로그 스키마를 조회하거나 실행하지 않았다.
+
+### 자연키와 Window 불변성
+
+자연키는 기존 5개 그대로다:
+`(window_start, window_type, store_id, equipment_id, metric_name)`.
+unit/window_end/sample_count/집계 수치는 키에 추가하지 않는다.
+동일 키의 유효한 확정값에서 이 비교 속성이 바뀌면 canonical을 보호하고 CONFLICT다.
+
+초기 Gold namespace의 의미를 다음과 같이 고정하는 안으로 정한다.
+
+| window_type | 길이 | slide | anchor | 종료 |
+|---|---|---|---|---|
+| 1m_tumbling | 1분 | 1분 | UTC epoch, 분 경계 | start+1분 |
+| 5m_sliding | 5분 | 1분 | UTC epoch, 분 경계 | start+5분 |
+
+현재 생산 AggregationKey의 타입은 1m만 지원한다. 5m은 기존 수동 fixture 및 native Spark
+테스트로만 확인한 표현이며 생산 타입을 이번에 확장하지 않는다.
+기존 설계의 sliding interval 실험 후보는 같은 Gold namespace의 설정을 임의 변경해도
+된다는 뜻으로 해석하지 않는다. 운영 시 5m_sliding에 다른 slide/anchor를 재사용하지 않는다.
+
+이 조건에서 type이 길이/slide를 결정하고 end도 결정되므로 현재 자연키는 유효하다.
+단, **행 자체에는 slide/anchor/version이 없어 실제 producer 설정을 증명할 수 없다.**
+예를 들어 5분/30초와 5분/1분은 분 경계 start와 같은 end를 공유할 수 있다.
+같은 5m_sliding label을 재사용하면 키가 충돌하거나 서로 다른 정책의 결과가 혼재할 수 있다.
+다른 설정 도입은 별도 namespace/table·이관 검토가 필요하며 이번에 키를 자동 변경하지 않는다.
+이는 배포 설정의 불변 조건이지 실제 Job의 검증 완료가 아니다.
+
+window_end가 설정과 다르면 올바른 신규 확정 행으로 수용하면 안 된다. 기존 키에 잘못된
+end를 재전달하는 사례는 이전 참조 모델과 동일하게 CONFLICT로 기존 값을 보호한다.
+이번 매핑 참조 함수는 완전한 window geometry/closure validator가 아니다.
+
+### 비교 대상과 수치 동일성 결정
+
+비교 대상은 키 일치 후 다음 7개 물리 속성이다:
+`window_end, unit, sample_count, sum_value, min_value, max_value, avg_value`.
+미정 version 컬럼이나 실행 시각은 비교 대상에 넣지 않는다.
+
+| 대상 | 결정 |
+|---|---|
+| sample_count | BIGINT 범위의 정확한 정수 비교 |
+| unit | 문자열 정확 비교, 단위 변환 없음 |
+| window_end | UTC instant 정확 비교 |
+| sum/min/max | 유한 binary64 수치의 정확 비교. 반올림·epsilon 없음 |
+| avg | canonical sum/count로 계산된 값인지 정확 검증 후 비교 |
+| 0.0 / -0.0 | 둘 다 +0.0으로 정규화하고 NO-OP 허용 |
+| NULL/NaN/Infinity | 비교 전에 입력 거부. 결측값을 0으로 채우지 않음 |
+
+avg가 sum/count와 다르면 유효한 확정 행이 아니므로 입력 거부다. 서로 다른 sum/count를
+가진 유효 행은 CONFLICT다. 별도로 수집한 avg를 기존 값에 더하거나, 검산에 실패한 avg를
+조용히 덮어써서 정상화하지 않는다.
+
+이 정책은 기존 INSERT/NO-OP/CONFLICT에서 '다른 확정값은 자동 갱신하지 않음'을
+보수적으로 유지한다. signed zero만 정규화하고, 서로 다른 유한 수치를 같은 결과로 합치지 않는다.
+
+이전 설계의 rel/abs tolerance 1e-12는 Python fsum과 Spark 수치 검산용 시작값이었다.
+이를 sink identity 비교에 자동 적용하지 않는다. 테스트에서 12와 그 다음 representable
+DOUBLE은 그 tolerance로 isclose지만 exact 정책은 CONFLICT였다. 허용오차는 실제 데이터
+변경과 누산 오차를 구분할 근거가 없고 작은 변경을 NO-OP으로 숨길 수 있으므로 채택하지 않는다.
+
+Python float는 이 환경에서 53-bit mantissa/8-byte binary64이고 Spark DOUBLE도 8-byte다.
+표현 폭이 같아도 계산 알고리즘·누산 순서가 같다는 뜻은 아니다.
+Python 일반 sum([0.1,0.2,0.3])과 math.fsum은 서로 다른 수치가 되었고 같은 키에서 충돌했다.
+이는 로컬 Python 수치 실험이며 Spark의 모든 재계산 순서 차이를 실측한 것은 아니다.
+[Python 부동소수점 설명](https://docs.python.org/3.11/tutorial/floatingpoint.html)
+
+따라서 NO-OP 보장 범위는 **동일한 canonical final 값의 재전달**이다.
+Spark가 원본 입력에서 다시 집계해 1 ULP 달라졌을 때도 NO-OP이 된다는 보장은 하지 않는다.
+그 경우 canonical을 보존하고 실패시키므로 데이터 덮어쓰기는 막지만 가용성은 떨어질 수 있다.
+재계산 결정성/확정 결과 materialization/다른 누산 방식 중 구현 해법은 후속 검증 사항이다.
+엄밀한 값 보호와 무조건 retry 성공을 동시에 입증했다고 보고하지 않는다.
+
+### 입력 방어와 JSON
+
+기존 Phase 2 `validate_domain_event`의 실제 NON_FINITE_METRIC_VALUE/INVALID_METRIC_VALUE/
+NULL_FIELD 경로를 재사용해 NaN/±Infinity/bool/NULL 입력 거부를 직접 확인했다.
+기존 aggregate_minutes도 finite·bool 방어와 math.fsum을 사용한다. 생산 검증 코드를 수정하지 않았다.
+유한 입력만 있어도 누산 범위 초과는 별개이므로 최종 집계의 모든 DOUBLE도 다시 유한성 검사가 필요하다.
+
+JSON은 수치 표기 문자열을 identity로 삼지 않는다. Python dumps/loads 왕복에서 binary64
+값이 보존되는지 확인했고 0.3과 3e-1은 같은 숫자였다. 반면 0.1+0.2와 0.3의 계산 차이를
+JSON이 제거해 주지는 않는다. allow_nan=False를 사용하고 NaN/Infinity의 비표준 JSON을 허용하지 않는다.
+BIGINT count는 2**53+1도 정수로 왕복해야 하며 DOUBLE/JavaScript Number 등을 거치면 안 된다.
+다른 외부 serializer의 동작까지 이번 Python 왕복으로 보장하지 않는다.
+
+### 최소 명세 테스트와 회귀
+
+신규 파일은 `tests/unit/phase3/test_gold_row_mapping.py` 하나다.
+기존 Gold 테스트의 실제 MinuteAggregate fixture와 5m 수동 행, MemoryGoldReference를 재사용한다.
+새 mapping 함수는 테스트 내부의 physical_row_spec일 뿐 생산 Mapper가 아니다.
+기존 25개 테스트의 기대값과 참조 모델을 변경하지 않았다.
+
+| 그룹 | 수 | 결과 |
+|---|---:|---|
+| 12필드 매핑/키/정수 의미 | 1 | PASS |
+| window type→길이/slide/end 및 충돌 조건 | 1 | PASS |
+| 동일값·JSON 왕복·수치 비트 보존 | 1 | PASS |
+| 다른 count/sum, unit, end | 4 | PASS: CONFLICT |
+| signed zero 정규화 | 1 | PASS: +0.0 보존, NO-OP |
+| 1 ULP·누산 순서 차이 | 2 | PASS: 차이를 숨기지 않는 CONFLICT |
+| avg 파생 관계 | 1 | PASS: 잘못된 avg 거부 |
+| 잘못된 count | 6 | PASS: NULL/bool/0/음수/float/BIGINT 초과 거부 |
+| BIGINT와 손실 없는 DOUBLE 변환 | 2 | PASS: 큰 count 정확 비교, 손실 있는 정수 수치 변환 거부 |
+| 12컬럼별 NULL | 12 | PASS: 모두 거부 |
+| 4수치별 NaN/±Infinity | 12 | PASS: 비교 전 거부 |
+| 실제 Phase 2 비정상 입력 방어 | 5 | PASS |
+| 신규 합계 | 48 | 모두 PASS |
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -vv -p no:cacheprovider \
+  --basetemp /private/tmp/ktd-gold-mapping-Rwdxfitc/final \
+  --junitxml /private/tmp/ktd-gold-mapping-Rwdxfitc/mapping-final-junit.xml \
+  tests/unit/phase3/test_gold_row_mapping.py \
+  > /private/tmp/ktd-gold-mapping-Rwdxfitc/mapping-final.log 2>&1
+# 48 passed in 0.07s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider \
+  --basetemp /private/tmp/ktd-gold-mapping-Rwdxfitc/regression \
+  --junitxml /private/tmp/ktd-gold-mapping-Rwdxfitc/regression-junit.xml \
+  tests/unit/phase3 --ignore=tests/unit/phase3/test_gold_row_mapping.py \
+  > /private/tmp/ktd-gold-mapping-Rwdxfitc/regression.log 2>&1
+# 123 passed in 0.10s = Gold 25 + 기존 Phase 3 98
+```
+
+- [신규 48건 로그](/private/tmp/ktd-gold-mapping-Rwdxfitc/mapping-final.log)
+- [신규 JUnit](/private/tmp/ktd-gold-mapping-Rwdxfitc/mapping-final-junit.xml)
+- [기존 123건 회귀 로그](/private/tmp/ktd-gold-mapping-Rwdxfitc/regression.log)
+- [기존 회귀 JUnit](/private/tmp/ktd-gold-mapping-Rwdxfitc/regression-junit.xml)
+
+임시 로그는 Git에 추가하지 않았으며 OS 정리 시 없어질 수 있다.
+Spark Streaming 10 passed는 이전 작업 결과다. 이번에는 Spark/Delta/Kafka/Databricks를 실행하지 않았다.
+
+### 실제 구현과 남은 결정
+
+확정한 것은 12컬럼 매핑·NOT NULL·BIGINT/DOUBLE/TIMESTAMP_LTZ 명세와 정확 비교 정책이다.
+DDL, 실제 mapper, Delta NULL/타입/동시성 enforcement, end/slide 설정을 강제하는 생산 validator는 없다.
+참조 함수는 타입/정규화/avg 파생 검산의 명세 테스트이며 생산 구현의 증거가 아니다.
+
+미정은 equipment_type의 포함/소스, policy/rules/schema version 필드·타입·수명,
+실제 Gold DDL 적용과 재계산 결정성/완전한 restart 수렴 방식이다.
+같은 window_type을 다른 slide로 재사용하는 충돌을 자동 키 변경으로 해결하지 않았다.
+초기 namespace에서는 위 설정을 고정하고 변경은 별도 검토한다.
+
+다음 최소 논리 작업은 **이 명세의 순수 Gold row Mapper를 생산 모듈로 구현하고 같은 테스트를
+실제 대상에 연결**하는 것이다. Delta 저장은 그 다음 단계로 남긴다.
+이번 변경은 신규 명세 테스트와 기존 보고서뿐이다. Git staging/commit/push/PR/merge,
+의존성 변경·유료 클라우드 실행을 하지 않았다.
+
+최종 구문·79열·공백 검사를 통과했다. 작업 전 추적 파일 132개 hash 대조에서 이 보고서만
+변경됐으며 기존 Gold 25건·Phase 3 코드/테스트·fixture·설계·의존성 파일은 그대로다.
