@@ -863,3 +863,79 @@ AWS/Databricks/Confluent 실행, Job 4 연결·외부 sink·Alert 구현은 하�
 정확한 staging 대상은 위 4개 파일이다. 권장 메시지:
 `feat(phase4): add health timer coordinator and local restart tests`.
 Git add/commit/push/merge는 수행하지 않았고 이번 논리 단위 완료 후 사용자 검토를 기다린다.
+
+
+## Equipment Health Registry Adapter — 2026-10-21 로컬 검증
+
+시작 branch는 feat/phase-4-twin-state, HEAD는
+2caa165b11e9af9abbf3cc836de769799d678137이며 working tree는 깨끗했다.
+직전 Health Timer Coordinator commit 2caa165와 Codec commit a564beb가 반영되어 있다.
+
+### 변경 파일과 설계
+
+- streaming/state/health_registry.py: 명시적 HealthPolicy tuple을 선택하는 별도 Adapter.
+- tests/unit/phase4/test_health_registry.py: 신규 42개 검증.
+- docs/streaming/equipment-health-contracts.md: 13절 API·권한·거부 경계.
+- docs/streaming/equipment-state-contracts.md: 별도 Health 연결과 Operational API 보존.
+- docs/reports/phase-4-verification.md: 이번 로컬 증거와 한계.
+
+새 profile 설정 저장소 없이 기존 HealthPolicy/EquipmentBinding/ProfileKey를 재사용한다.
+Fryer oil_temperature_celsius/celsius, Hood fan_rpm/rpm과 1.0.0만 현재 정책 계약대로
+허용하며 source/timeout/Health key는 명시 주입이다. 테스트의 10초와 fixture-simulator는
+운영 승인값이 아니다. Refrigerator/Freezer/Dishwasher는 Registry 지원을 보류한다.
+
+resolve/evaluate에서 identity·정확한 Health profile/version·metric/unit/schema/source를
+검사하고 snapshot의 정책/fingerprint/버전 호환성을 확인한다. 오류는 Core 실행 전
+HealthRegistryError다. admission을 통과한 수치/중복/역순/충돌/만료는 Core에 위임한다.
+잘못된 header를 가진 ID 충돌은 Registry 오류가 먼저이며 Core ordering 규칙은 그대로다.
+무효 이벤트는 freshness와 timer를 연장하지 않는다. HealthResult를 새로 감싸거나 전이,
+Health ID, 직렬화, timer 규칙을 다시 구현하지 않았다.
+
+### 로컬 비교·복원 증거
+
+직접 Core와 Adapter 경유 관측의 전체 결과를 단계별 비교했다. deadline 등호 STALE,
+복구, 중복/충돌/역순/동시각/만료, 반복 replay ID를 검증했다. timer 계획/실행은 기존
+Coordinator 결과와 같고 신규 관측 뒤 옛 generation·교차 장비 token이 무효다.
+로컬 파일의 기존 Codec bytes를 복원해 같은 token·deadline·Health ID를 확인했으며
+손상 payload는 거부했다. 다른 store/snapshot/profile/policy 혼용도 거부한다.
+
+동일 Hood 입력을 직접 Qualifier/Operational Registry/Health에 각각 적용해 결과와
+snapshot 독립성을 비교했다. Fryer Operational synthetic 처리도 기존 Registry 경유
+결과를 보존하고 Health에는 synthetic mode/fault를 허용하지 않는다. 관측/tick 경합은
+기존 Coordinator/Core의 명시적 입력 순서를 유지한다. 새 scheduler나 순서 재배열은 없다.
+
+### 실제 테스트 실행
+
+테스트를 먼저 작성해 모듈 부재의 collection error를 확인한 뒤 구현했다.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-registry-red tests/unit/phase4/test_health_registry.py
+# ModuleNotFoundError: streaming.state.health_registry, collection error 1건
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-registry-final-unit tests/unit/phase4/test_health_registry.py
+# 42 passed in 0.10s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-registry-phase4 tests/unit/phase4
+# 560 passed in 0.46s
+
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider --basetemp /private/tmp/ktd-health-registry-regression -m 'not integration'
+# 1274 passed, 10 deselected, 1 warning in 3.57s
+```
+
+기존 Authlib httpx deprecation 경고 1건이며 integration 10개는 제외했다.
+기존 Core/Codec/Coordinator·Operational FSM/Qualifier/Registry·테스트·fixture/config
+28개 파일의 시작/종료 SHA-256 대조, 신규 Python AST/79열, 문서 링크/표와
+`git diff --check`로 최종 변경 범위를 확인했다. 기존 구현 파일은 변경하지 않았다.
+
+### 미결정·미구현·미검증
+
+운영 timeout·Health profile/source 승인 및 실제 인증/binding 공급 계약은 미정이다.
+Adapter는 주입한 allowlist를 확인하며 실제 source 인증을 증명하지 않는다.
+실제 Consumer/Registry 런타임 연결·Job 4·scheduler·영속 queue·CAS·checkpoint·ACK·
+outbox·외부 sink/부분 실패 복구와 exactly-once는 미구현·미검증이다. 로컬 파일 복원은
+외부 영속 복구 증거가 아니다. FAULT 입력/추론·Phase 5 Alert도 추가하지 않았다.
+AWS/Databricks/Confluent 및 외부 서비스는 실행하지 않았다.
+
+정확한 staging 대상은 위 5개 파일이다. 권장 메시지:
+`feat(phase4): connect equipment health policies to registry`.
+Git add/commit/push/merge는 수행하지 않았으며 이번 논리 작업을 마치고 검토를 기다린다.

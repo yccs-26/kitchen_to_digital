@@ -2,10 +2,11 @@
 
 작성일: 2026-10-17 (Asia/Seoul). 검토 HEAD:
 `8bed0f7b41f4a2d10c7064137ddf0bea410bb9c8`, `feat/phase-4-twin-state`.
-최신 상태(2026-10-21): **Health Core + Snapshot Codec + 순수 Timer Coordinator**.
+최신 상태(2026-10-21): **Health Core + Snapshot Codec + 순수 Timer Coordinator + Health Registry Adapter**.
 1~9절은 확정된 논리 계약과 최초 설계표이며, 실제 API·시나리오별 구현 상태는
 10절을 따르고 Snapshot JSON Codec은 11절, 로컬 Timer Coordinator는 12절을 따른다.
-Registry 연결·Avro/state.changes wire·실제 scheduler·sink는 미구현이다.
+별도 Health Registry Adapter는 13절을 따른다. Consumer/Job 4 연결·
+Avro/state.changes wire·실제 scheduler·sink는 미구현이다.
 
 ## 1. 근거와 책임
 
@@ -692,3 +693,77 @@ Coordinator는 예외를 숨기거나 snapshot을 내부 확정하지 않는다.
 기존 테스트·config는 변경하지 않았다. 실제 scheduler·영속 timer queue·CAS·checkpoint·
 Timer ACK/재시도 영속 기록·외부 sink의 이중/삼중 쓰기·outbox·부분 실패 복구는
 미구현·미검증이다. 자동 background 실행이나 외부 서비스 연결을 하지 않았다.
+
+
+## 13. Equipment Health Registry Adapter — 순수 로컬 연결
+
+2026-10-21 기준 `streaming/state/health_registry.py`의
+`EquipmentHealthRegistry(policies: tuple[HealthPolicy, ...])`를 추가했다.
+기존 HealthPolicy의 EquipmentBinding·Health ProfileKey·timeout·입력 allowlist를
+그대로 보유한다. 별도 설정 파일/저장소·운영 기본 profile·timeout·source 권한을
+만들지 않는다. caller는 `resolve(...)`로 선택한 정책을 기존 initialize_health에
+전달해 epoch/start를 명시하고 snapshot을 만든다.
+
+### Profile과 입력 권한
+
+| Registry 지원 장비 | Operational dependency | Health freshness 관측 |
+|---|---|---|
+| Fryer | FRYER_REFERENCE exact key | oil_temperature_celsius / celsius / 1.0.0 |
+| Hood | HOOD_PROFILE exact key | fan_rpm / rpm / 1.0.0 |
+
+Health profile ID/version은 주입한 policy.profile을 정확히 선택한다. Operational
+profile을 Health key로 대체하거나 최신 버전/fallback을 찾지 않는다. 기존 binding의
+전역 equipment_id 유일성도 유지하며 다른 store에서 같은 ID를 중복 등록할 수 없다.
+Core의 refrigerator/freezer numeric 표현 가능성과 이 Adapter의 장비 입력 권한은
+별개다. Refrigerator/Freezer/Dishwasher는 이번 Registry에서 지원하지 않는다.
+
+기존 config에는 Health timeout/source 승인 설정이 없다. 테스트의 10초 timeout과
+fixture-simulator source는 명시적 로컬 가정이며 운영 정책/실제 발행자 인증 증거가
+아니다. Fryer Health의 numeric binding이 Operational synthetic signal 권한을
+부여하지 않는다. 정책 승인·실제 binding 공급 및 인증은 후속 런타임 책임이다.
+
+### API와 검증 경계
+
+- `resolve(store_id=..., equipment_id=..., equipment_type=..., profile=...)`:
+  주입한 단일 장비 정책을 반환한다.
+- `evaluate(previous, event, profile=..., reference_time=...)`: HealthObservation
+  또는 HoodRpmEvent의 numeric 10필드를 수용한다. 후자는 값을 보존해 변환하고 기존
+  reduce_health 결과인 HealthResult를 그대로 반환한다. dict/wire string·synthetic
+  mode/fault 입력을 자동 변환하지 않는다.
+- `plan_timer(previous, profile=..., evaluation_time=...)`와
+  `coordinate_timer(previous, token, profile=..., evaluation_time=...)`:
+  기존 Coordinator의 요청/결과 타입을 그대로 반환한다.
+- `restore(payload, store_id=..., equipment_id=..., equipment_type=...,
+  profile=..., evaluation_time=...)`: 기대 장비 정책을 선택하고 기존
+  restore_health_timer로 Codec 복원·timer 재구성을 수행한다. bytes를 읽고 쓰는 I/O는
+  caller 책임이다.
+
+Registry는 store/equipment/type, Health profile/version, metric/unit/schema version,
+source allowlist와 snapshot identity/정책/fingerprint/계약 version을 검사한다.
+실패는 HealthRegistryError(code)이며 Core를 호출하지 않는다. 잘못된 Python 타입과
+naive/raw timestamp는 모델/API 오류로 거부한다. Codec 복원 오류는 기존
+HealthCodecError를 그대로 전파한다. 일부 필드를 버리거나 자동 migration하지 않는다.
+
+Registry admission을 통과한 수치 부적합·중복·ID 충돌·역순·동시각·만료·미래 관측은
+기존 Core HealthDecision으로 처리한다. 4.2절의 Core 원장 우선순위는 변경하지 않았다.
+다만 같은 event_id의 충돌 payload라도 잘못된 unit/source 등 Registry header가 있으면
+Core의 ID_CONFLICT 전에 Registry 계약 오류가 우선한다. 거부 입력은 소비되지 않고
+last_seen/deadline/원장/후보 timer를 바꾸지 않는다. Health 전이와 change ID 생성은
+Registry가 재구현하지 않는다.
+
+### Timer·복원·독립성
+
+Timer 정책은 12절 그대로다. snapshot의 장비로 정책을 선택하며 token의 장비로
+snapshot을 교체하지 않는다. 다른 장비/옛 generation token은 Core에서 무효 처리된다.
+복원은 같은 deadline/generation/원장/revision을 유지하고 동일 평가에는 동일 Health
+change ID가 생성된다. Registry는 timer를 자동 발행하거나 관측/tick 순서를 정하지
+않는다. 기록된 명령 순서와 평가 시각이 같아야 같은 replay 결과를 보장한다.
+
+Operational RegistryResult·ProfileSnapshot·Fryer FSM·Hood Qualifier는 변경하지 않았다.
+같은 HoodRpmEvent를 양쪽에 명시적으로 전달할 수 있지만 각 snapshot/result는 독립이다.
+Health의 STALE이 Operational state를 변경하지 않으며 FAULT 추론/Alert도 추가하지 않는다.
+
+신규 `tests/unit/phase4/test_health_registry.py`의 42개 테스트는 두 장비 선택,
+계약 거부 시 Core 미호출, 직접 Core/Coordinator와 단계별 결과 대조, timer/복원,
+여러 장비 격리, Operational 결과 보존, replay ID를 확인한다. 상세 실행 결과는
+[검증 보고서](../reports/phase-4-verification.md)의 Health Registry Adapter 절을 따른다.

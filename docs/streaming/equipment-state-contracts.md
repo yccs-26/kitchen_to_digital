@@ -612,3 +612,18 @@ FAULT는 승인된 고장 계약이 있을 때만 가능하다. 현재 네 장�
 Health/Alert를 Operational enum에 합치지 않는다. 설계표와 실행 가능한 Health
 단위 테스트의 대응은 해당 문서 10절을 따른다. 기존 Operational 테스트 통과를
 새 Health 동작이나 외부 실행의 검증 증거로 사용하지 않는다.
+
+
+## 11. Health Registry Adapter 연결 — Operational API 보존
+
+별도 `EquipmentHealthRegistry`가 기존 EquipmentBinding/ProfileKey와 HealthPolicy를
+재사용해 Fryer/Hood Health 입력 정책을 선택한다. 자세한 권한·검증·timer/복원 경계는
+[Health 계약 13절](equipment-health-contracts.md#13-equipment-health-registry-adapter--순수-로컬-연결)을 따른다.
+기존 EquipmentFsmRegistry·RegistryResult·ProfileSnapshot과 Operational 전이/ID 규칙은
+변경하지 않았다. Health numeric 입력과 Fryer Operational synthetic 입력은 별도이며,
+Hood numeric 관측을 공유할 때도 snapshot과 결과를 서로 직접 변경하지 않는다.
+
+Health profile/source/운영 timeout은 caller가 명시해야 한다. 새 운영 기본값이나
+미지원 장비 fallback은 없다. Consumer·Spark Job 4·실제 scheduler·외부 sink는
+연결하지 않았다. 앞선 절의 Health 미구현 표기는 해당 구현 당시 범위이며 현재
+로컬 Health Core/Codec/Coordinator/Adapter의 상태는 Health 전용 계약을 기준으로 한다.
