@@ -1,4 +1,4 @@
-"""Gold 물리 매핑·비교 정책의 명세 테스트이며 생산 Mapper가 아니다."""
+"""생산 Gold Mapper와 독립적인 저장 비교 참조 모델의 계약 테스트."""
 
 from copy import deepcopy
 from dataclasses import fields
@@ -10,7 +10,12 @@ import sys
 
 import pytest
 
+from streaming.aggregations.gold_row_mapper import (
+    GoldRowMappingError,
+    map_gold_row,
+)
 from streaming.aggregations.minute_aggregation import MinuteAggregate
+from streaming.aggregations.windows import AggregationKey
 from streaming.validation.domain_validator import (
     EquipmentSpec,
     validate_domain_event,
@@ -47,42 +52,8 @@ NUMERIC_FIELDS = ("sum", "min", "max", "avg")
 
 
 def physical_row_spec(logical):
-    """검증된 논리 행의 매핑/정규화만 모델링하며 저장하지 않는다."""
-    if set(logical) != set(FIELD_MAPPING):
-        raise ValueError("Unexpected logical fields")
-    result = {}
-    for source, (target, sql_type) in FIELD_MAPPING.items():
-        value = logical[source]
-        if value is None:
-            raise ValueError(f"NULL is forbidden: {source}")
-        if sql_type == "STRING":
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"Expected nonblank string: {source}")
-        elif sql_type == "TIMESTAMP_LTZ":
-            if not isinstance(value, datetime) or value.utcoffset() is None:
-                raise ValueError(f"Expected aware datetime: {source}")
-            value = value.astimezone(timezone.utc)
-        elif sql_type == "BIGINT":
-            if type(value) is not int or not 0 < value <= 2**63 - 1:
-                raise ValueError("Expected positive signed BIGINT count")
-        else:
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise ValueError(f"Expected finite number: {source}")
-            original = value
-            value = float(value)
-            if isinstance(original, int) and value != original:
-                raise ValueError(
-                    "DOUBLE conversion would lose integer precision"
-                )
-            if not math.isfinite(value):
-                raise ValueError(f"Expected finite number: {source}")
-            if value == 0.0:
-                value = 0.0
-        result[target] = value
-    derived_avg = result["sum_value"] / result["sample_count"]
-    if result["avg_value"] != derived_avg:
-        raise ValueError("avg must equal sum / count")
-    return result
+    """기존 명세 호출부를 실제 생산 Mapper에 연결한다."""
+    return map_gold_row(logical)
 
 
 def normalized_logical_spec(logical):
@@ -95,6 +66,11 @@ def classify_spec(canonical, candidate):
     """기존 exact 비교 참조 모델을 정규화된 행에 그대로 적용한다."""
     store = MemoryGoldReference()
     store.apply_batch([normalized_logical_spec(canonical)])
+    if candidate["window_end"] != canonical["window_end"]:
+        # 잘못된 길이는 Mapper가 거부하고, 저장 참조 모델은 별도로 비교한다.
+        with pytest.raises(GoldRowMappingError, match="window_end"):
+            physical_row_spec(candidate)
+        return store.classify(candidate)[0]
     return store.classify(normalized_logical_spec(candidate))[0]
 
 
@@ -120,6 +96,7 @@ def test_window_namespace_fixes_duration_slide_and_end(
         "5m_sliding": (timedelta(minutes=5), timedelta(minutes=1)),
     }
     for row in (minute_row, sliding_row):
+        assert normalized_logical_spec(row) == row
         duration, slide = WINDOW_SPECS[row["window_type"]]
         assert row["window_end"] == row["window_start"] + duration
         assert row["window_start"].second == 0
@@ -269,3 +246,124 @@ def test_existing_phase2_validator_rejects_invalid_metric(value, code):
     assert not result.is_valid
     assert any(error.field == "metric_value" and error.code == code
                for error in result.errors)
+
+
+@pytest.mark.parametrize("fixture_name", ["minute_row", "sliding_row"])
+def test_physical_values_and_types_are_independent_expectations(
+    request, fixture_name,
+):
+    row = request.getfixturevalue(fixture_name)
+    physical = map_gold_row(row)
+    expected_stats = (
+        (3, 12.0, 2.0, 6.0, 4.0) if fixture_name == "minute_row"
+        else (4, 30.0, 2.0, 16.0, 7.5)
+    )
+    assert tuple(physical[name] for name in (
+        "sample_count", "sum_value", "min_value", "max_value", "avg_value",
+    )) == expected_stats
+    assert set(physical) == {value[0] for value in FIELD_MAPPING.values()}
+    assert type(physical["sample_count"]) is int
+    for name in ("sum_value", "min_value", "max_value", "avg_value"):
+        assert type(physical[name]) is float
+    for name in KEY_FIELDS + ("window_end", "unit"):
+        assert physical[name] == row[name]
+
+
+def test_existing_dataclass_maps_without_modification(minute_row):
+    model = MinuteAggregate(
+        key=AggregationKey(*(minute_row[name] for name in KEY_FIELDS)),
+        **{name: minute_row[name] for name in (
+            "window_end", "unit", "count", "sum", "avg", "min", "max",
+        )},
+    )
+    before = deepcopy(model)
+    physical = map_gold_row(model)
+    assert physical["sample_count"] == 3
+    assert physical["sum_value"] == 12.0
+    assert physical["avg_value"] == 4.0
+    assert model == before
+
+
+@pytest.mark.parametrize("field", tuple(FIELD_MAPPING))
+def test_missing_fields_raise_explicit_mapping_error(minute_row, field):
+    row = {name: value for name, value in minute_row.items() if name != field}
+    with pytest.raises(GoldRowMappingError, match="logical fields"):
+        map_gold_row(row)
+
+
+@pytest.mark.parametrize("changes,reason", [
+    ({"extra": "unsupported"}, "logical fields"),
+    ({"window_type": "5m_tumbling"}, "window_type"),
+    ({"window_start": datetime(2026, 10, 20, 12, 0, 1,
+                               tzinfo=timezone.utc)}, "minute boundary"),
+    ({"window_start": datetime(2026, 10, 20, 12, 0, microsecond=1,
+                               tzinfo=timezone.utc)}, "minute boundary"),
+    ({"window_end": datetime(2026, 10, 20, 12, 2,
+                             tzinfo=timezone.utc)}, "window_end"),
+    ({"window_end": datetime(2026, 10, 20, 12, 1, microsecond=1,
+                             tzinfo=timezone.utc)}, "window_end"),
+    ({"window_start": datetime(2026, 10, 20, 12)}, "aware datetime"),
+    ({"window_end": datetime(2026, 10, 20, 12, 1)}, "aware datetime"),
+    ({"window_start": "2026-10-20T12:00:00Z"}, "aware datetime"),
+])
+def test_invalid_window_geometry_or_schema_rejected(
+    minute_row, changes, reason,
+):
+    with pytest.raises(GoldRowMappingError, match=reason):
+        map_gold_row({**minute_row, **changes})
+
+
+def test_sliding_window_rejects_tumbling_duration(sliding_row):
+    with pytest.raises(GoldRowMappingError, match="window_end"):
+        map_gold_row({
+            **sliding_row,
+            "window_end": sliding_row["window_start"] + timedelta(minutes=1),
+        })
+
+
+def test_utc_normalization_preserves_instants_and_strings(minute_row):
+    offset = timezone(timedelta(hours=14))
+    row = {
+        **minute_row,
+        "window_start": minute_row["window_start"].astimezone(offset),
+        "window_end": minute_row["window_end"].astimezone(offset),
+        "store_id": " store-001 ",
+    }
+    before = deepcopy(row)
+    physical = map_gold_row(row)
+    assert physical["window_start"] == minute_row["window_start"]
+    assert physical["window_end"] == minute_row["window_end"]
+    assert physical["window_start"].tzinfo is timezone.utc
+    assert physical["window_end"].tzinfo is timezone.utc
+    assert physical["store_id"] == " store-001 "
+    assert row == before
+
+
+@pytest.mark.parametrize("field", [
+    "window_type", "store_id", "equipment_id", "metric_name", "unit",
+])
+@pytest.mark.parametrize("value", ["", "  ", 7])
+def test_nonstring_or_blank_dimension_rejected(minute_row, field, value):
+    with pytest.raises(GoldRowMappingError):
+        map_gold_row({**minute_row, field: value})
+
+
+@pytest.mark.parametrize("field", NUMERIC_FIELDS)
+@pytest.mark.parametrize("value", [True, "4.0", 10**400])
+def test_nonnumeric_or_overflow_stat_rejected(minute_row, field, value):
+    with pytest.raises(GoldRowMappingError, match="finite"):
+        map_gold_row({**minute_row, field: value})
+
+
+def test_maximum_bigint_preserves_integer_type(minute_row):
+    row = {**minute_row, "count": 2**63 - 1,
+           **dict.fromkeys(NUMERIC_FIELDS, 0)}
+    physical = map_gold_row(row)
+    assert physical["sample_count"] == 2**63 - 1
+    assert type(physical["sample_count"]) is int
+
+
+@pytest.mark.parametrize("value", [None, [], 3])
+def test_nonaggregate_input_rejected(value):
+    with pytest.raises(GoldRowMappingError, match="logical mapping"):
+        map_gold_row(value)

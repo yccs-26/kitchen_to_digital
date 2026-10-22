@@ -6,9 +6,10 @@ Branch: `feat/phase-3-gold-windows`, 기준 HEAD `c0b28d4`, 시작 시 working t
 
 **결과: 테스트 전용 메모리 참조 모델 25 passed, 기존 Phase 3 Python 회귀 98 passed.**
 후속 물리 매핑·수치 동일성 명세는 **48 passed**, 기존 회귀는 **123 passed(25+98)**다.
-최신 매핑과 비교 정책은 아래 「Gold 물리 행 매핑·수치 동일성 확정안」을 참조한다.
+최신 결과: **생산 Mapper 연결 매핑 테스트 105 passed**, 기존 회귀 **123 passed**.
+생산 함수 호출은 100건이며 아래 「생산 Gold Row Mapper 구현」을 참조한다.
 앞부분의 매핑/허용오차 미결정 기록은 이전 저장 참조 모델 단계의 이력으로 보존한다.
-생산 Gold sink/helper는 없으므로 생산용 저장 계약 구현의 검증 완료가 아니다.
+생산 Row Mapper는 구현했지만 Gold Sink는 없으므로 저장 계약 구현의 검증 완료가 아니다.
 실제 Delta MERGE·트랜잭션·별도 프로세스 재시작·Kafka E2E는 미검증이다.
 이번에는 순수 Python 저장 명세의 기대 동작을 고정했다.
 
@@ -359,3 +360,128 @@ DDL, 실제 mapper, Delta NULL/타입/동시성 enforcement, end/slide 설정을
 
 최종 구문·79열·공백 검사를 통과했다. 작업 전 추적 파일 132개 hash 대조에서 이 보고서만
 변경됐으며 기존 Gold 25건·Phase 3 코드/테스트·fixture·설계·의존성 파일은 그대로다.
+
+
+## 생산 Gold Row Mapper 구현 — 2026-10-22
+
+### 범위와 인터페이스
+
+시작 HEAD `89a4b50fce5effa3569fb48d740523960518fea7`, working tree clean,
+branch `feat/phase-3-gold-windows`를 직접 확인했다. 위의 과거 명세 단계 기록은 보존한다.
+동등한 Mapper와 `streaming/jobs/metric_aggregation.py`는 없었다.
+
+생산 모듈 `streaming/aggregations/gold_row_mapper.py`:
+
+```python
+map_gold_row(logical: Mapping[str, object] | MinuteAggregate) -> GoldPhysicalRow
+```
+
+`GoldPhysicalRow`는 12컬럼 TypedDict이며 런타임에는 새 dict를 반환한다.
+기존 frozen MinuteAggregate와 평탄한 12필드 논리 Mapping을 받는다.
+생산 5분 집계 모델은 추가하지 않았고 5m_sliding 행은 Mapping으로 입력한다.
+잘못된 입력은 `GoldRowMappingError(ValueError)`로 거부한다.
+입력 변경, 저장소 조회, INSERT/NO-OP/CONFLICT 판정은 수행하지 않는다.
+
+| 논리 필드 | 물리 컬럼 | Python 반환 타입 / 저장 타입 계약 |
+|---|---|---|
+| window_start, window_end | 동명 | UTC aware datetime / TIMESTAMP_LTZ |
+| window_type, store_id, equipment_id, metric_name, unit | 동명 | str / STRING |
+| count | sample_count | int / BIGINT |
+| sum | sum_value | float / DOUBLE |
+| min | min_value | float / DOUBLE |
+| max | max_value | float / DOUBLE |
+| avg | avg_value | float / DOUBLE |
+
+이는 Python 변환 계약이다. SQL 타입의 실제 DDL 적용을 입증하지 않는다.
+자연키 5필드는 그대로이고 unit/window_end는 속성이다.
+
+### 검증과 정규화
+
+- 정확한 12필드 집합, 누락/추가 필드 및 모든 NULL 거부.
+- 문자열은 비어 있거나 공백뿐이면 거부하며 원문을 보존한다.
+- naive datetime과 문자열 timestamp 거부. aware datetime은 같은 instant의 UTC로 변환.
+- 시작은 UTC 분 경계, end는 정확히 start+기간이어야 한다.
+  1m_tumbling=1분/1분, 5m_sliding=5분/1분의 기존 namespace만 허용한다.
+- count는 bool을 제외한 정확한 int, `1 <= count <= 2**63-1`이며 float로 변환하지 않는다.
+- sum/min/max/avg는 bool을 제외한 int/float만 수용하고 유한 binary64로 변환한다.
+  정수의 손실 있는 DOUBLE 변환과 범위 초과는 명시적으로 거부한다.
+- 모든 signed zero는 +0.0으로 정규화하고 avg는 sum/count와 정확히 일치해야 한다.
+- 기존 명세에 없는 min/max와 sum의 추가 관계식, epsilon, 반올림, 단위 변환은 추가하지 않았다.
+
+닫힌 window라는 사실과 producer의 실제 slide 설정은 행만으로 증명할 수 없다.
+확정 집계 전달은 호출자의 책임이며 closure 검증이나 새 streaming query는 없다.
+
+### 기존 assertion과 테스트 연결
+
+기존 `physical_row_spec`의 참조 구현을 제거하고 실제 `map_gold_row` 호출 어댑터로 바꿨다.
+테스트의 독립 FIELD_MAPPING/수동 수치 기대값은 생산 상수에서 가져오지 않는다.
+기존 assertion AST가 모두 남아 있음을 HEAD와 비교해 확인했다.
+기존 48개 시나리오와 parameter 값/기대값을 변경하지 않았다.
+
+유일한 경계 차이는 잘못된 1분 window_end 사례다. 생산 Mapper는 이를 입력 오류로 거부한다.
+테스트 어댑터는 명시적인 raises assertion으로 그 거부를 확인한 다음, 원래 입력을 독립
+MemoryGoldReference에서 비교하여 기존 CONFLICT assertion도 보존한다.
+거부된 행이 Mapper를 통과했다거나 실제 저장되었다는 의미가 아니다.
+유효한 unit/집계값 변경은 Mapper를 통과한 후 참조 저장소에서 CONFLICT로 비교된다.
+
+임시 pytest profile hook으로 실제 생산 함수 진입을 계측했다. 저장소에 계측 코드는 추가하지 않았다.
+
+| 구분 | 결과 | 실제 생산 Mapper 호출 테스트 수 |
+|---|---|---|
+| 기존 매핑 명세 시나리오 | 48 passed | 43 |
+| 추가 입력/타입/UTC/모델 경계 시나리오 | 57 passed | 57 |
+| 매핑 파일 합계 | 105 passed | 100 |
+| 기존 Gold Sink 참조 모델 | 25 passed | 0 |
+| 기존 Phase 3 Python | 98 passed | 0 |
+| 전체 Phase 3 unit | 228 passed, 0 failed, 0 skipped | 100 |
+
+Mapper를 호출하지 않는 매핑 파일의 5건은 기존 Phase 2 validator의 NULL/bool/NaN/±Infinity
+입력 거부 검사다. 이를 생산 Mapper 테스트 수에 포함하지 않았다.
+추가 57건은 물리 수치/타입 2, 기존 dataclass 1, 누락 필드 12, schema/window 경계 9,
+sliding 길이 1, UTC/입력 보존 1, 문자열 차원 15, 수치 타입/overflow 12,
+BIGINT 상한 1, 비집계 입력 3이다.
+
+### 실행 근거
+
+Python 3.11.15와 기존 `.venv`를 재사용했고 의존성 변경은 없다.
+worktree 루트에서 실행했다.
+
+```sh
+.venv/bin/python -m pytest tests/unit/phase3/test_gold_row_mapping.py -q \
+  -o cache_dir=/private/tmp/ktd-gold-mapper-verification/pytest-cache \
+  --basetemp=/private/tmp/ktd-gold-mapper-verification/mapping-tmp
+# 105 passed in 0.12s
+
+PYTHONPATH=/private/tmp/ktd-gold-mapper-verification \
+.venv/bin/python -m pytest tests/unit/phase3 -v -p mapper_calls \
+  -o cache_dir=/private/tmp/ktd-gold-mapper-verification/pytest-cache \
+  --basetemp=/private/tmp/ktd-gold-mapper-verification/regression-tmp \
+  --junitxml=/private/tmp/ktd-gold-mapper-verification/regression.xml
+# 228 passed in 0.16s
+
+git diff --check
+# PASS
+```
+
+`/private/tmp/ktd-gold-mapper-verification/`에 regression.log, regression.xml,
+mapper_calls.py, mapper-calls.json을 보존했다. 임시 파일은 Git 대상이 아니다.
+변경 Python 파일은 compile 기반 구문 검사와 79컬럼/공백 검사를 통과했다.
+
+### 한계와 다음 단위
+
+정확 비교와 1 ULP/누산 순서 차이에 대한 참조 Sink의 CONFLICT assertion을 유지했다.
+Mapper는 그 작은 차이를 없애지 않으며 충돌 판단 자체는 후속 Sink 책임이다.
+동일 canonical 값의 재전달만으로부터 재집계 결정성이나 무조건 retry 성공을 추론하지 않는다.
+
+Spark Streaming 10 passed는 이전 검증 이력이며 이번에는 재실행하지 않았다.
+Delta DDL/MERGE/트랜잭션, checkpoint/프로세스 재시작, Kafka/Databricks E2E는 미검증이다.
+유료 클라우드 실행, 자동 staging/commit/push/PR/merge는 수행하지 않았다.
+
+변경 파일은 정확히 다음 3개다.
+
+- `/Users/uchan/Downloads/DE/02_project/ktd-worktrees/phase-3-gold-windows/streaming/aggregations/gold_row_mapper.py`
+- `/Users/uchan/Downloads/DE/02_project/ktd-worktrees/phase-3-gold-windows/tests/unit/phase3/test_gold_row_mapping.py`
+- `/Users/uchan/Downloads/DE/02_project/ktd-worktrees/phase-3-gold-windows/docs/reports/phase-3-gold-sink-contract-verification.md`
+
+다음 최소 단위는 이 물리 행을 입력으로 하는 순수한 자연키/속성 비교 함수의 계약 검토다.
+별도 승인 후에만 후속 구현을 진행하며 실제 Delta Sink와 분리해 검증할 수 있다.
