@@ -1,0 +1,246 @@
+SOURCE: worker-0-before_ack-checkpoint.log
+WARNING: Using incubator modules: jdk.incubator.vector
+26/10/23 01:04:04 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+26/10/23 01:04:12 ERROR MicroBatchExecution: Query ktd_p2_8h_local_only [id = 3f5d1af1-cf5f-4230-889d-bf646562986d, runId = 252978ec-82d5-4816-9c59-5e94ebcf7bc5] terminated with error
+org.apache.spark.sql.execution.streaming.sources.ForeachBatchUserFuncException: [FOREACH_BATCH_USER_FUNCTION_ERROR] An error occurred in the user provided function in foreach batch sink. Reason: An exception was raised by the Python Proxy. Return Message: Traceback (most recent call last):
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/py4j/clientserver.py", line 644, in _call_proxy
+    return_value = getattr(self.pool[obj_id], method)(*params)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/pyspark/sql/utils.py", line 165, in call
+    raise e
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/pyspark/sql/utils.py", line 162, in call
+    self.func(DataFrame(jdf, wrapped_session_jdf), batch_id)
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/job2_local_recovery_worker.py", line 111, in handle
+    counts = job.process_batch(batch, batch_id, **dependencies)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/jobs/sensor_validation_job.py", line 246, in process_batch
+    result = process_record(row.asDict(), **dependencies)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/jobs/sensor_validation_job.py", line 209, in process_record
+    delivery = deliver_validated_event(
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/sinks/validated_publisher.py", line 172, in deliver_validated_event
+    message = publish_validated_event(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/sinks/validated_publisher.py", line 129, in publish_validated_event
+    remaining = producer.flush(timeout)
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/job2_local_recovery_worker.py", line 42, in flush
+    raise TimeoutError("injected: Silver committed, ACK unavailable")
+TimeoutError: injected: Silver committed, ACK unavailable
+ SQLSTATE: 39000
+	at org.apache.spark.sql.execution.streaming.sources.ForeachBatchSink.callBatchWriter(ForeachBatchSink.scala:60)
+	at org.apache.spark.sql.execution.streaming.sources.ForeachBatchSink.addBatch(ForeachBatchSink.scala:49)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.$anonfun$runBatch$17(MicroBatchExecution.scala:879)
+	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId0$8(SQLExecution.scala:163)
+	at org.apache.spark.sql.execution.SQLExecution$.withSessionTagsApplied(SQLExecution.scala:272)
+	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId0$7(SQLExecution.scala:125)
+	at org.apache.spark.JobArtifactSet$.withActiveJobArtifactState(JobArtifactSet.scala:94)
+	at org.apache.spark.sql.artifact.ArtifactManager.$anonfun$withResources$1(ArtifactManager.scala:112)
+	at org.apache.spark.sql.artifact.ArtifactManager.withClassLoaderIfNeeded(ArtifactManager.scala:106)
+	at org.apache.spark.sql.artifact.ArtifactManager.withResources(ArtifactManager.scala:111)
+	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId0$6(SQLExecution.scala:125)
+	at org.apache.spark.sql.execution.SQLExecution$.withSQLConfPropagated(SQLExecution.scala:295)
+	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId0$1(SQLExecution.scala:124)
+	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+	at org.apache.spark.sql.execution.SQLExecution$.withNewExecutionId0(SQLExecution.scala:78)
+	at org.apache.spark.sql.execution.SQLExecution$.withNewExecutionId(SQLExecution.scala:237)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.$anonfun$runBatch$16(MicroBatchExecution.scala:876)
+	at org.apache.spark.sql.execution.streaming.ProgressContext.reportTimeTaken(ProgressReporter.scala:186)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.runBatch(MicroBatchExecution.scala:876)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.$anonfun$executeOneBatch$2(MicroBatchExecution.scala:394)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at org.apache.spark.sql.execution.streaming.ProgressContext.reportTimeTaken(ProgressReporter.scala:186)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.executeOneBatch(MicroBatchExecution.scala:364)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.$anonfun$runActivatedStream$1(MicroBatchExecution.scala:344)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.$anonfun$runActivatedStream$1$adapted(MicroBatchExecution.scala:344)
+	at org.apache.spark.sql.execution.streaming.TriggerExecutor.runOneBatch(TriggerExecutor.scala:39)
+	at org.apache.spark.sql.execution.streaming.TriggerExecutor.runOneBatch$(TriggerExecutor.scala:37)
+	at org.apache.spark.sql.execution.streaming.MultiBatchExecutor.runOneBatch(TriggerExecutor.scala:59)
+	at org.apache.spark.sql.execution.streaming.MultiBatchExecutor.execute(TriggerExecutor.scala:64)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.runActivatedStream(MicroBatchExecution.scala:344)
+	at org.apache.spark.sql.execution.streaming.StreamExecution.$anonfun$runStream$1(StreamExecution.scala:337)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+	at org.apache.spark.sql.execution.streaming.StreamExecution.org$apache$spark$sql$execution$streaming$StreamExecution$$runStream(StreamExecution.scala:311)
+	at org.apache.spark.sql.execution.streaming.StreamExecution$$anon$1.run(StreamExecution.scala:226)
+Caused by: py4j.Py4JException: An exception was raised by the Python Proxy. Return Message: Traceback (most recent call last):
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/py4j/clientserver.py", line 644, in _call_proxy
+    return_value = getattr(self.pool[obj_id], method)(*params)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/pyspark/sql/utils.py", line 165, in call
+    raise e
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/pyspark/sql/utils.py", line 162, in call
+    self.func(DataFrame(jdf, wrapped_session_jdf), batch_id)
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/job2_local_recovery_worker.py", line 111, in handle
+    counts = job.process_batch(batch, batch_id, **dependencies)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/jobs/sensor_validation_job.py", line 246, in process_batch
+    result = process_record(row.asDict(), **dependencies)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/jobs/sensor_validation_job.py", line 209, in process_record
+    delivery = deliver_validated_event(
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/sinks/validated_publisher.py", line 172, in deliver_validated_event
+    message = publish_validated_event(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/sinks/validated_publisher.py", line 129, in publish_validated_event
+    remaining = producer.flush(timeout)
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/job2_local_recovery_worker.py", line 42, in flush
+    raise TimeoutError("injected: Silver committed, ACK unavailable")
+TimeoutError: injected: Silver committed, ACK unavailable
+
+	at py4j.Protocol.getReturnValue(Protocol.java:476)
+	at py4j.reflection.PythonProxyHandler.invoke(PythonProxyHandler.java:108)
+	at jdk.proxy3/jdk.proxy3.$Proxy46.call(Unknown Source)
+	at org.apache.spark.sql.execution.streaming.sources.PythonForeachBatchHelper$.$anonfun$callForeachBatch$1(ForeachBatchSink.scala:87)
+	at org.apache.spark.sql.execution.streaming.sources.PythonForeachBatchHelper$.$anonfun$callForeachBatch$1$adapted(ForeachBatchSink.scala:87)
+	at org.apache.spark.sql.execution.streaming.sources.ForeachBatchSink.callBatchWriter(ForeachBatchSink.scala:56)
+	... 34 more
+Traceback (most recent call last):
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/job2_local_recovery_worker.py", line 146, in <module>
+    main()
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/job2_local_recovery_worker.py", line 132, in main
+    query.awaitTermination()
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/pyspark/sql/streaming/query.py", line 225, in awaitTermination
+    return self._jsq.awaitTermination()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/py4j/java_gateway.py", line 1362, in __call__
+    return_value = get_return_value(
+                   ^^^^^^^^^^^^^^^^^
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/pyspark/errors/exceptions/captured.py", line 288, in deco
+    raise converted from None
+pyspark.errors.exceptions.captured.StreamingQueryException: [STREAM_FAILED] Query [id = 3f5d1af1-cf5f-4230-889d-bf646562986d, runId = 252978ec-82d5-4816-9c59-5e94ebcf7bc5] terminated with exception: [FOREACH_BATCH_USER_FUNCTION_ERROR] An error occurred in the user provided function in foreach batch sink. Reason: An exception was raised by the Python Proxy. Return Message: Traceback (most recent call last):
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/py4j/clientserver.py", line 644, in _call_proxy
+    return_value = getattr(self.pool[obj_id], method)(*params)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/pyspark/sql/utils.py", line 165, in call
+    raise e
+  File "/tmp/ktd-8h-spark/lib/python3.11/site-packages/pyspark/sql/utils.py", line 162, in call
+    self.func(DataFrame(jdf, wrapped_session_jdf), batch_id)
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/job2_local_recovery_worker.py", line 111, in handle
+    counts = job.process_batch(batch, batch_id, **dependencies)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/jobs/sensor_validation_job.py", line 246, in process_batch
+    result = process_record(row.asDict(), **dependencies)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/jobs/sensor_validation_job.py", line 209, in process_record
+    delivery = deliver_validated_event(
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/sinks/validated_publisher.py", line 172, in deliver_validated_event
+    message = publish_validated_event(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/streaming/sinks/validated_publisher.py", line 129, in publish_validated_event
+    remaining = producer.flush(timeout)
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/job2_local_recovery_worker.py", line 42, in flush
+    raise TimeoutError("injected: Silver committed, ACK unavailable")
+TimeoutError: injected: Silver committed, ACK unavailable
+ SQLSTATE: 39000 SQLSTATE: XXKST
+=== Streaming Query ===
+Identifier: ktd_p2_8h_local_only [id = 3f5d1af1-cf5f-4230-889d-bf646562986d, runId = 252978ec-82d5-4816-9c59-5e94ebcf7bc5]
+Current Committed Offsets: {}
+Current Available Offsets: {FileStreamSource[file:/private/tmp/ktd-8h-delta-final/test_fresh_process_delta_and_c0/input]: {"logOffset":0}}
+
+Current State: ACTIVE
+Thread State: RUNNABLE
+
+Logical Plan:
+~WriteToMicroBatchDataSourceV1 ForeachBatchSink, 3f5d1af1-cf5f-4230-889d-bf646562986d, [checkpointLocation=/private/tmp/ktd-8h-delta-final/test_fresh_process_delta_and_c0/checkpoint, queryName=ktd_p2_8h_local_only], Append
++- ~StreamingExecutionRelation FileStreamSource[file:/private/tmp/ktd-8h-delta-final/test_fresh_process_delta_and_c0/input], [topic#128, partition#129, offset#130L, key#131, value#132]
+
+
+SOURCE: worker-1-after_ack-checkpoint.log
+WARNING: Using incubator modules: jdk.incubator.vector
+26/10/23 01:04:13 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+26/10/23 01:04:22 ERROR MicroBatchExecution: Query ktd_p2_8h_local_only [id = 3f5d1af1-cf5f-4230-889d-bf646562986d, runId = 5268ddd1-ade1-497c-bf7a-13256ea5849a] terminated with error
+org.apache.spark.sql.execution.streaming.sources.ForeachBatchUserFuncException: [FOREACH_BATCH_USER_FUNCTION_ERROR] An error occurred in the user provided function in foreach batch sink. Reason: Error while sending a command. SQLSTATE: 39000
+	at org.apache.spark.sql.execution.streaming.sources.ForeachBatchSink.callBatchWriter(ForeachBatchSink.scala:60)
+	at org.apache.spark.sql.execution.streaming.sources.ForeachBatchSink.addBatch(ForeachBatchSink.scala:49)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.$anonfun$runBatch$17(MicroBatchExecution.scala:879)
+	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId0$8(SQLExecution.scala:163)
+	at org.apache.spark.sql.execution.SQLExecution$.withSessionTagsApplied(SQLExecution.scala:272)
+	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId0$7(SQLExecution.scala:125)
+	at org.apache.spark.JobArtifactSet$.withActiveJobArtifactState(JobArtifactSet.scala:94)
+	at org.apache.spark.sql.artifact.ArtifactManager.$anonfun$withResources$1(ArtifactManager.scala:112)
+	at org.apache.spark.sql.artifact.ArtifactManager.withClassLoaderIfNeeded(ArtifactManager.scala:106)
+	at org.apache.spark.sql.artifact.ArtifactManager.withResources(ArtifactManager.scala:111)
+	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId0$6(SQLExecution.scala:125)
+	at org.apache.spark.sql.execution.SQLExecution$.withSQLConfPropagated(SQLExecution.scala:295)
+	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withNewExecutionId0$1(SQLExecution.scala:124)
+	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+	at org.apache.spark.sql.execution.SQLExecution$.withNewExecutionId0(SQLExecution.scala:78)
+	at org.apache.spark.sql.execution.SQLExecution$.withNewExecutionId(SQLExecution.scala:237)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.$anonfun$runBatch$16(MicroBatchExecution.scala:876)
+	at org.apache.spark.sql.execution.streaming.ProgressContext.reportTimeTaken(ProgressReporter.scala:186)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.runBatch(MicroBatchExecution.scala:876)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.$anonfun$executeOneBatch$2(MicroBatchExecution.scala:394)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at org.apache.spark.sql.execution.streaming.ProgressContext.reportTimeTaken(ProgressReporter.scala:186)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.executeOneBatch(MicroBatchExecution.scala:364)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.$anonfun$runActivatedStream$1(MicroBatchExecution.scala:344)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.$anonfun$runActivatedStream$1$adapted(MicroBatchExecution.scala:344)
+	at org.apache.spark.sql.execution.streaming.TriggerExecutor.runOneBatch(TriggerExecutor.scala:39)
+	at org.apache.spark.sql.execution.streaming.TriggerExecutor.runOneBatch$(TriggerExecutor.scala:37)
+	at org.apache.spark.sql.execution.streaming.MultiBatchExecutor.runOneBatch(TriggerExecutor.scala:59)
+	at org.apache.spark.sql.execution.streaming.MultiBatchExecutor.execute(TriggerExecutor.scala:64)
+	at org.apache.spark.sql.execution.streaming.MicroBatchExecution.runActivatedStream(MicroBatchExecution.scala:344)
+	at org.apache.spark.sql.execution.streaming.StreamExecution.$anonfun$runStream$1(StreamExecution.scala:337)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:804)
+	at org.apache.spark.sql.execution.streaming.StreamExecution.org$apache$spark$sql$execution$streaming$StreamExecution$$runStream(StreamExecution.scala:311)
+	at org.apache.spark.sql.execution.streaming.StreamExecution$$anon$1.run(StreamExecution.scala:226)
+Caused by: py4j.Py4JException: Error while sending a command.
+	at py4j.CallbackClient.sendCommand(CallbackClient.java:397)
+	at py4j.CallbackClient.sendCommand(CallbackClient.java:356)
+	at py4j.reflection.PythonProxyHandler.invoke(PythonProxyHandler.java:106)
+	at jdk.proxy3/jdk.proxy3.$Proxy44.call(Unknown Source)
+	at org.apache.spark.sql.execution.streaming.sources.PythonForeachBatchHelper$.$anonfun$callForeachBatch$1(ForeachBatchSink.scala:87)
+	at org.apache.spark.sql.execution.streaming.sources.PythonForeachBatchHelper$.$anonfun$callForeachBatch$1$adapted(ForeachBatchSink.scala:87)
+	at org.apache.spark.sql.execution.streaming.sources.ForeachBatchSink.callBatchWriter(ForeachBatchSink.scala:56)
+	... 34 more
+Caused by: py4j.Py4JNetworkException: Error while sending a command: c
+p0
+call
+ro68
+L0
+e
+
+	at py4j.ClientServerConnection.sendCommand(ClientServerConnection.java:255)
+	at py4j.CallbackClient.sendCommand(CallbackClient.java:384)
+	... 40 more
+Caused by: py4j.Py4JException: Received empty command
+	at py4j.ClientServerConnection.sendCommand(ClientServerConnection.java:238)
+	... 41 more
+
+SOURCE: worker-2-success-checkpoint.log
+WARNING: Using incubator modules: jdk.incubator.vector
+26/10/23 01:04:23 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+
+[Stage 5:>                                                          (0 + 1) / 1]
+
+                                                                                
+
+SOURCE: worker-3-success-checkpoint.log
+WARNING: Using incubator modules: jdk.incubator.vector
+26/10/23 01:04:32 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+
+SOURCE: worker-4-success-fresh_checkpoint.log
+WARNING: Using incubator modules: jdk.incubator.vector
+26/10/23 01:04:41 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).

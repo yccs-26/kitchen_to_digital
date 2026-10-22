@@ -51,7 +51,8 @@ def decode_sensor_event(
     try:
         schema = registry_client.get_schema(schema_id)
     except SchemaRegistryError as exc:
-        if exc.http_status_code == 404:
+        # HTTP 404만으로 endpoint·proxy 장애를 데이터 오류로 확정하지 않는다.
+        if exc.http_status_code == 404 and exc.error_code == 40403:
             raise SensorDecodeError(
                 "UNKNOWN_SCHEMA_ID", "schema_id",
                 f"Unknown schema id: {schema_id}", schema_id=schema_id,

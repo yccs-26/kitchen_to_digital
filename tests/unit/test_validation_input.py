@@ -119,12 +119,15 @@ def test_decode_sensor_event_rejects_unknown_schema_id(serialized_event, registr
     registry.get_schema.assert_called_once_with(999)
 
 
-@pytest.mark.parametrize("status", [500, 502, 503])
+@pytest.mark.parametrize("status,error_code", [
+    (500, 50001), (502, 50001), (503, 50001),
+    (404, 404), (404, 40401), (404, -1),
+])
 def test_decode_sensor_event_propagates_registry_failure(
-    serialized_event, registry, status
+    serialized_event, registry, status, error_code
 ):
     _, value = serialized_event
-    error = SchemaRegistryError(status, 50001, "Registry unavailable")
+    error = SchemaRegistryError(status, error_code, "Registry unavailable")
     registry.get_schema.side_effect = error
 
     with pytest.raises(SchemaRegistryError) as caught:

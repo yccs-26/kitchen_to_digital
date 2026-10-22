@@ -1,0 +1,394 @@
+{
+  "scope": "REAL local OSS Spark + Delta + file-source checkpoint; simulated Kafka/Registry",
+  "canonical": [
+    {
+      "event_id": "local-recovery-1",
+      "event_time": "2016-10-08 12:00:00.123456+00:00",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "equipment_type": "refrigerator",
+      "metric_name": "temperature_celsius",
+      "metric_value": 4.2,
+      "unit": "celsius",
+      "schema_version": "1.0.0",
+      "source": "simulator"
+    },
+    {
+      "event_id": "local-recovery-2",
+      "event_time": "2016-10-08 12:00:00.123456+00:00",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "equipment_type": "refrigerator",
+      "metric_name": "temperature_celsius",
+      "metric_value": 4.2,
+      "unit": "celsius",
+      "schema_version": "1.0.0",
+      "source": "simulator"
+    }
+  ],
+  "batches": [
+    {
+      "batch_id": 0,
+      "received": 5,
+      "validated": 3,
+      "quarantine": 2,
+      "conflict": 1,
+      "duplicate": 2,
+      "late": 3
+    },
+    {
+      "batch_id": 0,
+      "received": 5,
+      "validated": 3,
+      "quarantine": 2,
+      "conflict": 1,
+      "duplicate": 3,
+      "late": 3
+    },
+    {
+      "batch_id": 1,
+      "received": 1,
+      "validated": 1,
+      "quarantine": 0,
+      "conflict": 0,
+      "duplicate": 1,
+      "late": 1
+    },
+    {
+      "batch_id": 0,
+      "received": 6,
+      "validated": 4,
+      "quarantine": 2,
+      "conflict": 1,
+      "duplicate": 4,
+      "late": 4
+    }
+  ],
+  "queries": [
+    {
+      "id": "3f5d1af1-cf5f-4230-889d-bf646562986d",
+      "run_id": "252978ec-82d5-4816-9c59-5e94ebcf7bc5",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "3f5d1af1-cf5f-4230-889d-bf646562986d",
+      "run_id": "5268ddd1-ade1-497c-bf7a-13256ea5849a",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "3f5d1af1-cf5f-4230-889d-bf646562986d",
+      "run_id": "8a50da3b-ea0a-47b8-9d7a-ef944c796aba",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "3f5d1af1-cf5f-4230-889d-bf646562986d",
+      "run_id": "7d8a88bc-c5c3-4c9f-b8d5-76d8ff82f759",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "3ffe4481-bcf1-476f-a431-80768578e336",
+      "run_id": "161f45e7-41b0-49e5-9c72-f6bab4441c4c",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "fresh_checkpoint"
+    }
+  ],
+  "ack_journal": [
+    {
+      "topic": "kitchen.sensor.validated",
+      "key": "fridge-001",
+      "value_hex": "0000000001206c6f63616c2d7265636f766572792d3140323031362d31302d30385431323a30303a30302e3132333435362b30303a30301273746f72652d303031146672696467652d30303118726566726967657261746f722674656d70657261747572655f63656c73697573cdcccccccccc10400e63656c736975730a312e302e301273696d756c61746f72"
+    },
+    {
+      "topic": "kitchen.sensor.validated",
+      "key": "fridge-001",
+      "value_hex": "0000000001206c6f63616c2d7265636f766572792d3140323031362d31302d30385431323a30303a30302e3132333435362b30303a30301273746f72652d303031146672696467652d30303118726566726967657261746f722674656d70657261747572655f63656c73697573cdcccccccccc10400e63656c736975730a312e302e301273696d756c61746f72"
+    },
+    {
+      "topic": "kitchen.sensor.quarantine",
+      "key": "224c12152f68dab05b9537f6353c1af8ab2c90dfadbbd0fa01c7b6e62d42a3ad",
+      "value_hex": "7b226572726f7273223a5b7b22636f6465223a224556454e545f49445f434f4e464c494354222c2264657461696c73223a22496e636f6d696e67207061796c6f616420646966666572732066726f6d207468652073746f7265642053696c7665722063616e6f6e6963616c2e222c226669656c64223a226d65747269635f76616c7565227d5d2c226576656e745f6964223a226c6f63616c2d7265636f766572792d31222c2270726f63657373696e675f76657273696f6e223a2270322d372d74657374222c2271756172616e74696e655f6964223a2232323463313231353266363864616230356239353337663633353363316166386162326339306466616462626430666130316337623665363264343261336164222c227261775f6b65795f626173653634223a225a6e4a705a47646c4c5441774d513d3d222c227261775f76616c75655f736861323536223a2265316161306536316463613864663662643232636332393338393931376564346432613035343066383363626263306539326436626665353537653532353435222c22736368656d615f6964223a312c22736f757263655f6f6666736574223a322c22736f757263655f706172746974696f6e223a322c22736f757263655f746f706963223a226b69746368656e2e73656e736f722e726177227d"
+    },
+    {
+      "topic": "kitchen.sensor.quarantine",
+      "key": "1ee37fb33e9dc1aec6dc9d34bc7cfc7a1a1790f07d6b8c5516d627a219a74a95",
+      "value_hex": "7b226572726f7273223a5b7b22636f6465223a22554e49545f4d49534d41544348222c2264657461696c73223a224d657472696320726571756972657320756e6974202763656c73697573272e222c226669656c64223a22756e6974227d5d2c226576656e745f6964223a22696e76616c6964222c2270726f63657373696e675f76657273696f6e223a2270322d372d74657374222c2271756172616e74696e655f6964223a2231656533376662333365396463316165633664633964333462633763666337613161313739306630376436623863353531366436323761323139613734613935222c227261775f6b65795f626173653634223a225a6e4a705a47646c4c5441774d513d3d222c227261775f76616c75655f736861323536223a2262616363633733666538646466653564333730363333353636343666656138646535393739333932646337396461373931336333316335663935396465346164222c22736368656d615f6964223a312c22736f757263655f6f6666736574223a332c22736f757263655f706172746974696f6e223a322c22736f757263655f746f706963223a226b69746368656e2e73656e736f722e726177227d"
+    },
+    {
+      "topic": "kitchen.sensor.validated",
+      "key": "fridge-001",
+      "value_hex": "0000000001206c6f63616c2d7265636f766572792d3240323031362d31302d30385431323a30303a30302e3132333435362b30303a30301273746f72652d303031146672696467652d30303118726566726967657261746f722674656d70657261747572655f63656c73697573cdcccccccccc10400e63656c736975730a312e302e301273696d756c61746f72"
+    },
+    {
+      "topic": "kitchen.sensor.validated",
+      "key": "fridge-001",
+      "value_hex": "0000000001206c6f63616c2d7265636f766572792d3140323031362d31302d30385431323a30303a30302e3132333435362b30303a30301273746f72652d303031146672696467652d30303118726566726967657261746f722674656d70657261747572655f63656c73697573cdcccccccccc10400e63656c736975730a312e302e301273696d756c61746f72"
+    },
+    {
+      "topic": "kitchen.sensor.validated",
+      "key": "fridge-001",
+      "value_hex": "0000000001206c6f63616c2d7265636f766572792d3140323031362d31302d30385431323a30303a30302e3132333435362b30303a30301273746f72652d303031146672696467652d30303118726566726967657261746f722674656d70657261747572655f63656c73697573cdcccccccccc10400e63656c736975730a312e302e301273696d756c61746f72"
+    },
+    {
+      "topic": "kitchen.sensor.quarantine",
+      "key": "224c12152f68dab05b9537f6353c1af8ab2c90dfadbbd0fa01c7b6e62d42a3ad",
+      "value_hex": "7b226572726f7273223a5b7b22636f6465223a224556454e545f49445f434f4e464c494354222c2264657461696c73223a22496e636f6d696e67207061796c6f616420646966666572732066726f6d207468652073746f7265642053696c7665722063616e6f6e6963616c2e222c226669656c64223a226d65747269635f76616c7565227d5d2c226576656e745f6964223a226c6f63616c2d7265636f766572792d31222c2270726f63657373696e675f76657273696f6e223a2270322d372d74657374222c2271756172616e74696e655f6964223a2232323463313231353266363864616230356239353337663633353363316166386162326339306466616462626430666130316337623665363264343261336164222c227261775f6b65795f626173653634223a225a6e4a705a47646c4c5441774d513d3d222c227261775f76616c75655f736861323536223a2265316161306536316463613864663662643232636332393338393931376564346432613035343066383363626263306539326436626665353537653532353435222c22736368656d615f6964223a312c22736f757263655f6f6666736574223a322c22736f757263655f706172746974696f6e223a322c22736f757263655f746f706963223a226b69746368656e2e73656e736f722e726177227d"
+    },
+    {
+      "topic": "kitchen.sensor.quarantine",
+      "key": "1ee37fb33e9dc1aec6dc9d34bc7cfc7a1a1790f07d6b8c5516d627a219a74a95",
+      "value_hex": "7b226572726f7273223a5b7b22636f6465223a22554e49545f4d49534d41544348222c2264657461696c73223a224d657472696320726571756972657320756e6974202763656c73697573272e222c226669656c64223a22756e6974227d5d2c226576656e745f6964223a22696e76616c6964222c2270726f63657373696e675f76657273696f6e223a2270322d372d74657374222c2271756172616e74696e655f6964223a2231656533376662333365396463316165633664633964333462633763666337613161313739306630376436623863353531366436323761323139613734613935222c227261775f6b65795f626173653634223a225a6e4a705a47646c4c5441774d513d3d222c227261775f76616c75655f736861323536223a2262616363633733666538646466653564333730363333353636343666656138646535393739333932646337396461373931336333316335663935396465346164222c22736368656d615f6964223a312c22736f757263655f6f6666736574223a332c22736f757263655f706172746974696f6e223a322c22736f757263655f746f706963223a226b69746368656e2e73656e736f722e726177227d"
+    },
+    {
+      "topic": "kitchen.sensor.validated",
+      "key": "fridge-001",
+      "value_hex": "0000000001206c6f63616c2d7265636f766572792d3240323031362d31302d30385431323a30303a30302e3132333435362b30303a30301273746f72652d303031146672696467652d30303118726566726967657261746f722674656d70657261747572655f63656c73697573cdcccccccccc10400e63656c736975730a312e302e301273696d756c61746f72"
+    },
+    {
+      "topic": "kitchen.sensor.validated",
+      "key": "fridge-001",
+      "value_hex": "0000000001206c6f63616c2d7265636f766572792d3140323031362d31302d30385431323a30303a30302e3132333435362b30303a30301273746f72652d303031146672696467652d30303118726566726967657261746f722674656d70657261747572655f63656c73697573cdcccccccccc10400e63656c736975730a312e302e301273696d756c61746f72"
+    },
+    {
+      "topic": "kitchen.sensor.validated",
+      "key": "fridge-001",
+      "value_hex": "0000000001206c6f63616c2d7265636f766572792d3140323031362d31302d30385431323a30303a30302e3132333435362b30303a30301273746f72652d303031146672696467652d30303118726566726967657261746f722674656d70657261747572655f63656c73697573cdcccccccccc10400e63656c736975730a312e302e301273696d756c61746f72"
+    },
+    {
+      "topic": "kitchen.sensor.validated",
+      "key": "fridge-001",
+      "value_hex": "0000000001206c6f63616c2d7265636f766572792d3140323031362d31302d30385431323a30303a30302e3132333435362b30303a30301273746f72652d303031146672696467652d30303118726566726967657261746f722674656d70657261747572655f63656c73697573cdcccccccccc10400e63656c736975730a312e302e301273696d756c61746f72"
+    },
+    {
+      "topic": "kitchen.sensor.quarantine",
+      "key": "224c12152f68dab05b9537f6353c1af8ab2c90dfadbbd0fa01c7b6e62d42a3ad",
+      "value_hex": "7b226572726f7273223a5b7b22636f6465223a224556454e545f49445f434f4e464c494354222c2264657461696c73223a22496e636f6d696e67207061796c6f616420646966666572732066726f6d207468652073746f7265642053696c7665722063616e6f6e6963616c2e222c226669656c64223a226d65747269635f76616c7565227d5d2c226576656e745f6964223a226c6f63616c2d7265636f766572792d31222c2270726f63657373696e675f76657273696f6e223a2270322d372d74657374222c2271756172616e74696e655f6964223a2232323463313231353266363864616230356239353337663633353363316166386162326339306466616462626430666130316337623665363264343261336164222c227261775f6b65795f626173653634223a225a6e4a705a47646c4c5441774d513d3d222c227261775f76616c75655f736861323536223a2265316161306536316463613864663662643232636332393338393931376564346432613035343066383363626263306539326436626665353537653532353435222c22736368656d615f6964223a312c22736f757263655f6f6666736574223a322c22736f757263655f706172746974696f6e223a322c22736f757263655f746f706963223a226b69746368656e2e73656e736f722e726177227d"
+    },
+    {
+      "topic": "kitchen.sensor.quarantine",
+      "key": "1ee37fb33e9dc1aec6dc9d34bc7cfc7a1a1790f07d6b8c5516d627a219a74a95",
+      "value_hex": "7b226572726f7273223a5b7b22636f6465223a22554e49545f4d49534d41544348222c2264657461696c73223a224d657472696320726571756972657320756e6974202763656c73697573272e222c226669656c64223a22756e6974227d5d2c226576656e745f6964223a22696e76616c6964222c2270726f63657373696e675f76657273696f6e223a2270322d372d74657374222c2271756172616e74696e655f6964223a2231656533376662333365396463316165633664633964333462633763666337613161313739306630376436623863353531366436323761323139613734613935222c227261775f6b65795f626173653634223a225a6e4a705a47646c4c5441774d513d3d222c227261775f76616c75655f736861323536223a2262616363633733666538646466653564333730363333353636343666656138646535393739333932646337396461373931336333316335663935396465346164222c22736368656d615f6964223a312c22736f757263655f6f6666736574223a332c22736f757263655f706172746974696f6e223a322c22736f757263655f746f706963223a226b69746368656e2e73656e736f722e726177227d"
+    },
+    {
+      "topic": "kitchen.sensor.validated",
+      "key": "fridge-001",
+      "value_hex": "0000000001206c6f63616c2d7265636f766572792d3240323031362d31302d30385431323a30303a30302e3132333435362b30303a30301273746f72652d303031146672696467652d30303118726566726967657261746f722674656d70657261747572655f63656c73697573cdcccccccccc10400e63656c736975730a312e302e301273696d756c61746f72"
+    },
+    {
+      "topic": "kitchen.sensor.validated",
+      "key": "fridge-001",
+      "value_hex": "0000000001206c6f63616c2d7265636f766572792d3140323031362d31302d30385431323a30303a30302e3132333435362b30303a30301273746f72652d303031146672696467652d30303118726566726967657261746f722674656d70657261747572655f63656c73697573cdcccccccccc10400e63656c736975730a312e302e301273696d756c61746f72"
+    }
+  ],
+  "input_files": {
+    "batch0.json": [
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 2,
+        "offset": 0,
+        "key": "ZnJpZGdlLTAwMQ==",
+        "value": "AAAAAAEgbG9jYWwtcmVjb3ZlcnktMUAyMDE2LTEwLTA4VDEyOjAwOjAwLjEyMzQ1NiswMDowMBJzdG9yZS0wMDEUZnJpZGdlLTAwMRhyZWZyaWdlcmF0b3ImdGVtcGVyYXR1cmVfY2Vsc2l1c83MzMzMzBBADmNlbHNpdXMKMS4wLjASc2ltdWxhdG9y"
+      },
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 2,
+        "offset": 1,
+        "key": "ZnJpZGdlLTAwMQ==",
+        "value": "AAAAAAEgbG9jYWwtcmVjb3ZlcnktMUAyMDE2LTEwLTA4VDEyOjAwOjAwLjEyMzQ1NiswMDowMBJzdG9yZS0wMDEUZnJpZGdlLTAwMRhyZWZyaWdlcmF0b3ImdGVtcGVyYXR1cmVfY2Vsc2l1c83MzMzMzBBADmNlbHNpdXMKMS4wLjASc2ltdWxhdG9y"
+      },
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 2,
+        "offset": 2,
+        "key": "ZnJpZGdlLTAwMQ==",
+        "value": "AAAAAAEgbG9jYWwtcmVjb3ZlcnktMUAyMDE2LTEwLTA4VDEyOjAwOjAwLjEyMzQ1NiswMDowMBJzdG9yZS0wMDEUZnJpZGdlLTAwMRhyZWZyaWdlcmF0b3ImdGVtcGVyYXR1cmVfY2Vsc2l1cwAAAAAAACNADmNlbHNpdXMKMS4wLjASc2ltdWxhdG9y"
+      },
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 2,
+        "offset": 3,
+        "key": "ZnJpZGdlLTAwMQ==",
+        "value": "AAAAAAEOaW52YWxpZEAyMDE2LTEwLTA4VDEyOjAwOjAwLjEyMzQ1NiswMDowMBJzdG9yZS0wMDEUZnJpZGdlLTAwMRhyZWZyaWdlcmF0b3ImdGVtcGVyYXR1cmVfY2Vsc2l1c83MzMzMzBBACndyb25nCjEuMC4wEnNpbXVsYXRvcg=="
+      },
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 2,
+        "offset": 4,
+        "key": "ZnJpZGdlLTAwMQ==",
+        "value": "AAAAAAEgbG9jYWwtcmVjb3ZlcnktMkAyMDE2LTEwLTA4VDEyOjAwOjAwLjEyMzQ1NiswMDowMBJzdG9yZS0wMDEUZnJpZGdlLTAwMRhyZWZyaWdlcmF0b3ImdGVtcGVyYXR1cmVfY2Vsc2l1c83MzMzMzBBADmNlbHNpdXMKMS4wLjASc2ltdWxhdG9y"
+      }
+    ],
+    "batch1.json": [
+      {
+        "topic": "kitchen.sensor.raw",
+        "partition": 2,
+        "offset": 5,
+        "key": "ZnJpZGdlLTAwMQ==",
+        "value": "AAAAAAEgbG9jYWwtcmVjb3ZlcnktMUAyMDE2LTEwLTA4VDEyOjAwOjAwLjEyMzQ1NiswMDowMBJzdG9yZS0wMDEUZnJpZGdlLTAwMRhyZWZyaWdlcmF0b3ImdGVtcGVyYXR1cmVfY2Vsc2l1c83MzMzMzBBADmNlbHNpdXMKMS4wLjASc2ltdWxhdG9y"
+      }
+    ]
+  },
+  "checkpoint_files": {
+    "checkpoint/commits/0": "v1\n{\"nextBatchWatermarkMs\":0}",
+    "checkpoint/commits/1": "v1\n{\"nextBatchWatermarkMs\":0}",
+    "checkpoint/metadata": "{\"id\":\"3f5d1af1-cf5f-4230-889d-bf646562986d\"}",
+    "checkpoint/offsets/0": "v1\n{\"batchWatermarkMs\":0,\"batchTimestampMs\":1792685048049,\"conf\":{\"spark.sql.streaming.stateStore.providerClass\":\"org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider\",\"spark.sql.streaming.stateStore.rocksdb.formatVersion\":\"5\",\"spark.sql.streaming.stateStore.encodingFormat\":\"unsaferow\",\"spark.sql.streaming.statefulOperator.useStrictDistribution\":\"true\",\"spark.sql.streaming.flatMapGroupsWithState.stateFormatVersion\":\"2\",\"spark.sql.streaming.multipleWatermarkPolicy\":\"min\",\"spark.sql.streaming.aggregation.stateFormatVersion\":\"2\",\"spark.sql.shuffle.partitions\":\"1\",\"spark.sql.streaming.join.stateFormatVersion\":\"2\",\"spark.sql.streaming.stateStore.compression.codec\":\"lz4\",\"spark.sql.optimizer.pruneFiltersCanPruneStreamingSubplan\":\"false\"}}\n{\"logOffset\":0}",
+    "checkpoint/offsets/1": "v1\n{\"batchWatermarkMs\":0,\"batchTimestampMs\":1792685075999,\"conf\":{\"spark.sql.streaming.stateStore.providerClass\":\"org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider\",\"spark.sql.streaming.stateStore.rocksdb.formatVersion\":\"5\",\"spark.sql.streaming.stateStore.encodingFormat\":\"unsaferow\",\"spark.sql.streaming.statefulOperator.useStrictDistribution\":\"true\",\"spark.sql.streaming.flatMapGroupsWithState.stateFormatVersion\":\"2\",\"spark.sql.streaming.multipleWatermarkPolicy\":\"min\",\"spark.sql.streaming.aggregation.stateFormatVersion\":\"2\",\"spark.sql.shuffle.partitions\":\"1\",\"spark.sql.streaming.join.stateFormatVersion\":\"2\",\"spark.sql.streaming.stateStore.compression.codec\":\"lz4\",\"spark.sql.optimizer.pruneFiltersCanPruneStreamingSubplan\":\"false\"}}\n{\"logOffset\":1}",
+    "checkpoint/sources/0/0": "v1\n{\"path\":\"file:///private/tmp/ktd-8h-delta-final/test_fresh_process_delta_and_c0/input/batch0.json\",\"timestamp\":1792685043206,\"batchId\":0}",
+    "checkpoint/sources/0/1": "v1\n{\"path\":\"file:///private/tmp/ktd-8h-delta-final/test_fresh_process_delta_and_c0/input/batch1.json\",\"timestamp\":1792685071894,\"batchId\":1}",
+    "fresh_checkpoint/commits/0": "v1\n{\"nextBatchWatermarkMs\":0}",
+    "fresh_checkpoint/metadata": "{\"id\":\"3ffe4481-bcf1-476f-a431-80768578e336\"}",
+    "fresh_checkpoint/offsets/0": "v1\n{\"batchWatermarkMs\":0,\"batchTimestampMs\":1792685084983,\"conf\":{\"spark.sql.streaming.stateStore.providerClass\":\"org.apache.spark.sql.execution.streaming.state.HDFSBackedStateStoreProvider\",\"spark.sql.streaming.stateStore.rocksdb.formatVersion\":\"5\",\"spark.sql.streaming.stateStore.encodingFormat\":\"unsaferow\",\"spark.sql.streaming.statefulOperator.useStrictDistribution\":\"true\",\"spark.sql.streaming.flatMapGroupsWithState.stateFormatVersion\":\"2\",\"spark.sql.streaming.multipleWatermarkPolicy\":\"min\",\"spark.sql.streaming.aggregation.stateFormatVersion\":\"2\",\"spark.sql.shuffle.partitions\":\"1\",\"spark.sql.streaming.join.stateFormatVersion\":\"2\",\"spark.sql.streaming.stateStore.compression.codec\":\"lz4\",\"spark.sql.optimizer.pruneFiltersCanPruneStreamingSubplan\":\"false\"}}\n{\"logOffset\":0}",
+    "fresh_checkpoint/sources/0/0": "v1\n{\"path\":\"file:///private/tmp/ktd-8h-delta-final/test_fresh_process_delta_and_c0/input/batch0.json\",\"timestamp\":1792685043206,\"batchId\":0}\n{\"path\":\"file:///private/tmp/ktd-8h-delta-final/test_fresh_process_delta_and_c0/input/batch1.json\",\"timestamp\":1792685071894,\"batchId\":0}"
+  },
+  "delta_versions": {
+    "00000000000000000000.json": [
+      {
+        "commitInfo": {
+          "timestamp": 1792685046820,
+          "operation": "CREATE TABLE",
+          "operationParameters": {
+            "partitionBy": "[]",
+            "clusterBy": "[]",
+            "description": null,
+            "isManaged": "false",
+            "properties": "{}"
+          },
+          "isolationLevel": "Serializable",
+          "isBlindAppend": true,
+          "operationMetrics": {},
+          "engineInfo": "Apache-Spark/4.0.1 Delta-Lake/4.0.0",
+          "txnId": "de343a73-4f41-4780-9e01-18fbff757b45"
+        }
+      },
+      {
+        "metaData": {
+          "id": "9f75fd04-aea6-4dae-8b60-ccea7d712507",
+          "format": {
+            "provider": "parquet",
+            "options": {}
+          },
+          "schemaString": "{\"type\":\"struct\",\"fields\":[{\"name\":\"event_id\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}},{\"name\":\"event_time\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}},{\"name\":\"store_id\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}},{\"name\":\"equipment_id\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}},{\"name\":\"equipment_type\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}},{\"name\":\"metric_name\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}},{\"name\":\"metric_value\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}},{\"name\":\"unit\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}},{\"name\":\"schema_version\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}},{\"name\":\"source\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]}",
+          "partitionColumns": [],
+          "configuration": {},
+          "createdTime": 1792685046746
+        }
+      },
+      {
+        "protocol": {
+          "minReaderVersion": 1,
+          "minWriterVersion": 2
+        }
+      }
+    ],
+    "00000000000000000001.json": [
+      {
+        "commitInfo": {
+          "timestamp": 1792685051792,
+          "operation": "MERGE",
+          "operationParameters": {
+            "predicate": "[\"(event_id#492 = event_id#482)\"]",
+            "matchedPredicates": "[]",
+            "notMatchedPredicates": "[{\"actionType\":\"insert\"}]",
+            "notMatchedBySourcePredicates": "[]"
+          },
+          "readVersion": 0,
+          "isolationLevel": "Serializable",
+          "isBlindAppend": false,
+          "operationMetrics": {
+            "numTargetRowsCopied": "0",
+            "numTargetRowsDeleted": "0",
+            "numTargetBytesRemoved": "0",
+            "numTargetDeletionVectorsAdded": "0",
+            "numTargetRowsMatchedUpdated": "0",
+            "numTargetRowsMatchedDeleted": "0",
+            "numTargetRowsUpdated": "0",
+            "numTargetChangeFilesAdded": "0",
+            "numTargetRowsNotMatchedBySourceDeleted": "0",
+            "rewriteTimeMs": "1267",
+            "numTargetFilesAdded": "1",
+            "numTargetBytesAdded": "3371",
+            "executionTimeMs": "1273",
+            "materializeSourceTimeMs": "1",
+            "numTargetRowsInserted": "1",
+            "numTargetDeletionVectorsUpdated": "0",
+            "scanTimeMs": "0",
+            "numOutputRows": "1",
+            "numTargetDeletionVectorsRemoved": "0",
+            "numTargetRowsNotMatchedBySourceUpdated": "0",
+            "numSourceRows": "1",
+            "numTargetFilesRemoved": "0"
+          },
+          "engineInfo": "Apache-Spark/4.0.1 Delta-Lake/4.0.0",
+          "txnId": "1dcab7db-b32f-4398-a01c-49f9fd2106a5"
+        }
+      },
+      {
+        "add": {
+          "path": "part-00000-6f59e240-9f93-4576-b752-426b6b08c468-c000.snappy.parquet",
+          "partitionValues": {},
+          "size": 3371,
+          "modificationTime": 1792685051759,
+          "dataChange": true,
+          "stats": "{\"numRecords\":1,\"minValues\":{\"event_id\":\"local-recovery-1\",\"event_time\":\"2016-10-08T21:00:00.123+09:00\",\"store_id\":\"store-001\",\"equipment_id\":\"fridge-001\",\"equipment_type\":\"refrigerator\",\"metric_name\":\"temperature_celsius\",\"metric_value\":4.2,\"unit\":\"celsius\",\"schema_version\":\"1.0.0\",\"source\":\"simulator\"},\"maxValues\":{\"event_id\":\"local-recovery-1\",\"event_time\":\"2016-10-08T21:00:00.123+09:00\",\"store_id\":\"store-001\",\"equipment_id\":\"fridge-001\",\"equipment_type\":\"refrigerator\",\"metric_name\":\"temperature_celsius\",\"metric_value\":4.2,\"unit\":\"celsius\",\"schema_version\":\"1.0.0\",\"source\":\"simulator\"},\"nullCount\":{\"event_id\":0,\"event_time\":0,\"store_id\":0,\"equipment_id\":0,\"equipment_type\":0,\"metric_name\":0,\"metric_value\":0,\"unit\":0,\"schema_version\":0,\"source\":0}}"
+        }
+      }
+    ],
+    "00000000000000000002.json": [
+      {
+        "commitInfo": {
+          "timestamp": 1792685061873,
+          "operation": "MERGE",
+          "operationParameters": {
+            "predicate": "[\"(event_id#629 = event_id#619)\"]",
+            "matchedPredicates": "[]",
+            "notMatchedPredicates": "[{\"actionType\":\"insert\"}]",
+            "notMatchedBySourcePredicates": "[]"
+          },
+          "readVersion": 1,
+          "isolationLevel": "Serializable",
+          "isBlindAppend": false,
+          "operationMetrics": {
+            "numTargetRowsCopied": "0",
+            "numTargetRowsDeleted": "0",
+            "numTargetBytesRemoved": "0",
+            "numTargetDeletionVectorsAdded": "0",
+            "numTargetRowsMatchedUpdated": "0",
+            "numTargetRowsMatchedDeleted": "0",
+            "numTargetRowsUpdated": "0",
+            "numTargetChangeFilesAdded": "0",
+            "numTargetRowsNotMatchedBySourceDeleted": "0",
+            "rewriteTimeMs": "946",
+            "numTargetFilesAdded": "1",
+            "numTargetBytesAdded": "3371",
+            "executionTimeMs": "954",
+            "materializeSourceTimeMs": "1",
+            "numTargetRowsInserted": "1",
+            "numTargetDeletionVectorsUpdated": "0",
+            "scanTimeMs": "0",
+            "numOutputRows": "1",
+            "numTargetDeletionVectorsRemoved": "0",
+            "numTargetRowsNotMatchedBySourceUpdated": "0",
+            "numSourceRows": "1",
+            "numTargetFilesRemoved": "0"
+          },
+          "engineInfo": "Apache-Spark/4.0.1 Delta-Lake/4.0.0",
+          "txnId": "8c330fdb-74a1-48aa-b3e9-7c1cec9900ed"
+        }
+      },
+      {
+        "add": {
+          "path": "part-00000-7fdf4607-2024-47bd-a88a-c7307a961b76-c000.snappy.parquet",
+          "partitionValues": {},
+          "size": 3371,
+          "modificationTime": 1792685061829,
+          "dataChange": true,
+          "stats": "{\"numRecords\":1,\"minValues\":{\"event_id\":\"local-recovery-2\",\"event_time\":\"2016-10-08T21:00:00.123+09:00\",\"store_id\":\"store-001\",\"equipment_id\":\"fridge-001\",\"equipment_type\":\"refrigerator\",\"metric_name\":\"temperature_celsius\",\"metric_value\":4.2,\"unit\":\"celsius\",\"schema_version\":\"1.0.0\",\"source\":\"simulator\"},\"maxValues\":{\"event_id\":\"local-recovery-2\",\"event_time\":\"2016-10-08T21:00:00.123+09:00\",\"store_id\":\"store-001\",\"equipment_id\":\"fridge-001\",\"equipment_type\":\"refrigerator\",\"metric_name\":\"temperature_celsius\",\"metric_value\":4.2,\"unit\":\"celsius\",\"schema_version\":\"1.0.0\",\"source\":\"simulator\"},\"nullCount\":{\"event_id\":0,\"event_time\":0,\"store_id\":0,\"equipment_id\":0,\"equipment_type\":0,\"metric_name\":0,\"metric_value\":0,\"unit\":0,\"schema_version\":0,\"source\":0}}"
+        }
+      }
+    ]
+  }
+}

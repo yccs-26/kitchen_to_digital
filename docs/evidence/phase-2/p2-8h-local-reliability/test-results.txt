@@ -1,0 +1,431 @@
+SOURCE: /tmp/ktd-8h-red.log
+...FFF..FFF..                                                            [100%]
+=================================== FAILURES ===================================
+________ test_decode_sensor_event_propagates_registry_failure[404-404] _________
+
+value = b'\x00\x00\x00\x00\x01"validation-test-122026-10-06T09:30:00+09:00\x14test-store\x16test-fridge\x18refrigerator&temperature_celsius\x00\x00\x00\x00\x00\x00\x04\xc0\x0ecelsius\n1.0.0\x12simulator'
+registry_client = <Mock id='4507463312'>
+
+    def decode_sensor_event(
+        value: bytes | None,
+        registry_client: SchemaRegistryClient,
+    ) -> dict:
+        if value is None:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", "Kafka value is null"
+            )
+        try:
+            schema_id, avro_body = parse_confluent_frame(value)
+        except ValueError as exc:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", str(exc)
+            ) from exc
+    
+        try:
+>           schema = registry_client.get_schema(schema_id)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+streaming/validation/avro_decoder.py:52: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1124: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1128: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock name='mock.get_schema' id='4507463888'>, args = (1,), kwargs = {}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               confluent_kafka.schema_registry.error.SchemaRegistryError: Registry unavailable (HTTP status code 404, SR code 404)
+
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1183: SchemaRegistryError
+
+The above exception was the direct cause of the following exception:
+
+serialized_event = ({'event_id': 'validation-test-1', 'event_time': '2026-10-06T09:30:00+09:00', 'store_id': 'test-store', 'equipment_id'...ore\x16test-fridge\x18refrigerator&temperature_celsius\x00\x00\x00\x00\x00\x00\x04\xc0\x0ecelsius\n1.0.0\x12simulator')
+registry = <Mock id='4507463312'>, status = 404, error_code = 404
+
+    @pytest.mark.parametrize("status,error_code", [
+        (500, 50001), (502, 50001), (503, 50001),
+        (404, 404), (404, 40401), (404, -1),
+    ])
+    def test_decode_sensor_event_propagates_registry_failure(
+        serialized_event, registry, status, error_code
+    ):
+        _, value = serialized_event
+        error = SchemaRegistryError(status, error_code, "Registry unavailable")
+        registry.get_schema.side_effect = error
+    
+        with pytest.raises(SchemaRegistryError) as caught:
+>           decode_sensor_event(value, registry)
+
+tests/unit/test_validation_input.py:134: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = b'\x00\x00\x00\x00\x01"validation-test-122026-10-06T09:30:00+09:00\x14test-store\x16test-fridge\x18refrigerator&temperature_celsius\x00\x00\x00\x00\x00\x00\x04\xc0\x0ecelsius\n1.0.0\x12simulator'
+registry_client = <Mock id='4507463312'>
+
+    def decode_sensor_event(
+        value: bytes | None,
+        registry_client: SchemaRegistryClient,
+    ) -> dict:
+        if value is None:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", "Kafka value is null"
+            )
+        try:
+            schema_id, avro_body = parse_confluent_frame(value)
+        except ValueError as exc:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", str(exc)
+            ) from exc
+    
+        try:
+            schema = registry_client.get_schema(schema_id)
+        except SchemaRegistryError as exc:
+            if exc.http_status_code == 404:
+>               raise SensorDecodeError(
+                    "UNKNOWN_SCHEMA_ID", "schema_id",
+                    f"Unknown schema id: {schema_id}", schema_id=schema_id,
+                ) from exc
+E               streaming.validation.avro_decoder.SensorDecodeError: Unknown schema id: 1
+
+streaming/validation/avro_decoder.py:55: SensorDecodeError
+_______ test_decode_sensor_event_propagates_registry_failure[404-40401] ________
+
+value = b'\x00\x00\x00\x00\x01"validation-test-122026-10-06T09:30:00+09:00\x14test-store\x16test-fridge\x18refrigerator&temperature_celsius\x00\x00\x00\x00\x00\x00\x04\xc0\x0ecelsius\n1.0.0\x12simulator'
+registry_client = <Mock id='4506552976'>
+
+    def decode_sensor_event(
+        value: bytes | None,
+        registry_client: SchemaRegistryClient,
+    ) -> dict:
+        if value is None:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", "Kafka value is null"
+            )
+        try:
+            schema_id, avro_body = parse_confluent_frame(value)
+        except ValueError as exc:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", str(exc)
+            ) from exc
+    
+        try:
+>           schema = registry_client.get_schema(schema_id)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+streaming/validation/avro_decoder.py:52: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1124: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1128: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock name='mock.get_schema' id='4506553936'>, args = (1,), kwargs = {}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               confluent_kafka.schema_registry.error.SchemaRegistryError: Registry unavailable (HTTP status code 404, SR code 40401)
+
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1183: SchemaRegistryError
+
+The above exception was the direct cause of the following exception:
+
+serialized_event = ({'event_id': 'validation-test-1', 'event_time': '2026-10-06T09:30:00+09:00', 'store_id': 'test-store', 'equipment_id'...ore\x16test-fridge\x18refrigerator&temperature_celsius\x00\x00\x00\x00\x00\x00\x04\xc0\x0ecelsius\n1.0.0\x12simulator')
+registry = <Mock id='4506552976'>, status = 404, error_code = 40401
+
+    @pytest.mark.parametrize("status,error_code", [
+        (500, 50001), (502, 50001), (503, 50001),
+        (404, 404), (404, 40401), (404, -1),
+    ])
+    def test_decode_sensor_event_propagates_registry_failure(
+        serialized_event, registry, status, error_code
+    ):
+        _, value = serialized_event
+        error = SchemaRegistryError(status, error_code, "Registry unavailable")
+        registry.get_schema.side_effect = error
+    
+        with pytest.raises(SchemaRegistryError) as caught:
+>           decode_sensor_event(value, registry)
+
+tests/unit/test_validation_input.py:134: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = b'\x00\x00\x00\x00\x01"validation-test-122026-10-06T09:30:00+09:00\x14test-store\x16test-fridge\x18refrigerator&temperature_celsius\x00\x00\x00\x00\x00\x00\x04\xc0\x0ecelsius\n1.0.0\x12simulator'
+registry_client = <Mock id='4506552976'>
+
+    def decode_sensor_event(
+        value: bytes | None,
+        registry_client: SchemaRegistryClient,
+    ) -> dict:
+        if value is None:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", "Kafka value is null"
+            )
+        try:
+            schema_id, avro_body = parse_confluent_frame(value)
+        except ValueError as exc:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", str(exc)
+            ) from exc
+    
+        try:
+            schema = registry_client.get_schema(schema_id)
+        except SchemaRegistryError as exc:
+            if exc.http_status_code == 404:
+>               raise SensorDecodeError(
+                    "UNKNOWN_SCHEMA_ID", "schema_id",
+                    f"Unknown schema id: {schema_id}", schema_id=schema_id,
+                ) from exc
+E               streaming.validation.avro_decoder.SensorDecodeError: Unknown schema id: 1
+
+streaming/validation/avro_decoder.py:55: SensorDecodeError
+_________ test_decode_sensor_event_propagates_registry_failure[404--1] _________
+
+value = b'\x00\x00\x00\x00\x01"validation-test-122026-10-06T09:30:00+09:00\x14test-store\x16test-fridge\x18refrigerator&temperature_celsius\x00\x00\x00\x00\x00\x00\x04\xc0\x0ecelsius\n1.0.0\x12simulator'
+registry_client = <Mock id='4505936272'>
+
+    def decode_sensor_event(
+        value: bytes | None,
+        registry_client: SchemaRegistryClient,
+    ) -> dict:
+        if value is None:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", "Kafka value is null"
+            )
+        try:
+            schema_id, avro_body = parse_confluent_frame(value)
+        except ValueError as exc:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", str(exc)
+            ) from exc
+    
+        try:
+>           schema = registry_client.get_schema(schema_id)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+streaming/validation/avro_decoder.py:52: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1124: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1128: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock name='mock.get_schema' id='4505936784'>, args = (1,), kwargs = {}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               confluent_kafka.schema_registry.error.SchemaRegistryError: Registry unavailable (HTTP status code 404, SR code -1)
+
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1183: SchemaRegistryError
+
+The above exception was the direct cause of the following exception:
+
+serialized_event = ({'event_id': 'validation-test-1', 'event_time': '2026-10-06T09:30:00+09:00', 'store_id': 'test-store', 'equipment_id'...ore\x16test-fridge\x18refrigerator&temperature_celsius\x00\x00\x00\x00\x00\x00\x04\xc0\x0ecelsius\n1.0.0\x12simulator')
+registry = <Mock id='4505936272'>, status = 404, error_code = -1
+
+    @pytest.mark.parametrize("status,error_code", [
+        (500, 50001), (502, 50001), (503, 50001),
+        (404, 404), (404, 40401), (404, -1),
+    ])
+    def test_decode_sensor_event_propagates_registry_failure(
+        serialized_event, registry, status, error_code
+    ):
+        _, value = serialized_event
+        error = SchemaRegistryError(status, error_code, "Registry unavailable")
+        registry.get_schema.side_effect = error
+    
+        with pytest.raises(SchemaRegistryError) as caught:
+>           decode_sensor_event(value, registry)
+
+tests/unit/test_validation_input.py:134: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = b'\x00\x00\x00\x00\x01"validation-test-122026-10-06T09:30:00+09:00\x14test-store\x16test-fridge\x18refrigerator&temperature_celsius\x00\x00\x00\x00\x00\x00\x04\xc0\x0ecelsius\n1.0.0\x12simulator'
+registry_client = <Mock id='4505936272'>
+
+    def decode_sensor_event(
+        value: bytes | None,
+        registry_client: SchemaRegistryClient,
+    ) -> dict:
+        if value is None:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", "Kafka value is null"
+            )
+        try:
+            schema_id, avro_body = parse_confluent_frame(value)
+        except ValueError as exc:
+            raise SensorDecodeError(
+                "INVALID_CONFLUENT_FRAME", "raw_value", str(exc)
+            ) from exc
+    
+        try:
+            schema = registry_client.get_schema(schema_id)
+        except SchemaRegistryError as exc:
+            if exc.http_status_code == 404:
+>               raise SensorDecodeError(
+                    "UNKNOWN_SCHEMA_ID", "schema_id",
+                    f"Unknown schema id: {schema_id}", schema_id=schema_id,
+                ) from exc
+E               streaming.validation.avro_decoder.SensorDecodeError: Unknown schema id: 1
+
+streaming/validation/avro_decoder.py:55: SensorDecodeError
+___________ test_registry_system_failure_is_not_quarantined[error2] ____________
+
+event = {'event_id': 'job2-test-1', 'event_time': '2026-10-08T12:00:00+00:00', 'store_id': 'store-001', 'equipment_id': 'fridge-001', ...}
+dependencies = {'registry_client': <Mock id='4505319696'>, 'silver': <streaming.sinks.silver.SilverSink object at 0x10c89bc50>, 'quar...cer object at 0x10c89be90>, 'validated_producer': <test_sensor_validation_job.FakeProducer object at 0x10c8980d0>, ...}
+error = Endpoint not found (HTTP status code 404, SR code 404)
+
+    @pytest.mark.parametrize("error", [
+        SchemaRegistryError(401, 40101, "Unauthorized"),
+        SchemaRegistryError(503, 50001, "Unavailable"),
+        SchemaRegistryError(404, 404, "Endpoint not found"),
+        SchemaRegistryError(404, 40401, "Unexpected subject error"),
+        SchemaRegistryError(404, -1, "Unstructured proxy response"),
+        TimeoutError("registry timeout"), ValueError("registry config error"),
+    ])
+    def test_registry_system_failure_is_not_quarantined(
+        event, dependencies, error,
+    ):
+        dependencies["registry_client"].get_schema.side_effect = error
+>       with pytest.raises(type(error)) as caught:
+E       Failed: DID NOT RAISE SchemaRegistryError
+
+tests/unit/test_sensor_validation_job.py:218: Failed
+___________ test_registry_system_failure_is_not_quarantined[error3] ____________
+
+event = {'event_id': 'job2-test-1', 'event_time': '2026-10-08T12:00:00+00:00', 'store_id': 'store-001', 'equipment_id': 'fridge-001', ...}
+dependencies = {'registry_client': <Mock id='4492656272'>, 'silver': <streaming.sinks.silver.SilverSink object at 0x10bc86890>, 'quar...cer object at 0x10bc860d0>, 'validated_producer': <test_sensor_validation_job.FakeProducer object at 0x10bc86f10>, ...}
+error = Unexpected subject error (HTTP status code 404, SR code 40401)
+
+    @pytest.mark.parametrize("error", [
+        SchemaRegistryError(401, 40101, "Unauthorized"),
+        SchemaRegistryError(503, 50001, "Unavailable"),
+        SchemaRegistryError(404, 404, "Endpoint not found"),
+        SchemaRegistryError(404, 40401, "Unexpected subject error"),
+        SchemaRegistryError(404, -1, "Unstructured proxy response"),
+        TimeoutError("registry timeout"), ValueError("registry config error"),
+    ])
+    def test_registry_system_failure_is_not_quarantined(
+        event, dependencies, error,
+    ):
+        dependencies["registry_client"].get_schema.side_effect = error
+>       with pytest.raises(type(error)) as caught:
+E       Failed: DID NOT RAISE SchemaRegistryError
+
+tests/unit/test_sensor_validation_job.py:218: Failed
+___________ test_registry_system_failure_is_not_quarantined[error4] ____________
+
+event = {'event_id': 'job2-test-1', 'event_time': '2026-10-08T12:00:00+00:00', 'store_id': 'store-001', 'equipment_id': 'fridge-001', ...}
+dependencies = {'registry_client': <Mock id='4503329296'>, 'silver': <streaming.sinks.silver.SilverSink object at 0x10c6b6650>, 'quar...cer object at 0x10c6b4550>, 'validated_producer': <test_sensor_validation_job.FakeProducer object at 0x10c6b7c50>, ...}
+error = Unstructured proxy response (HTTP status code 404, SR code -1)
+
+    @pytest.mark.parametrize("error", [
+        SchemaRegistryError(401, 40101, "Unauthorized"),
+        SchemaRegistryError(503, 50001, "Unavailable"),
+        SchemaRegistryError(404, 404, "Endpoint not found"),
+        SchemaRegistryError(404, 40401, "Unexpected subject error"),
+        SchemaRegistryError(404, -1, "Unstructured proxy response"),
+        TimeoutError("registry timeout"), ValueError("registry config error"),
+    ])
+    def test_registry_system_failure_is_not_quarantined(
+        event, dependencies, error,
+    ):
+        dependencies["registry_client"].get_schema.side_effect = error
+>       with pytest.raises(type(error)) as caught:
+E       Failed: DID NOT RAISE SchemaRegistryError
+
+tests/unit/test_sensor_validation_job.py:218: Failed
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_validation_input.py::test_decode_sensor_event_propagates_registry_failure[404-404]
+FAILED tests/unit/test_validation_input.py::test_decode_sensor_event_propagates_registry_failure[404-40401]
+FAILED tests/unit/test_validation_input.py::test_decode_sensor_event_propagates_registry_failure[404--1]
+FAILED tests/unit/test_sensor_validation_job.py::test_registry_system_failure_is_not_quarantined[error2]
+FAILED tests/unit/test_sensor_validation_job.py::test_registry_system_failure_is_not_quarantined[error3]
+FAILED tests/unit/test_sensor_validation_job.py::test_registry_system_failure_is_not_quarantined[error4]
+6 failed, 7 passed, 90 deselected, 1 warning in 0.40s
+
+SOURCE: /tmp/ktd-8h-unit-final.log
+........................................................................ [  9%]
+........................................................................ [ 19%]
+........................................................................ [ 28%]
+........................................................................ [ 38%]
+........................................................................ [ 47%]
+........................................................................ [ 57%]
+........................................................................ [ 67%]
+........................................................................ [ 76%]
+........................................................................ [ 86%]
+........................................................................ [ 95%]
+...............................                                          [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+751 passed, 1 warning in 2.25s
+
+SOURCE: /tmp/ktd-8h-related.log
+........................................................................ [ 12%]
+........................................................................ [ 25%]
+........................................................................ [ 37%]
+........................................................................ [ 50%]
+........................................................................ [ 63%]
+........................................................................ [ 75%]
+........................................................................ [ 88%]
+.................................................................        [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+569 passed, 1 warning in 0.59s
+
+SOURCE: /tmp/ktd-8h-integration-default.log
+sssssssssss                                                              [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+11 skipped, 1 warning in 0.11s
+
+SOURCE: /tmp/ktd-8h-delta-final.log
+.                                                                        [100%]
+1 passed in 47.59s

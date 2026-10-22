@@ -206,6 +206,9 @@ def test_unknown_schema_is_quarantined(event, dependencies):
 @pytest.mark.parametrize("error", [
     SchemaRegistryError(401, 40101, "Unauthorized"),
     SchemaRegistryError(503, 50001, "Unavailable"),
+    SchemaRegistryError(404, 404, "Endpoint not found"),
+    SchemaRegistryError(404, 40401, "Unexpected subject error"),
+    SchemaRegistryError(404, -1, "Unstructured proxy response"),
     TimeoutError("registry timeout"), ValueError("registry config error"),
 ])
 def test_registry_system_failure_is_not_quarantined(

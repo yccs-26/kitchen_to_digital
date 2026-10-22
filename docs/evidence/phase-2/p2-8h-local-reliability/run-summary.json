@@ -1,0 +1,51 @@
+{
+  "recorded_at": "2026-10-22T16:06:45.889161+00:00",
+  "branch": "feat/phase2-validation-silver",
+  "head": "888a59c3acd99989501f487ecd24191a675633af",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "3.11.15",
+  "runtime_versions": {
+    "pyspark": "4.0.1",
+    "delta-spark": "4.0.0",
+    "confluent-kafka": "2.16.0",
+    "fastavro": "1.13.1",
+    "pytest": "9.1.1"
+  },
+  "java": "Temurin 21.0.13+9 /tmp only",
+  "tests": {
+    "baseline_unit": 745,
+    "red_failed": 6,
+    "red_passed": 7,
+    "related_passed": 569,
+    "unit_passed": 751,
+    "external_and_opt_in_skipped": 11,
+    "local_delta_integration_passed": 1,
+    "local_delta_seconds": 47.59
+  },
+  "observations": {
+    "canonical_rows": 2,
+    "ack_journal_entries": 17,
+    "worker_processes": 5,
+    "delta_versions": 3,
+    "same_checkpoint_query_id_stable": true,
+    "fresh_checkpoint_query_id_changed": true,
+    "all_run_ids_distinct": true
+  },
+  "not_verified": [
+    "real Kafka broker ACK",
+    "Kafka source offset restart",
+    "Databricks/UC permissions",
+    "multi-writer concurrency",
+    "real Spark watermark"
+  ],
+  "cloud_changes": false,
+  "cloud_reads": false,
+  "production_data_or_checkpoint_changes": false,
+  "source_sha256": {
+    "streaming/validation/avro_decoder.py": "674e7741fb41a3d62ce58af72d166921d0ba488ab7184318daa6ee3fa265c2eb",
+    "tests/unit/test_validation_input.py": "7f09bd4a549656a1bd0da1f74bac392168382ac18e9540f8023edce2e1910a3f",
+    "tests/unit/test_sensor_validation_job.py": "84155a20d511d91e3d6798507b63c3aee270e59dfc03da19804bff697b24af32",
+    "tests/integration/job2_local_recovery_worker.py": "422d1aa176bdf64240660103280085b119649f30def81d388a1bb0e4c2db5d37",
+    "tests/integration/test_job2_local_delta_recovery.py": "3598d17fbe1f7fd01f8aaceeebcca18193a93c1841a14e32f7d09d29ab58f400"
+  }
+}

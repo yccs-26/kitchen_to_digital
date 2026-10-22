@@ -1,4 +1,4 @@
-> 최신 판단은 아래 **2026-10-09 야간 읽기 전용 discovery 및 E2E readiness**를 따른다. 기존 storage 성공·실패 이력은 보존했다.
+> 최신 로컬 검증은 문서 마지막 **2026-10-23 P2-8h — Job 2 로컬 신뢰성 검증**을 따른다. 기존 cloud/storage 이력은 보존하며, 로컬 통과를 Cloud E2E 통과로 해석하지 않는다.
 
 # Phase 2 검증 초안 — P2-8A
 
@@ -980,3 +980,311 @@ identity·lineage를 대사하고 전체 payload byte 동일성을 무조건 요
 Avro 10필드, Bronze Iceberg, Silver Delta, 다른 Phase, 설정, 기존 미추적 파일은
 변경하지 않았다. 포트폴리오에는 233/745 통과 화면을 촬영하고
 “로컬 fake ACK 검증”으로 표시한다. Git add/commit/push/PR/merge 없이 검토를 기다린다.
+
+## 2026-10-23 P2-8h — Job 2 로컬 신뢰성 검증
+
+**로컬 검증 완료 / Cloud E2E와 Phase 2 전체 DoD는 미완료.**
+기준 시각은 KST이며 증빙 JSON에는 UTC를 기록했다. 이번 작업은 과거 P2-8g
+승인을 사용하지 않았고 AWS API 조회·변경, EC2, Databricks, 실제 Kafka 발행을
+모두 수행하지 않았다. 생산 코드 수정은 Registry 오류 분류 조건 하나다.
+
+### 1. Branch / HEAD / 기존 작업 보존
+
+- 실제 branch: `feat/phase2-validation-silver`.
+- 실제 HEAD: `888a59c3acd99989501f487ecd24191a675633af`.
+- 시작 시 tracked 수정 6개: `config/job2-runtime.example.json`,
+  `docs/implementation/p2-8d-msk-output-topic-provisioning.md`,
+  `scripts/phase1_export_avro_fixture.py`, `simulator/producer.py`,
+  `tests/unit/test_job2_databricks_entrypoint.py`,
+  `tests/unit/test_phase1_export_avro_fixture.py`.
+- 기존 미추적 runtime JSON, Registry/happy-path 스크립트·테스트와 cloud 증빙을
+  유지했다. 시작 파일 167개의 SHA-256 snapshot과 대조하여 이번 의도된 수정
+  4개 외 기존 파일의 내용이 동일함을 확인했다. staged 변경은 없다.
+- `AGENTS.md`, 접근 가능한 두 로컬 계획서, P2-8d, platform/data-contract,
+  기존 코드·테스트·보고서를 확인했다. 계획서는 Git 제외 상태를 유지한다.
+- `docs/architecture/platform.md`의 Job 2 “미구현”과 bounded dedup 표기는
+  현재 구현과 다르다. 본 검증에서는 실제 코드를 기준으로 판단했으며,
+  이번 범위 밖의 설계 문서 전체를 다시 쓰지 않았다.
+
+### 2. 확인한 Job 2 전체 경로와 영속 경계
+
+경로는 `Kafka raw → foreachBatch → frame/Avro → UTC → domain/time →
+canonical lookup/MERGE → validated 또는 Quarantine ACK → batch 반환 →
+Spark checkpoint commit`이다. Job 1 Bronze 완료를 기다리지 않는다.
+
+| 단계 / 파일·함수 | 입력 → 출력 및 정상 동작 | 예외 / 영속 상태 / 재처리 |
+|---|---|---|
+| `streaming/jobs/raw_ingestion.py:kafka_source_options`, `streaming/jobs/sensor_validation_job.py:start_validation` | raw bytes/key/topic/partition/offset, earliest 기본값, failOnDataLoss, auto-create=false, append foreachBatch | source 오류 전파. 전용 checkpoint가 source 진행 상태를 보관하며 query 이름은 offset 저장소가 아님 |
+| `sensor_validation_job.py:process_batch/process_record` | topic/partition/offset 정렬 후 순차 iterator, Spark bytearray→bytes | 시스템·sink 오류 시 후속 행 중단, batch 완료 계수 미반환, 재실행 |
+| `streaming/validation/avro_decoder.py:decode_sensor_event` | magic byte+schema ID, Registry writer schema, 실제 fastavro decode | 데이터 오류만 SensorDecodeError→Quarantine. 인증/서버/endpoint/설정 오류는 전파. Registry schema cache는 복구 ledger가 아님 |
+| `event_time_normalizer.py:normalize_event_time` | aware ISO 문자열→UTC datetime | naive/불량 시각 격리; Avro 10필드 유지 |
+| `domain_validator.py:validate_domain_event`, `event_time_policy.py:classify_event_time` | 필수값·버전·finite 수치·장비/metric/unit/key 계약; 처리 기준 시각과 지연/미래 경계 | 미래 허용치 초과 격리. 정상 업무 이상값은 허용. 오래된 valid도 Silver/validated 대상 |
+| `streaming/sinks/silver.py:SilverSink.write`, `delta_silver.py:DeltaSilverStorage` | event_id 영속 lookup, 신규 insert-only MERGE 및 사후 확인, 동일 payload DUPLICATE_NOOP | 기존 canonical 보존, 충돌은 CONFLICT. 조회/쓰기/사후 검증 실패 전파. Delta canonical이 유일한 제품 측 dedup ledger |
+| `streaming/sinks/validated_publisher.py:deliver_validated_event/publish_validated_event` | 신규·동일 duplicate는 canonical 처리 후 equipment key/10필드 Avro 재발행 | 충돌은 발행 안 함. serialization/produce/flush/callback/ACK 오류 전파, raw replay로 재시도 |
+| `streaming/quarantine/quarantine_record.py`, `quarantine_publisher.py` | 원본 lineage/hash/key와 오류를 안정적 quarantine_id JSON으로 발행 | callback과 bool이 아닌 int offset>=0까지 확인. 실패 시 batch 미완료; raw replay 필요 |
+| Spark writeStream checkpoint | foreachBatch 정상 반환 뒤 source batch commit | ACK 직후 반환 전 장애는 동일 batch 재실행. Silver/Kafka/checkpoint의 분산 원자성은 없음 |
+
+`allowed_lateness=10분`은 처리 시각 기준 분류다. 실제 Spark watermark,
+`withWatermark`, 시간 제한 stateful dedup은 Job 2에 없다. 10분 경계 이전·이후
+valid 이벤트 모두 전달하며 영속 Silver의 event_id 비교는 시간 만료가 없다.
+운영 checkpoint는 `/Volumes/ktd/silver/checkpoints/job2/sensor-validation`이다.
+
+### 3. 재현한 결함과 원인
+
+기존 decoder는 모든 HTTP 404를 `UNKNOWN_SCHEMA_ID`로 격리했다. 잘못된
+Registry endpoint/proxy 404 또는 다른 오류 코드까지 데이터 오류로 처리하면
+정상 원본을 Silver/validated에 보내지 않고 Quarantine ACK 후 batch를 완료할
+수 있다. 이는 시스템 장애를 데이터 오류로 오인하는 실제 결함이다.
+
+`GET /schemas/ids/{id}`의 schema 부재는 HTTP 404 + error code 40403으로
+정의된다. [Confluent 공식 API](https://docs.confluent.io/platform/current/schema-registry/develop/api.html).
+404/404, 404/40401, 404/-1을 decoder와 Job 2에 주입한 결과 수정 전
+**6 failed / 7 passed**, 수정 후 관련 두 파일 **103 passed**를 확인했다.
+
+### 4. 최소 코드 수정
+
+- `streaming/validation/avro_decoder.py`: HTTP 상태와 오류 코드가 모두
+  404/40403일 때만 UNKNOWN_SCHEMA_ID로 변환한다. 나머지는 원래 예외 그대로
+  전파하므로 Silver/validated/Quarantine 모두 호출하지 않는다.
+- Silver MERGE, validated 복구 순서, Quarantine ACK 로직, Avro 계약,
+  Bronze Iceberg/Silver Delta, production checkpoint는 변경하지 않았다.
+- 기존 `False` ACK 결함 수정은 이미 HEAD에 있었다. 이번 신규 수정으로
+  다시 주장하지 않으며 기존 ACK 실패·retry 테스트를 재실행했다.
+
+### 5. 추가 테스트와 fixture
+
+- `tests/unit/test_validation_input.py`: 기존 Registry 오류 매개변수에 3종의
+  비-schema 404를 추가하고 원래 예외의 동일성을 확인한다.
+- `tests/unit/test_sensor_validation_job.py`: 같은 3종의 실패를 실제
+  process_record에 연결하여 양 publisher가 호출되지 않음을 검증한다.
+- `tests/integration/test_job2_local_delta_recovery.py`: opt-in 로컬 통합
+  테스트. 임시 input/Delta/checkpoint를 만들고 자식 프로세스 5개를 순차 실행한다.
+- `tests/integration/job2_local_recovery_worker.py`: 해당 테스트 전용 실행기.
+  실제 production process_batch/SilverSink/DeltaSilverStorage/publisher를
+  사용하며 기존 unit의 Avro schema/raw encoder/규칙을 재사용한다.
+  Kafka는 fsync journal+delivery callback 대역, Registry는 메모리 schema 응답이다.
+- 별도 정적 fixture 파일 대신 임시 합성 fixture를 생성한다. 정상 2 ID,
+  동일 이벤트 중복, metric_value 충돌, unit 불량을 포함한다. 입력 시각은
+  `2016-10-08T12:00:00.123456+00:00`, 처리 기준은 기존 `NOW` fixture다.
+  원본 fixture와 실제 ACK journal은 `local-recovery.json`에 함께 보관했다.
+- 로컬 file source와 테스트 foreachBatch를 직접 연결한다. production
+  `start_validation`의 Kafka source·클라이언트 생성·UC 경로는 기존 unit wiring
+  검증 범위이며 이 통합 테스트가 실제 Kafka start_validation 실행은 아니다.
+
+### 6. 정상 경로 / 데이터 정확성 15개 시나리오
+
+| 요구 시나리오 | 검증 파일 / 결과 |
+|---|---|
+| 1 정상 Avro | `test_validation_input.py`, `test_sensor_validation_job.py` 실제 fastavro framing/decode PASS |
+| 2 framing 오류 | 짧은 값·magic byte·헤더만·불량 body·null 입력, Quarantine 분기 PASS |
+| 3 알 수 없는 schema ID | 404/40403 → UNKNOWN_SCHEMA_ID/Quarantine PASS |
+| 4 Registry 장애 | 401/5xx/timeout/설정 오류 및 신규 비-schema 404 전파 PASS |
+| 5 필수 필드 누락 | `test_validation_domain.py` 필드별 missing/null PASS. 실제 non-null Avro writer가 일부 입력을 먼저 거부할 수 있으므로 dict domain 경계와 구분 |
+| 6 타입/버전 | 잘못된 string·numeric/bool·미지원 버전 및 다중 오류 PASS |
+| 7 NaN/Infinity | finite 검사 PASS; 정상 수치는 통과 |
+| 8 장비/metric/unit | rules·registry·store·key 일치, 독립 오류 수집 PASS |
+| 9 UTC/경계 | offset 동치·naive 거부·마이크로초 및 실제 Delta UTC 왕복 PASS; Spark session TZ=Asia/Seoul |
+| 10 미래 시각 | +5분까지 허용, 초과 격리·후속 sink 미호출 PASS |
+| 11 동일 ID/동일 payload | 신규 뒤 반복·batch replay·새 프로세스·새 checkpoint에서 canonical 1행/ID PASS |
+| 12 동일 ID/충돌 payload | canonical 4.2 보존, 충돌 9.5 validated 억제 및 Quarantine PASS |
+| 13 지연 경계 이내 | 처리 기준 10분까지 ON_TIME, 전달 PASS. 실제 watermark 검증은 아님 |
+| 14 지연 경계 밖 | 11분 및 10년 전 valid 전달·영속 dedup PASS. 실제 watermark 검증은 아님 |
+| 15 정상 업무상 이상 값 | `test_high_fridge_temperature_is_valid_contract_data` PASS, 임의 업무 임계값 Quarantine 없음 |
+
+### 7. 실패·부분 실패 A–H
+
+| 경계 | 이번 검증 / 재시도 대상 | 데이터 유실·중복과 필요한 영속 정보 |
+|---|---|---|
+| A Silver commit 이전 실패 | lookup/insert SQL 예외 unit PASS, publish 미호출 | raw source 위치·payload를 보존하고 같은 batch 재처리. 이미 처리된 앞 행은 재발행 가능 |
+| B Silver 성공 / publish 이전 실패 | serializer 실패→canonical 보존→동일 raw 재시도 unit PASS | canonical만 있고 validated가 아직 없을 수 있음. 실패 batch의 raw replay가 필요 |
+| C publish 요청 / ACK 미확정 | callback 없음·timeout/비정상 offset unit PASS; 실제 Delta commit 후 테스트 flush TimeoutError PASS | broker 전달 여부는 알 수 없음. 재시도는 중복 가능, 성공으로 간주하지 않음 |
+| D ACK / checkpoint 사이 실패 | 실제 local foreachBatch 전체 ACK 뒤 os._exit(23), commit 0 부재, 새 Python/JVM replay PASS | canonical 수렴, validated/Quarantine 재발행. raw+Delta+checkpoint 필요 |
+| E validated 성공 / Quarantine 실패 | `test_partial_batch_retry_republishes_completed_records` PASS | batch 재시도 때 앞 validated도 재발행; Quarantine ACK 전 batch 완료 금지 |
+| F callback 오류 | 양 publisher KafkaError·잘못된 offset 전파 PASS | 성공 로그/flush()==0만으로 완료하지 않음. 실패 원본부터 batch retry |
+| G timeout / 프로세스 종료 | timeout unit 및 별도 ACK 후 강제 프로세스 종료 integration PASS | 실제 broker timeout 직후 kill을 함께 수행한 것은 아님. broker의 in-flight 결과는 미검증 |
+| H 재시작 / 동일 batch | 5개 새 프로세스, batch 0 반복 뒤 batch 1, fresh checkpoint replay PASS | canonical 2행, 전달 중복 허용. file source offset 복구이며 Kafka partition offset runtime은 미검증 |
+
+Quarantine의 `False/True/None/"3"/1.5/-1` offset, produce/flush 오류,
+callback 오류/없음에서 batch가 실패하고 후속 행을 처리하지 않는 기존 테스트가
+PASS다. offset 0 정상 ACK 재시도에서는 canonical·conflict lineage를 보존하고
+후속 행을 처리한다. 실제 broker ACK와 구분한다.
+
+### 8. 실제 로컬 재시작 / Delta 결과
+
+환경은 macOS ARM64, Python 3.11.15, OSS Spark 4.0.1, Delta 4.0.0,
+Temurin JDK 21.0.13+9, local[2]다. 프로젝트 venv/lockfile은 변경하지 않았다.
+기본 venv에는 Spark가 없고 Databricks Connect venv는 remote session만 허용했다.
+Docker daemon도 꺼져 있었다. `/tmp/ktd-8h-spark`, `/tmp/ktd-8h-java`,
+`/tmp/ktd-8h-jars`에 무료 OSS 의존성을 별도 준비했다.
+[Spark 4 요구사항](https://spark.apache.org/docs/4.0.1/)과
+[Delta 호환 표](https://docs.delta.io/releases/)를 확인했다.
+
+첫 설치 시 sandbox cache/DNS 제한, 첫 JVM 시도에서 loopback bind 제한이
+발생했다. `/tmp` cache와 승인된 로컬 실행 권한으로 해결했다. 안전 설정을
+해제하거나 DatabricksSession으로 우회하지 않았다. Hadoop native library
+fallback, JDK incubator 경고는 기능 실패가 아니며 원문을 보존했다.
+
+| 순서 | 실제 관측 / assertion |
+|---|---|
+| 1 새 프로세스, ACK 전 timeout | Delta 실제 신규 행 commit; Spark offsets/0 존재, commits/0 없음, journal 없음. 의도한 TimeoutError 문구 확인 |
+| 2 새 프로세스, ACK 후 강제 종료 | valid 3 + Quarantine 2 callback ACK, exit=23; commits/0 여전히 없음 |
+| 3 새 프로세스, 동일 checkpoint 재개 | batch_id=0 재실행, duplicate=3/conflict=1; 앞 5개와 같은 ACK payload 5개 재관측, commits/0 생성 |
+| 4 동일 checkpoint + 새 file | batch_id=1만 처리, ACK 1개 추가, 기존 batch 재처리 없음 |
+| 5 독립 새 checkpoint | 기존 checkpoint 삭제 없이 전체 입력 6개 replay; canonical 불변, ACK 6개 추가 |
+| 최종 | canonical 2 ID 각 1행, 값 4.2·10필드·UTC 마이크로초 불변, conflict 9.5 미적재; Delta log 3 versions; 총 journal 17개 |
+| query 식별 | 동일 checkpoint의 4번 실행은 query ID 동일, 5개 run ID 모두 다름. 같은 queryName이지만 새 checkpoint의 query ID는 달라짐 |
+
+Spark/Delta는 실제 로컬 runtime이다. UC Managed Delta 권한·Databricks와 동일
+실행 환경, Kafka broker/Schema Registry 네트워크·ACK는 증명하지 않는다.
+테스트용 journal은 관측 도구이며 제품 outbox·신규 영속 시스템이 아니다.
+테스트 후 해당 worker/Spark 프로세스가 남지 않았음을 조회로 확인했다.
+
+### 9. 실행 명령 / 전체 Unit·Integration 결과
+
+저장소 루트에서 실행했다. `test-results.txt`에 실패·통과 원문을 남겼다.
+
+```bash
+# 수정 전 baseline: 745 passed, Authlib deprecation 1 warning
+.venv/bin/python -m pytest -q tests/unit --basetemp=/tmp/ktd-8h-baseline
+
+# 수정 전 red: 6 failed, 7 passed (새 비-schema 404만 실패)
+.venv/bin/python -m pytest -q tests/unit/test_validation_input.py tests/unit/test_sensor_validation_job.py -k 'propagates_registry_failure or registry_system_failure' --basetemp=/tmp/ktd-8h-red
+
+# 수정 후 해당 두 파일: 103 passed
+.venv/bin/python -m pytest -q tests/unit/test_validation_input.py tests/unit/test_sensor_validation_job.py --basetemp=/tmp/ktd-8h-green
+
+# 관련 계약·sink·publisher·runtime: 569 passed, 1 warning
+.venv/bin/python -m pytest -q tests/unit/test_validation_input.py tests/unit/test_validation_domain.py tests/unit/test_event_time_policy.py tests/unit/test_event_identity.py tests/unit/test_silver_sink.py tests/unit/test_delta_silver_adapter.py tests/unit/test_validated_publisher.py tests/unit/test_quarantine_record.py tests/unit/test_quarantine_publisher.py tests/unit/test_sensor_validation_job.py tests/unit/test_runtime_config.py --basetemp=/tmp/ktd-8h-related
+
+# 최종 전체 unit: 751 passed, 1 warning
+.venv/bin/python -m pytest -q tests/unit --basetemp=/tmp/ktd-8h-unit-final
+
+# 기본 integration: 기존 외부 연동 10 + 신규 opt-in 1 = 11 skipped
+.venv/bin/python -m pytest -q tests/integration --basetemp=/tmp/ktd-8h-integration-default
+
+# 실제 로컬 통합: 1 passed, 47.59s / 새 프로세스 5회
+JAVA_HOME=/tmp/ktd-8h-java/jdk-21.0.13+9/Contents/Home \
+KTD_LOCAL_DELTA_JARS=/tmp/ktd-8h-jars/delta-spark.jar,/tmp/ktd-8h-jars/delta-storage.jar \
+KTD_RUN_LOCAL_DELTA=1 /tmp/ktd-8h-spark/bin/python -m pytest -q \
+  tests/integration/test_job2_local_delta_recovery.py \
+  --basetemp=/tmp/ktd-8h-delta-final
+
+# 둘 다 offline config OK; 인증값/토큰을 읽지 않음
+.venv/bin/python -m streaming.jobs.sensor_validation_job --runtime-config config/job2-runtime.example.json --check-config
+.venv/bin/python -m streaming.jobs.sensor_validation_job --runtime-config config/job2-runtime.json --check-config
+
+git diff --check
+git diff --stat
+git status --short
+```
+
+로컬 재현 의존성 준비는 다음과 같다. JDK 21은 공식 Adoptium의 macOS ARM64
+archive를 `/tmp/ktd-8h-java`에 해제했고, Delta JAR 두 개는 Maven Central의
+`io/delta/delta-spark_2.13/4.0.0`과 `io/delta/delta-storage/4.0.0`에서 받았다.
+기존 local 환경이 있으면 재다운로드가 필요하지 않다.
+
+```bash
+UV_CACHE_DIR=/tmp/ktd-8h-uv-cache uv venv /tmp/ktd-8h-spark --python .venv/bin/python
+UV_CACHE_DIR=/tmp/ktd-8h-uv-cache uv pip install --python /tmp/ktd-8h-spark/bin/python \
+  pyspark==4.0.1 delta-spark==4.0.0 pytest 'confluent-kafka[avro,schemaregistry]' python-dotenv cloudpickle
+```
+
+새 테스트는 기본적으로 skip되어 기존 `.venv`에 Spark 설치를 요구하지 않는다.
+테스트 재실행은 새 basetemp를 사용하고 원본 증빙 경로를 덮어쓰지 않는다.
+
+### 10. 남은 데이터 유실·중복·복구 위험
+
+1. **at-least-once**: Silver·Kafka·checkpoint를 함께 commit하지 않는다.
+   ACK 뒤 checkpoint 실패 시 같은 validated/Quarantine이 다시 전달될 수 있다.
+   downstream은 event_id 및 quarantine_id/lineage 기준 중복 대응이 필요하다.
+2. **raw retention 의존**: 미완료 batch 원본이 보존되어야 재시도할 수 있다.
+   raw가 만료되거나 checkpoint를 잘못 바꾸면 canonical에 남은 정상 이벤트의
+   미전달 여부를 자동 식별할 ledger가 없고, invalid 원문은 Silver에 없다.
+   `failOnDataLoss`는 실패를 드러내지만 만료 원본을 복원하지 않는다.
+3. Silver canonical 자체는 pending publish ledger가 아니다. 독립 backfill/
+   대사는 별도 설계가 필요하며 이번 작업에서 outbox나 서비스를 추가하지 않았다.
+4. 단일 writer 가정이다. Delta MERGE가 event_id unique constraint를 제공하는
+   것은 아니며 동시 다중 writer·동일 checkpoint 병렬 실행은 미검증이다.
+5. 실제 Kafka in-flight/ACK 타이밍, executor 종료, broker/network 복구,
+   UC checkpoint 권한·Delta commit 불확실성은 cloud/runtime 후속 검증이 필요하다.
+6. 처리 시각 기준 late 판정은 재시작 시 달라질 수 있다. canonical identity는
+   원 payload 기반이다. 실제 watermark·bounded state/scale 성능은 미구현·미검증이다.
+
+### 11. Cloud E2E 준비 상태 / 차단 요소
+
+이번에는 저장소 증빙만 읽었다. 현재 클라우드 실측으로 표현하지 않는다.
+
+| 항목 | 확인한 저장소 상태 / 남은 조건 |
+|---|---|
+| output topics | P2-8g `20261022T051154Z/topics-final.json`에 두 topic 생성·3 partitions·delete·604800000ms·bytes=-1, RF=3/min ISR=2 기록. 현 시점 broker 재조회는 미실행 |
+| 종료/비용 | 같은 실행 cleanup.json에 EC2 stopped, 임시 IAM NoSuchEntity, cleanup_errors=[] 기록. 이번에는 변경/유료 실행 0건 |
+| runtime 일치 | 실제·example config 모두 같은 broker:9098, ap-northeast-2, raw/validated/quarantine, Silver Delta, Job 2 전용 checkpoint. offline check-config 둘 다 PASS |
+| 인증 참조 | source=`ktd-msk-consumer`, producer=`ktd-msk-job2-credential`, Registry scope/key=`ktd-job2/schema-registry-basic-auth`. 값은 읽거나 출력하지 않음 |
+| 인증 구현 | Spark source service credential과 Python OAUTHBEARER signer 분리, Producer acks=all/auto-create=false, worker credential/token 갱신 코드 존재. 실제 만료·갱신 및 양 topic metadata/ACK는 미검증 |
+| 읽기 대사 권한 | P2-8d 기록의 source consumer role은 raw ReadData만 있음. 기존 `scripts/phase2_verify_happy_path.py`는 같은 source credential로 validated도 읽으므로 실행 전 output ReadData 가능한 별도 검증 주체/권한을 확정해야 함. 권한을 임의 수정하지 않음 |
+| Registry | Confluent Cloud endpoint/basic secret 참조 및 등록 schema 조회 설정 존재. 실제 HTTP 및 과거 schema ID replay 가능성 재확인 필요 |
+| fixture | 기존 p2-8b fixture는 2026-10-11 준비/raw p1/o3 ACK의 과거 증거. 현재 retention 내 존재·미래/late 분류·Job 2 처리 증거가 아님. 신규 승인 E2E에는 새 event_id/시각과 등록 schema로 준비·발행 필요 |
+| 처리 버전 | 실제 runtime JSON git:b8c6ee2 / example git:79163ad는 현재 HEAD와 다름. 사용자 기존 파일은 보존. E2E 실행 증빙에는 실제 배포 SHA와 processing_version 대응 확인 필요 |
+| 테이블/checkpoint | 과거 UC Managed Delta storage smoke 있음. 이번 실제 Delta는 임시 local table로 분리. 운영 table/schema/Volume grants 및 기존 offset는 실행 전 읽기 대사 필요 |
+| 비용 | 로컬만 실행, 신규 AWS/Databricks 비용 없음. 후속 Cloud는 DBU/VM, 기존 MSK capacity/partition/storage/IO/전송, Registry plan 비용 요인. 크레딧 적용·단가는 이번 미조회로 확정하지 않음 |
+
+### 12. 문서·증빙 경로와 역할
+
+아래 모든 상대 경로의 절대 경로 prefix는
+`/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/`이다.
+새 파일을 중복 보고서로 만들지 않고 기존 보고서에 결과를 추가했다.
+
+| 전체 상대 경로 | 역할 / 추가 이유 |
+|---|---|
+| `docs/reports/phase-2-verification.md` | 기존 보고서에 현재 결과·실패 경계·cloud gate 통합 |
+| `tests/integration/test_job2_local_delta_recovery.py` | 기존 unit으로 증명하지 못했던 새 프로세스/실제 Delta/checkpoint 수렴 검증 |
+| `tests/integration/job2_local_recovery_worker.py` | 실제 Python/JVM 재시작 및 강제 종료를 격리할 자식 실행기 |
+| `docs/evidence/phase-2/p2-8h-local-reliability/run-summary.json` | HEAD/환경·통과 수·소스 hash·검증 한계 |
+| `docs/evidence/phase-2/p2-8h-local-reliability/local-recovery.json` | 실제 synthetic 입력·17 ACK journal·2 canonical·query/batch·checkpoint·Delta log 원문 |
+| `docs/evidence/phase-2/p2-8h-local-reliability/test-results.txt` | red/full/related/skip/local integration 명령별 pytest 원문 |
+| `docs/evidence/phase-2/p2-8h-local-reliability/worker-traces.txt` | 의도한 timeout·강제 종료와 새 프로세스 실행 로그 |
+
+스크린샷은 직접 촬영하지 않았다. 사용자는 `test-results.txt`의 6 failed →
+751 passed와 local 1 passed, `local-recovery.json`의 canonical 2행/3 Delta
+versions/같은 query ID·다른 run ID를 열어 캡처하면 된다. “실제 로컬 Spark/Delta,
+Kafka/Registry 대역”이라고 표시하고 broker ACK 화면으로 표현하지 않는다.
+
+### 13. 이번 commit 후보 파일 (실행하지 않음)
+
+다음 목록에는 기존 사용자 미커밋 변경을 섞지 않았다. 검토 뒤 사용자가 실행한다.
+
+```bash
+git add -- streaming/validation/avro_decoder.py \
+  tests/unit/test_validation_input.py tests/unit/test_sensor_validation_job.py \
+  tests/integration/test_job2_local_delta_recovery.py \
+  tests/integration/job2_local_recovery_worker.py \
+  docs/reports/phase-2-verification.md \
+  docs/evidence/phase-2/p2-8h-local-reliability/run-summary.json \
+  docs/evidence/phase-2/p2-8h-local-reliability/local-recovery.json \
+  docs/evidence/phase-2/p2-8h-local-reliability/test-results.txt \
+  docs/evidence/phase-2/p2-8h-local-reliability/worker-traces.txt
+# 권장 메시지: fix: preserve Registry failures and verify Job 2 local recovery
+```
+
+### 14. 별도 승인이 필요한 Cloud 작업
+
+실행 전 fixture·검증 principal·actual deployed SHA·기존 checkpoint와 raw retention을
+확정해야 한다. 사용자 승인 범위는 Databricks 유료 Compute 시작/실행/종료,
+실제 raw 테스트 발행, Job 2 두 output ACK, 필요한 읽기 권한/자격 증명,
+격리된 failure injection 및 재시작·대사까지 구체화해야 한다. 기존 runtime role에
+CreateTopic을 추가하거나 checkpoint/offset를 초기화할 이유는 없다.
+실패 시 streaming query 종료→해당 compute 종료 확인→변경한 임시 권한만 회수→
+잔여 비용/원본·checkpoint 보존을 기록하는 별도 승인 절차가 필요하다.
+
+### 15. Phase 2 DoD 중 미완료와 다음 논리 작업
+
+- actual MSK raw→Job 2→UC Delta/validated/Quarantine 원본·key·lineage 대사.
+- 두 output의 실제 producer credential metadata/callback ACK 및 읽기 검증 주체.
+- Databricks Kafka source checkpoint offset 복구와 실제 broker 부분 실패 재처리.
+- raw retention/Job 1 Bronze와 Job 2 독립 소비 lag·누락 대사.
+- 단일 writer 운영 제약·동시 실행 방지와 필요 시 별도 성능/다중 writer 검증.
+- 계획이 실제 Spark watermark를 요구한다면 처리 시각 late 분류와의 차이를
+  명시적으로 닫아야 한다. 이번 작업은 미구현 watermark를 구현했다고 하지 않는다.
+
+다음 논리 작업은 **output 읽기 대사 principal과 새 E2E fixture/승인 범위를
+확정하는 실행 전 검토**다. 이번 로컬 수정·검증을 사용자 검토에 넘기고 멈춘다.
