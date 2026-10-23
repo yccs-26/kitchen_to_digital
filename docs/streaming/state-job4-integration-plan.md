@@ -311,3 +311,37 @@ foreachBatch 기본 at-least-once·continuous mode 제외, stateful timer checkp
 
 Job 4 진입 우선순위는 runtime/JDK와 state 권위·명령 실패 처리 정책 결정 → 승인된 오프라인
 runtime contract harness → 실제 자원·권한·비용 승인 → 3 Sink E2E다. 이번에는 후속 구현을 시작하지 않는다.
+
+## 13. Runtime & State Authority 결정 지원 — 2026-10-23
+
+G1~G6 commit 이후 `fb920c0` clean 상태에서 재개했고 실제 fetch로 HEAD/FETCH_HEAD/
+origin tracking ref 일치 및 0/0을 확인했다. 상세 Task A~F 비교/명령/승인 경계는
+[Runtime·Authority 결정 보고서](../reports/phase-4-runtime-authority-decisions.md)를 따른다.
+
+- 검증 환경 후보는 **별도 portable JDK17 + Python3.11 + Spark4.0.0**이다. native API 비교용
+  기준이며 production/최신 version 채택이 아니다. DBR target이 3.5 계열이면 별도 비교
+  환경을 사용한다. 현재 PySpark/pandas/pyarrow/numpy는 미설치, Java24만 있다. 정확한 격리
+  환경 준비 명령을 보고서에 작성했고 설치·전역 설정 변경·Spark Query 실행은 하지 않았다.
+- 권장 설계 기준은 **foreachBatch + 외부 transactional state/command/publication authority**다.
+  Spark stateful 중심 및 checkpoint+durable publication 대안과 원자성·timer·replay·
+  dedup·writer/dispatcher·보존·rebuild·DBR·복잡도/비용을 비교했다. 특정 저장소 채택/생성은
+  사용자 승인 전 미정이다. Spark checkpoint와 외부 authority가 한 transaction은 아니다.
+- authority가 durable writer epoch를 발급하고 모든 commit에 CAS를 적용해야 한다.
+  client clock/lease만으로 partition 중 offline commit하지 않는다. claim은 외부 전송을
+  취소하지 않으므로 History/Current 멱등성과 Kafka 중복 수용·개별 ACK는 그대로 필요하다.
+- Command Failure Lifecycle은 기존 ADMITTED/PARTIAL/COMPLETE를 유지한다. 반복 PARTIAL은
+  같은 정책/원래 요청으로 재개하고, 계약/손상/권한/ID 충돌은 분류·수동 감사한다. 자동
+  CANCELLED/QUARANTINED/skip·원장 수정 API는 운영 정책 승인 전 구현하지 않았다.
+- 새 job4_contract.py는 순수 입력/key/주어진 offset 순서와 batch 완료 증빙을 검사한다.
+  BatchIdentity는 감사 metadata이며 native ID·writer epoch가 아니다. 명시 Timer는 기존 API를
+  재사용한다. checkpoint_ready는 expected command manifest의 COMPLETE와 필요한 Sink
+  terminal을 함께 요구한다. pending=0으로 대체하지 않고 실제 checkpoint를 쓰지 않는다.
+- **한계:** 새 모델의 source lineage/BatchIdentity는 기존 Application Ledger에 자동 저장되지
+  않는다. runtime은 그 기록·cross-batch cursor·최초 평가 시각을 admission/의도와 원자적으로
+  연결해야 한다. caller manifest/receipt의 인증·완전성도 이 순수 함수만으로 증명하지 않는다.
+
+기존 Phase 2 Job의 numeric Avro/ACK 계약과 Phase 3 worktree의 validated decode/UTC/
+watermark·Fake 계획 검사 구분을 참고했다. Phase 3 코드를 이 worktree에 복사하거나 병합하지
+않았고 Gold watermark를 Health 무입력 scheduler로 사용하지 않는다. 실제 source partition/
+offset/ordinal 순서·idle/restart tick·권위 저장과 checkpoint의 실패 행렬은 후속 runtime 검증이다.
+기존 History/Kafka/DynamoDB·Registry/wire pinning·권한/비용 승인 및 Phase 4 DoD 게이트는 유지한다.

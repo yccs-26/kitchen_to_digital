@@ -1187,3 +1187,64 @@ handler=None이며 Health Registry도 미지원이다. 설계나 numeric telemet
 표시하지 않았다. 운영 state authority·clock/timer·실패 명령 관리·checkpoint/Publication
 원자성·Avro Registry/wire pinning·실제 세 Sink·권한/비용/범위 승인이 E2E 선행 게이트다.
 Phase 4 전체 DoD 및 State Rebuild/FAULT/추가 장비 구현 완료를 주장하지 않는다.
+
+## Autonomous Spark Runtime & State Authority Readiness — 2026-10-23
+
+G1~G6 사용자 commit/push 후 `fb920c05a2a7c98b80e9276ab88c1ab03868044e`에서 재개했다.
+시작 clean, 선행 40경로 tracked/present, 실제 fetch 성공 후 HEAD/FETCH_HEAD/origin ref 일치,
+ahead/behind 0/0을 확인했다. 첫 fetch는 공용 Git metadata 쓰기 권한으로 막혔고 승인된
+fetch 범위를 권한 승격으로 재실행했다. stale tracking ref만으로 push 완료를 추정하지 않았다.
+fetch 외 Git staging/이력/publication은 변경하지 않았다.
+
+Task A~F의 상세 비교·명령·사용자 승인 경계는
+[Runtime·Authority 결정 보고서](phase-4-runtime-authority-decisions.md),
+[Job 4 계획 13절](../streaming/state-job4-integration-plan.md)을 따른다.
+
+### 구현·설계 범위
+
+- 새 job4_contract.py는 pure InputPosition/ValidatedCommand/BatchIdentity/CommandEvidence,
+  caller 순서 검사 및 checkpoint_ready 증빙 predicate만 제공한다. 기존 Application의
+  validated_observation·Core/Registry/Codec/Timer/ID·v1/v2 저장/ACK 코드는 변경하지 않았다.
+- Fake 통합은 같은 입력/평가 시각 replay·파일 reopen·PARTIAL 반복 실패·takeover·ACK 유실
+  중복·invalid ADMITTED·명시 timer·native DUPLICATE no-output을 기존 경로와 연결했다.
+- 외부 transactional authority + foreachBatch는 **권장 설계/실험 기준, 운영 미채택**이다.
+  Spark stateful / checkpoint+durable publication과 11개 기준을 비교했다.
+- 실패 명령은 기존 ADMITTED/PARTIAL/COMPLETE를 유지한다. 취소/격리/재시도 budget/손상
+  복구는 운영 정책 승인 전 분류·수동 감사 계약까지만 설계했다. 자동 skip/reset 없음.
+- writer authority/clock skew/network partition/cutover는 설계다. local lease는 외부 쓰기를
+  취소하지 않으며 실제 분산 합의/lock service·실제 network 장애를 구현/실행하지 않았다.
+- Source lineage/BatchIdentity의 runtime 원자 저장, cross-batch cursor·expected manifest
+  완전성·실제 checkpoint/외부 ACK 검증은 후속이다. 순수 predicate만으로 완료 증명이 되지 않는다.
+
+### 실행 결과
+
+현재 .venv: Python3.11.15 / SQLite3.50.4 / pytest9.1.1 / fastavro·avro1.12.2 /
+confluent-kafka2.15.1 / cloudpickle3.1.1. PySpark/pandas/pyarrow/numpy 없음.
+Java24만 설치되어 있고 비교한 Spark3.5.6·4.0.0 지원 목록 밖이다. portable JDK17+격리
+Spark4 비교 환경 명령을 작성했지만 설치/전역 변경·Spark Query 실행은 하지 않았다.
+
+실제 실행 공통 prefix: `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider`.
+
+| 선택 | basetemp | 기대 | 실제 |
+|---|---|---|---|
+| test_job4_contract.py + test_phase4_offline_execution_contract.py | /private/tmp/ktd-runtime-authority-new | 신규 31 unit+6 Fake local 성공 | **37 passed**, 0.49초 |
+| tests/unit/phase4 | /private/tmp/ktd-runtime-authority-unit | 750+31 | **781 passed**, 2.63초 |
+| tests/integration의 Phase4 local_recovery/local_application/concurrency_recovery/fencing_recovery/offline_execution_contract 5파일 | /private/tmp/ktd-runtime-authority-local | 54+6 | **60 passed**, 9.52초 |
+| -m 'not integration' | /private/tmp/ktd-runtime-authority-all | 1518+37, 외부 marker 제외 | **1555 passed, 10 deselected**, 14.62초 |
+
+기존 Authlib httpx deprecation warning 1개. 신규 첫 실행은 모듈 부재 collection 실패(red),
+최소 구현 후 최종 전부 통과했다. 기존 테스트 기대값은 변경·삭제하지 않았다.
+Phase 4 총 841은 두 별도 실행의 합이다. 실제 외부 integration 10개는 실행하지 않았다.
+신규 실제 프로세스 종료 테스트를 추가한 것은 아니며 기존 종료/동시성 테스트를 재실행했다.
+
+### 잔여·보호 경계
+
+추적 baseline 184파일 중 기존 문서 2개의 append 외 182파일 SHA-256이 동일하다.
+새 파일은 pure 모듈·unit·Fake integration·결정 보고서 4개다. 총 변경 6경로이며 Core/기존
+state 코드·테스트·Phase2/3·sensor Avro·config·pyproject/uv.lock는 변경하지 않았다.
+AST/구문·신규 Python 79열·문서 링크·작성한 shell 명령의 syntax-only 검사·git diff --check를
+수행했다. 제안 설치/commit/push 명령은 실제 실행하지 않았다.
+
+실제 Job4/Runtime·영속 state authority·timer scheduler·checkpoint 원자성·운영 wire/schema ID
+고정·Registry/History/Kafka/DynamoDB·State Rebuild·추가 장비/FAULT는 여전히 미구현·미검증 또는
+사용자 결정 대상이다. Phase 4 전체 DoD 및 외부 E2E 완료로 표시하지 않는다. Phase5 없음.
