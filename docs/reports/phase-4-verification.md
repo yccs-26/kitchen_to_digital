@@ -1248,3 +1248,61 @@ AST/구문·신규 Python 79열·문서 링크·작성한 shell 명령의 syntax
 실제 Job4/Runtime·영속 state authority·timer scheduler·checkpoint 원자성·운영 wire/schema ID
 고정·Registry/History/Kafka/DynamoDB·State Rebuild·추가 장비/FAULT는 여전히 미구현·미검증 또는
 사용자 결정 대상이다. Phase 4 전체 DoD 및 외부 E2E 완료로 표시하지 않는다. Phase5 없음.
+
+
+## Job 4 Offline Implementation Batch — 2026-10-23
+
+상세 Task A~G·인터페이스·종료 행렬·Git 명령은
+[Offline 구현 검증 보고서](phase-4-job4-offline-verification.md)에 기록했다.
+시작 clean, branch feat/phase-4-twin-state, HEAD3087e0b이며 직전 6경로의 두 commit
+b1e43d5/3087e0b를 확인했다. 이번에는 fetch하지 않아 최신 원격 동기화는 검증하지 않았다.
+
+### 구현·계약
+
+실제 Phase 2 Avro decoder + 기존 ValidatedCommand → 명시 sequence Batch Application →
+기존 Fenced Application/Core/Timer/Codec/Publication 경로를 연결했다. 새 파일 전용 Job4Store는
+native SQLite v2와 local catalog v1을 사용하며 자동 기존 DB migration은 없다.
+manifest/입력 원본/최초 evaluation_time/source cursor를 보존한다. native admission과 ingress
+admitted/cursor는 최소 optional admission_hook으로 같은 transaction에 결합했다.
+
+등록됐으나 미admission인 선행 tail의 batch 추월을 장비별 FIFO로 막았다. 기존 PARTIAL
+장벽과 CAS/epoch는 유지한다. input_committed와 모든 필수 ACK+completion marker에 따른
+checkpoint_allowed를 분리한다. complete marker는 input-only replay로 후퇴하지 않는다.
+저장 manifest 재개는 Kafka/Registry에 의존하지 않는다. native Change ID 생성은 변경하지 않았다.
+
+### 실행 환경·명령·실측
+
+기존 .venv Python3.11.15 / SQLite3.50.4 / pytest9.1.1을 그대로 사용했다. 패키지 설치나
+전역 환경 변경은 없다. 공통 명령 prefix:
+`PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider`.
+
+| 선택 | --basetemp | 기대 | 실제 |
+|---|---|---|---|
+| test_job4_input.py + test_job4_batch.py + test_phase4_job4_batch.py + test_phase4_job4_recovery.py | /private/tmp/ktd-job4-new-latest | 신규 unit30 + local26 | **56 passed**, 6.39초 |
+| tests/unit/phase4 | /private/tmp/ktd-job4-final-unit | 781 + 신규30 | **811 passed**, 4.18초 |
+| 기존 Phase4 local 5파일 + 신규 Job4 2파일 | /private/tmp/ktd-job4-final-local | 60 + 신규26 | **86 passed**, 17.02초 |
+| -m 'not integration' | /private/tmp/ktd-job4-final-all | 1555 + 신규56 | **1611 passed, 10 deselected**, 23.07초 |
+
+Phase 4 합897은 unit/local 별도 실행의 합이며 전체 회귀에도 같은 테스트가 포함된다.
+10개 integration marker는 외부 실행이어서 제외했다. 기존 Authlib httpx deprecation warning
+1개를 각 회귀에서 확인했다. 정확한 파일 선택과 전체 재현 명령은 상세 보고서 15절에 있다.
+
+초기 신규 integration 검사에서 Fryer Snapshot 필드명 참조 오류가 발생했고 실제
+TwinState.observation.operational_state에 맞춰 수정했다. 기존 assertion/기대값은 바꾸지 않았다.
+
+신규 recovery14개 중 crash13사례에서 os._exit(87) 총14회, stale writer 통제 종료1사례다.
+11개 종료 지점, timeout20초와 고정 입력/평가 시각으로 연속 실행 대비 전체 Snapshot bytes/
+Native ID/출력/manifest/Fake Sink 결과를 비교했다. Kafka ACK 유실은 동일 bytes 중복을
+허용하며 live claim 만료 경계·PARTIAL 복구 중 재종료도 확인했다. 실제 외부 전달 검증이 아니다.
+
+### 보호·미검증 경계
+
+기준선 tracked188 중 writer_fencing.py와 기존 문서2개만 변경했다. 나머지185 SHA-256은
+동일하며 두 문서는 append로 원문을 보존했다. 신규9 + 기존수정3 = 총12경로다.
+기존 FSM/Health Core/ID·Hood·Registry·Codec·Phase2/3·Avro·config·lock/의존성은 보존했다.
+AST63파일/신규 Python79열·문서 링크28개·Git 명령 syntax/대상 완전성·git diff --check를 확인했다.
+
+실제 Spark/DBR/외부 Registry/History/Kafka/DynamoDB E2E·checkpoint·분산 authority·scheduler는
+미구현/미검증이다. Source manifest 완전성·대량 처리·retention/TTL·전원/디스크 장애·운영
+수동 실패 복구·추가 장비 지원은 후속이다. 운영 timeout/새 authority를 자동 확정하지 않았다.
+Git staging/commit/push·운영 DB migration·기존 checkpoint 변경·Phase5 구현은 하지 않았다.

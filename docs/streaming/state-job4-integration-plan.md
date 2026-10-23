@@ -345,3 +345,62 @@ watermark·Fake 계획 검사 구분을 참고했다. Phase 3 코드를 이 work
 않았고 Gold watermark를 Health 무입력 scheduler로 사용하지 않는다. 실제 source partition/
 offset/ordinal 순서·idle/restart tick·권위 저장과 checkpoint의 실패 행렬은 후속 runtime 검증이다.
 기존 History/Kafka/DynamoDB·Registry/wire pinning·권한/비용 승인 및 Phase 4 DoD 게이트는 유지한다.
+
+
+## 14. Job 4 Offline Batch 연결 — 2026-10-23
+
+이번 변경은 실제 Spark Query 이전의 명시 Record Sequence 실행 계층이다. 전체 파일·명령·
+장애 행렬은 [Offline 검증 보고서](../reports/phase-4-job4-offline-verification.md)를 따른다.
+13절의 lineage 미영속 한계 중 아래 항목은 **새 Job4Store 경로에서만** 보완했다. 기존
+Local Application이나 plain SQLite v1/v2가 자동으로 같은 catalog를 갖는 것은 아니다.
+
+- job4_input.py는 Phase 2 실제 Confluent frame/Avro decoder와 기존 ValidatedCommand를
+  재사용한다. Registry는 주입하며 wire schema ID·key·UTC·lineage를 검사한다. source epoch와
+  topic/partition/offset으로 transport command_ref를 정하되 native Change ID는 유지한다.
+- Job4Store.create는 exclusive 새 파일만 생성한다. native user_version=2 + local catalog
+  version=1이며 기존 파일 자동 migration은 없다. 입력 canonical payload·wire digest·최초
+  evaluation_time·expected manifest·source cursor를 보존하고 checksum으로 재검사한다.
+- 기존 FencedPublicationStore.run_command의 optional admission_hook을 통해 ingress admitted
+  flag와 cursor를 native admission과 같은 transaction에 기록한다. 각 축 Snapshot/command/
+  intent는 기존 CAS transaction을 사용한다. 전체 batch/두 축의 원자 commit은 아니다.
+- per-device 등록 FIFO는 앞선 manifest의 미admission tail을 다른 batch가 추월하지 못하게
+  한다. native PARTIAL 장벽도 유지한다. 알려진 ref는 replay하고 새로운 역순 offset/partition
+  변경은 거부한다. 주어진 sequence를 event_time으로 재정렬하지 않는다. 다른 장비는 독립이다.
+- apply_inputs는 입력 영속 완료만 반환한다. execute/recover/complete는 expected command와
+  필수 Sink ACK를 기존 checkpoint_ready로 검사하고 completion marker까지 commit해야
+  checkpoint_allowed=True다. pending=0·complete flag만으로 성공을 판정하지 않는다.
+- resume_inputs/recover는 저장 manifest·입력·평가 시각을 재사용하므로 Kafka/Registry 재접근
+  없이 재개할 수 있다. manifest 이전 유실은 원천 replay가 필요하다. 원본 raw record를 다시
+  제출해도 최초 평가 시각을 유지한다. 재시도/영구 오류의 자동 skip 정책은 추가하지 않았다.
+- TimerInput은 기존 native token과 evaluation_time을 명시한다. deadline·generation·옛 timer
+  무효·중복 tick·관측/tick의 두 처리 순서를 유지한다. scheduler/자동 tick은 없다.
+
+Spark callback/Row Adapter는 아직 설계다. 제안 signature는 다음과 같다.
+
+```python
+def job4_foreach_batch(batch_df, batch_id: int, *,
+                      query_id: str, checkpoint_epoch: str,
+                      row_adapter, authority_factory, writer_provider,
+                      registry_factory, publication_factory, clock) -> None:
+    ...
+
+
+def rows_to_job4_records(rows, *, evaluation_time) -> tuple:
+    ...
+```
+
+Row Adapter는 topic/partition/offset/key/value를 보존하고 frame header의 schema ID를
+추출해야 한다. Spark iterator 순서를 원천 순서로 가정하지 않으며 stable manifest·전체
+expected 입력·장비별 순서와 source 소유권을 검증해야 한다. 저장 offset 범위는 [min,max+1)
+요약이며 Kafka gap 없는 소비나 여러 query 간 소비 완전성을 증명하지 않는다. source epoch
+교체와 partition 변경은 명시 cutover 대상이다. 무제한 collect/worker별 SQLite는 운영 설계가 아니다.
+
+Driver/executor의 client 생성·직렬화·재시도 책임, 단일 writer authority, 무입력 timer 실행,
+실제 checkpoint/Publication 실패 행렬, 출력 Avro bytes/schema ID 고정, 운영 Registry와 Sink는
+후속 runtime 검증이다. callback 실패를 예외로 전파하는 계약이며 checkpoint와 외부 authority를
+하나의 transaction으로 가정하지 않는다. PySpark/DBR API를 이번에 실행하지 않았다.
+Refrigerator/Freezer/Dishwasher가 포함될 수 있는 전체 topic의 라우팅/실패 정책도 미정이다.
+
+신규 56개(unit30/local26), Phase 4 unit811/local86, 전체 로컬1611 passed를 확인했다.
+실제 child process 종료/SQLite reopen 증거는 로컬 범위다. 현재 미설치 PySpark/운영 authority/
+외부 3 Sink E2E와 Phase 4 전체 DoD 완료로 확대하지 않는다. 설치·Query·cloud·Git 발행 없음.
