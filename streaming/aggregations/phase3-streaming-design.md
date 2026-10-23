@@ -307,3 +307,29 @@ dependency/lock 변경을 하지 않는다.
 - 미추적 문서까지 포함한 `git diff --no-index --check /dev/null` 검사 통과.
 - 전체 793개 회귀는 이번에 재실행하지 않았다. 새 Spark/Delta·장애 시뮬레이션은 설계만 했다.
 - Compute 실행·AWS 변경·commit/push/merge 없음. 사용자 검토 전 구현을 시작하지 않는다.
+
+## 12. 로컬 통합 구현 확인 — 2026-10-22
+
+사용자의 Stage A–F 통합 구현 요청에 따라 생산 Row Comparison, 로컬 Delta Sink,
+Job 3 plan 및 checkpoint 복구 검증을 구현했다. 최신 실행 근거는
+`docs/reports/phase-3-verification.md`와 `docs/evidence/phase-3/`에 있다.
+과거의 '미구현/검토 대기' 서술은 당시 이력이며 현재 상태는 새 보고서를 따른다.
+
+단일 query/checkpoint를 유지하며 두 native window aggregation branch를 union한다.
+물리 plan은 branch별 dedup과 aggregation을 가져 총 stateful operator 4개였다.
+공통 DataFrame 변수를 사용해도 dedup state가 하나로 공유되지는 않았다.
+1분 출력을 5분 종료까지 지연시키거나 query/checkpoint를 추가하는 대안은 채택하지 않았다.
+Window 종류·branch 순서·grouping·stateful 구조는 동일 checkpoint에서 바꾸지 않는다.
+기존 1분 실험 checkpoint를 이 구조에 재사용하지 않았고 테스트용 새 checkpoint만 만들었다.
+
+로컬 Spark 4.0.0/Delta 4.0.0에서 Append-final → Mapper → 단일 MERGE가 실행됐다.
+source 자연키 중복은 MERGE 전에 거부하고, 동일 target key의 값 차이는 MERGE 내부
+raise_error로 트랜잭션을 중단한다. SQL WHEN MATCHED UPDATE 구문은 오류 발생용이며
+상이한 값을 자동 UPDATE하는 경로가 아니다. 동일 값은 action 없이 NO-OP이다.
+
+Sink는 초기 소규모 final batch를 driver에 materialize하고 단일 writer를 전제로 한다.
+동시 writer의 자연키 유일성, 대량 부하, log retention 뒤 metadata 검사,
+실제 Kafka/Registry/Databricks 및 강제 프로세스 종료는 미검증이다.
+정상적인 별도 Python/JVM 프로세스 재시작은 동일 checkpoint에서 확인했다.
+Kafka adapter는 기존 Confluent Avro 10필드/decoder를 재사용하지만 실제 broker 연결은 하지 않았다.
+로컬 Delta 선택을 운영 catalog/권한/배포 검증으로 해석하지 않는다.
