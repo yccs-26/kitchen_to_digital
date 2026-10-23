@@ -1,0 +1,222 @@
+[
+  {
+    "name": "ktd-p2-registry-2e3daddc",
+    "image": "confluentinc/cp-schema-registry:8.1.5",
+    "state": "exited",
+    "exit_code": 143,
+    "started": "2026-10-23T06:13:52.06988009Z",
+    "finished": "2026-10-23T06:14:25.35526605Z",
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "cf990b445d28d52e5da30520c647738ad74fb8eec56df713ce53c88bcf69e70c",
+        "destination": "/etc/schema-registry/secrets"
+      }
+    ]
+  },
+  {
+    "name": "ktd-p2-kafka-2e3daddc",
+    "image": "apache/kafka:4.1.0",
+    "state": "exited",
+    "exit_code": 143,
+    "started": "2026-10-23T06:13:16.407328046Z",
+    "finished": "2026-10-23T06:14:26.352472384Z",
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "700fed0d6315585a1cec4778d2d75d5a76d640b6ff139ce6ea5616d5c11bff36",
+        "destination": "/etc/kafka/secrets"
+      },
+      {
+        "type": "volume",
+        "name": "d7fc5aec780050f6cfdbc734d506df9e3d2a47571d4cd398e2224a61af28132a",
+        "destination": "/mnt/shared/config"
+      },
+      {
+        "type": "volume",
+        "name": "77131307d4f29e460cf72be9421d8d36c85b12125ae653041925b963b96dbba0",
+        "destination": "/var/lib/kafka/data"
+      }
+    ]
+  },
+  {
+    "name": "ktd-p2-registry-fea622e0",
+    "image": "confluentinc/cp-schema-registry:8.1.5",
+    "state": "exited",
+    "exit_code": 143,
+    "started": "2026-10-23T06:08:53.267088507Z",
+    "finished": "2026-10-23T06:09:04.298693679Z",
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "5b3a59a8086ebbbfd4002d53fdd3bca29a18de064b26018669bb36302d20b91c",
+        "destination": "/etc/schema-registry/secrets"
+      }
+    ]
+  },
+  {
+    "name": "ktd-p2-kafka-fea622e0",
+    "image": "apache/kafka:4.1.0",
+    "state": "exited",
+    "exit_code": 143,
+    "started": "2026-10-23T06:08:18.080377213Z",
+    "finished": "2026-10-23T06:09:05.139728555Z",
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "fada4353930929bc306da5b70a03e26c481cccf61f95c610027a1240088a379a",
+        "destination": "/etc/kafka/secrets"
+      },
+      {
+        "type": "volume",
+        "name": "c8ab77a67082531a6f0061acb6909dd35caa48366820ec825dd18dd7a8162810",
+        "destination": "/mnt/shared/config"
+      },
+      {
+        "type": "volume",
+        "name": "a492409466da2aa705d898466042dfb4c0d42fcc45ff42fd292b9b14f0cfc092",
+        "destination": "/var/lib/kafka/data"
+      }
+    ]
+  },
+  {
+    "name": "ktd-p2-registry-2fc46de6",
+    "image": "confluentinc/cp-schema-registry:8.1.5",
+    "state": "exited",
+    "exit_code": 143,
+    "started": "2026-10-23T05:59:10.982000917Z",
+    "finished": "2026-10-23T05:59:26.419317258Z",
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "206cb6df4ac89bf5ea49481a503c02022b29b29ddc2946369705f502edde08a9",
+        "destination": "/etc/schema-registry/secrets"
+      }
+    ]
+  },
+  {
+    "name": "ktd-p2-kafka-2fc46de6",
+    "image": "apache/kafka:4.1.0",
+    "state": "exited",
+    "exit_code": 143,
+    "started": "2026-10-23T05:58:43.182703877Z",
+    "finished": "2026-10-23T05:59:27.416543592Z",
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "9b944eb393cb6088e2c942bba28cd7c2ce9901d79153d5686a0af77c2bfc2604",
+        "destination": "/etc/kafka/secrets"
+      },
+      {
+        "type": "volume",
+        "name": "e2e8f5ee533ca835b30320fbd0c5b9156a4cf508e68e4c725c195a92c2d45d84",
+        "destination": "/mnt/shared/config"
+      },
+      {
+        "type": "volume",
+        "name": "07f5148b23608c6f5eb24d687ea36b97a31399b9d8187866ead33505803024af",
+        "destination": "/var/lib/kafka/data"
+      }
+    ]
+  },
+  {
+    "name": "ktd-schema-registry",
+    "image": "confluentinc/cp-schema-registry:8.1.5",
+    "state": "exited",
+    "exit_code": 143,
+    "started": "2026-10-23T05:47:05.383008304Z",
+    "finished": "2026-10-23T06:16:24.187226633Z",
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "3b4e187e8a62d9d1b24889bf788fafcd67b0f28745cafc7bc7b5124c1bc7a08e",
+        "destination": "/etc/schema-registry/secrets"
+      }
+    ]
+  },
+  {
+    "name": "ktd-kafka-init",
+    "image": "apache/kafka:4.1.0",
+    "state": "exited",
+    "exit_code": 0,
+    "started": "2026-09-28T11:25:08.047709168Z",
+    "finished": "2026-09-28T11:25:11.604714711Z",
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "87f064f1a70fd5fc611a1a2b867768e99611eca92f4c9b680fb12e963390cd51",
+        "destination": "/mnt/shared/config"
+      },
+      {
+        "type": "volume",
+        "name": "f14ec696b074394ea12688c1693c24a8f49ad37365405a536c5d7e6b7a3b0080",
+        "destination": "/var/lib/kafka/data"
+      },
+      {
+        "type": "volume",
+        "name": "b16548bae6ab8cdefd4a96cf899a49c6694b2e4958cd0b0a77c3b87e12b037fc",
+        "destination": "/etc/kafka/secrets"
+      },
+      {
+        "type": "bind",
+        "name": null,
+        "destination": "/init/init-topics.sh"
+      }
+    ]
+  },
+  {
+    "name": "ktd-kafka",
+    "image": "apache/kafka:4.1.0",
+    "state": "running",
+    "exit_code": 0,
+    "started": "2026-10-23T05:37:02.078820928Z",
+    "finished": "2026-10-10T12:53:19.536866842Z",
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "1f161132c2df044c210316bbf884e75c3a50a65cf00b2e02125409718eb83528",
+        "destination": "/etc/kafka/secrets"
+      },
+      {
+        "type": "volume",
+        "name": "691462981c06b8d304dd6c3abb09223688e7246d86b0e15ab7ebf0ceb6fc3376",
+        "destination": "/mnt/shared/config"
+      },
+      {
+        "type": "volume",
+        "name": "docker_kafka_data",
+        "destination": "/var/lib/kafka/data"
+      }
+    ]
+  },
+  {
+    "name": "ktd-postgres",
+    "image": "postgres:17-alpine",
+    "state": "exited",
+    "exit_code": 0,
+    "started": "2026-09-28T13:29:58.92091892Z",
+    "finished": "2026-09-28T13:30:02.45776288Z",
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "docker_postgres_data",
+        "destination": "/var/lib/postgresql/data"
+      }
+    ]
+  },
+  {
+    "name": "ecommerce-dw",
+    "image": "postgres:15-alpine",
+    "state": "exited",
+    "exit_code": 0,
+    "started": "2026-10-23T05:36:11.384498918Z",
+    "finished": "2026-10-23T05:36:20.930069797Z",
+    "mounts": [
+      {
+        "type": "volume",
+        "name": "olist-ecommerce_olist_data",
+        "destination": "/var/lib/postgresql/data"
+      }
+    ]
+  }
+]

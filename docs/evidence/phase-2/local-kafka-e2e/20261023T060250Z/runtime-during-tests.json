@@ -1,0 +1,134 @@
+{
+  "git rev-parse HEAD": "3d772bdea261de4275f5888599d661b7f888fb73",
+  "git branch --show-current": "feat/phase2-validation-silver",
+  "git rev-parse @{upstream}": "3d772bdea261de4275f5888599d661b7f888fb73",
+  "docker version --format {{.Server.Version}}": "28.3.3",
+  "containers": [
+    {
+      "name": "ktd-p2-registry-2fc46de6",
+      "image": "confluentinc/cp-schema-registry:8.1.5",
+      "state": "exited",
+      "exit_code": 143,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "206cb6df4ac89bf5ea49481a503c02022b29b29ddc2946369705f502edde08a9",
+          "destination": "/etc/schema-registry/secrets"
+        }
+      ]
+    },
+    {
+      "name": "ktd-p2-kafka-2fc46de6",
+      "image": "apache/kafka:4.1.0",
+      "state": "exited",
+      "exit_code": 143,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "9b944eb393cb6088e2c942bba28cd7c2ce9901d79153d5686a0af77c2bfc2604",
+          "destination": "/etc/kafka/secrets"
+        },
+        {
+          "type": "volume",
+          "name": "e2e8f5ee533ca835b30320fbd0c5b9156a4cf508e68e4c725c195a92c2d45d84",
+          "destination": "/mnt/shared/config"
+        },
+        {
+          "type": "volume",
+          "name": "07f5148b23608c6f5eb24d687ea36b97a31399b9d8187866ead33505803024af",
+          "destination": "/var/lib/kafka/data"
+        }
+      ]
+    },
+    {
+      "name": "ktd-schema-registry",
+      "image": "confluentinc/cp-schema-registry:8.1.5",
+      "state": "running",
+      "exit_code": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "3b4e187e8a62d9d1b24889bf788fafcd67b0f28745cafc7bc7b5124c1bc7a08e",
+          "destination": "/etc/schema-registry/secrets"
+        }
+      ]
+    },
+    {
+      "name": "ktd-kafka-init",
+      "image": "apache/kafka:4.1.0",
+      "state": "exited",
+      "exit_code": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "b16548bae6ab8cdefd4a96cf899a49c6694b2e4958cd0b0a77c3b87e12b037fc",
+          "destination": "/etc/kafka/secrets"
+        },
+        {
+          "type": "bind",
+          "name": null,
+          "destination": "/init/init-topics.sh"
+        },
+        {
+          "type": "volume",
+          "name": "87f064f1a70fd5fc611a1a2b867768e99611eca92f4c9b680fb12e963390cd51",
+          "destination": "/mnt/shared/config"
+        },
+        {
+          "type": "volume",
+          "name": "f14ec696b074394ea12688c1693c24a8f49ad37365405a536c5d7e6b7a3b0080",
+          "destination": "/var/lib/kafka/data"
+        }
+      ]
+    },
+    {
+      "name": "ktd-kafka",
+      "image": "apache/kafka:4.1.0",
+      "state": "running",
+      "exit_code": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "1f161132c2df044c210316bbf884e75c3a50a65cf00b2e02125409718eb83528",
+          "destination": "/etc/kafka/secrets"
+        },
+        {
+          "type": "volume",
+          "name": "691462981c06b8d304dd6c3abb09223688e7246d86b0e15ab7ebf0ceb6fc3376",
+          "destination": "/mnt/shared/config"
+        },
+        {
+          "type": "volume",
+          "name": "docker_kafka_data",
+          "destination": "/var/lib/kafka/data"
+        }
+      ]
+    },
+    {
+      "name": "ktd-postgres",
+      "image": "postgres:17-alpine",
+      "state": "exited",
+      "exit_code": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "docker_postgres_data",
+          "destination": "/var/lib/postgresql/data"
+        }
+      ]
+    },
+    {
+      "name": "ecommerce-dw",
+      "image": "postgres:15-alpine",
+      "state": "exited",
+      "exit_code": 0,
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "olist-ecommerce_olist_data",
+          "destination": "/var/lib/postgresql/data"
+        }
+      ]
+    }
+  ]
+}

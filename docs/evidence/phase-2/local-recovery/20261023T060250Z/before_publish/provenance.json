@@ -1,0 +1,15 @@
+{
+  "source_tmp": "/tmp/ktd-mission-final2/test_real_kafka_delta_failure_2",
+  "git_sha": "3d772bdea261de4275f5888599d661b7f888fb73",
+  "test_sources": {
+    "tests/integration/job2_local_kafka_worker.py": "ef164732f4b82fc042d6ffae0ed787117e13802e7f81a177035ab85da597f701",
+    "tests/integration/test_job2_local_kafka_recovery.py": "e131e07d6a74455991c2d47a8a5fd3deb92e7fb7efced226e77cc5c978f065e7"
+  },
+  "original_log_hashes": {
+    "worker-2-success.log": "0136aeeb75e124468b907516a665a9d443172aa79783c2c6410cdd5b20854e14",
+    "worker-0-before_publish.log": "dbb47eec0fe246da5d54d687bd9366973b97007e1424d1beefceab6643500b0c",
+    "worker-1-success.log": "e49cecb15e7fc20e0acab6eeff60bb6599adbe37255d2125b7569f2d7dece029"
+  },
+  "log_normalization": "terminal CR and trailing whitespace only",
+  "scope": "LOCAL; real Kafka/Registry/Spark/OSS Delta; controlled clock; not MSK/UC"
+}

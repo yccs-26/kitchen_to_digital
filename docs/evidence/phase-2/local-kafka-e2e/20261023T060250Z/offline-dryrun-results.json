@@ -1,0 +1,32 @@
+[
+  {
+    "action": "prepare",
+    "exit_code": 0,
+    "stdout": "{\"run_id\": \"p2i-187e21f99d674eb6b6210e0083c0cade\", \"manifest_sha256\": \"a40ac2bc07cf97bc84da30b67a4d051d966eb6e835f6cba2b458806915ad0b1c\", \"action\": \"prepare\", \"dry_run\": true, \"cloud_access\": false, \"input_records\": 10, \"canonical_ids\": 4, \"expected_validated\": 5, \"expected_quarantine\": 5}\n",
+    "warning": true
+  },
+  {
+    "action": "snapshot",
+    "exit_code": 0,
+    "stdout": "{\"run_id\": \"p2i-187e21f99d674eb6b6210e0083c0cade\", \"manifest_sha256\": \"a40ac2bc07cf97bc84da30b67a4d051d966eb6e835f6cba2b458806915ad0b1c\", \"action\": \"snapshot\", \"dry_run\": true, \"cloud_access\": false, \"input_records\": 10, \"canonical_ids\": 4, \"expected_validated\": 5, \"expected_quarantine\": 5}\n",
+    "warning": true
+  },
+  {
+    "action": "publish",
+    "exit_code": 0,
+    "stdout": "{\"run_id\": \"p2i-187e21f99d674eb6b6210e0083c0cade\", \"manifest_sha256\": \"a40ac2bc07cf97bc84da30b67a4d051d966eb6e835f6cba2b458806915ad0b1c\", \"action\": \"publish\", \"dry_run\": true, \"cloud_access\": false, \"input_records\": 10, \"canonical_ids\": 4, \"expected_validated\": 5, \"expected_quarantine\": 5}\n",
+    "warning": true
+  },
+  {
+    "action": "run-job",
+    "exit_code": 0,
+    "stdout": "{\"run_id\": \"p2i-187e21f99d674eb6b6210e0083c0cade\", \"manifest_sha256\": \"a40ac2bc07cf97bc84da30b67a4d051d966eb6e835f6cba2b458806915ad0b1c\", \"action\": \"run-job\", \"dry_run\": true, \"cloud_access\": false, \"input_records\": 10, \"canonical_ids\": 4, \"expected_validated\": 5, \"expected_quarantine\": 5}\n",
+    "warning": true
+  },
+  {
+    "action": "verify",
+    "exit_code": 0,
+    "stdout": "{\"run_id\": \"p2i-187e21f99d674eb6b6210e0083c0cade\", \"manifest_sha256\": \"a40ac2bc07cf97bc84da30b67a4d051d966eb6e835f6cba2b458806915ad0b1c\", \"action\": \"verify\", \"dry_run\": true, \"cloud_access\": false, \"input_records\": 10, \"canonical_ids\": 4, \"expected_validated\": 5, \"expected_quarantine\": 5}\n",
+    "warning": true
+  }
+]

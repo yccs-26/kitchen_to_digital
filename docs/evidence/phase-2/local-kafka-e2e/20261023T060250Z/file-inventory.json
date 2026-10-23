@@ -1,0 +1,758 @@
+{
+  "existing_snapshot_files": 214,
+  "existing_changed_only": [
+    "docs/implementation/p2-8i-cloud-e2e-runbook.md",
+    "docs/reports/phase-2-verification.md"
+  ],
+  "credential_or_email_pattern_hits": [],
+  "limitations": "Pattern scan and manual selected-config review; not a formal secret-detector guarantee",
+  "json_files_parsed": 56,
+  "new_file_count_before_inventory": 124,
+  "git_head": "3d772bdea261de4275f5888599d661b7f888fb73",
+  "files": [
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/README.md",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/README.md",
+      "bytes": 2896,
+      "sha256": "073da69c9bfee3ecc37c2413e3dc3714f9fc5d55d891fa61dc6fa955b4fab9cf"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/databricks-read-only.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/databricks-read-only.json",
+      "bytes": 1617,
+      "sha256": "8dd2acb7f76e40a3ec26977f59eb1d5910b08ba32593ae5deedc403a382baae2"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/dependencies.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/dependencies.json",
+      "bytes": 1369,
+      "sha256": "a10dd4c554f316f349dcfbfebe6c252a7ac1ffc86048ef2fb6a18cf303f66399"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/docker-final.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/docker-final.json",
+      "bytes": 6372,
+      "sha256": "1f6fe058235ae02c2b8e1559b96343703947e2d5bdf7d71873f0ef452e30d390"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/file-delta-regression.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/file-delta-regression.log",
+      "bytes": 99,
+      "sha256": "2bf8c411827c4a83344daa5790567fea4782ee621147a447c621567d9fe400aa"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/batches.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/batches.jsonl",
+      "bytes": 320,
+      "sha256": "327825fe0470b027ed1879af9e0492621e108f2cdcdad0d643a5a32c4eaef0d2"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/canonical.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/canonical.json",
+      "bytes": 1458,
+      "sha256": "e63ab92771e7ca0e1506778d853432f5f801201037f034a9f792f927ce1dddb2"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/deliveries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/deliveries.jsonl",
+      "bytes": 3234,
+      "sha256": "135485f1aa14874974bb29fbd689446e39a7d4ff6e6f92b6afb0fb9cd198fa73"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/manifest.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/manifest.json",
+      "bytes": 17679,
+      "sha256": "a72b793023f581253a94b9c8464cb030690531850f2d943ca9329f1c76348edd"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/persistent-state.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/persistent-state.json",
+      "bytes": 17334,
+      "sha256": "8244898ad8532bd134b51c262163fb57ea0d904303f0f05fee48549ef5c57cf9"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/progress.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/progress.jsonl",
+      "bytes": 4927,
+      "sha256": "d6ade97610887ff04842f622f1d5e62350af9ad4450c901e2f282300de439a8e"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/provenance.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/provenance.json",
+      "bytes": 982,
+      "sha256": "72a97ca540b3cd0c00bb187ff265c58ba43e7611c5a3b62f02088939df82a345"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/queries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/queries.jsonl",
+      "bytes": 589,
+      "sha256": "730b96ad5e02e22610959dc88330177c6e3c1bbeff8310708a70b992a221605e"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/raw-acks.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/raw-acks.json",
+      "bytes": 1145,
+      "sha256": "00e9471f6c5c746dea391b52d755bac683f43c6dd03fa31aefee19eec32ba776"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/result.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/result.json",
+      "bytes": 49344,
+      "sha256": "8410d200e011d778e4a35cde2dcb8b41108a77c2ded0eab7a4b095be3c21f644"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/worker-0-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/worker-0-success.log",
+      "bytes": 493,
+      "sha256": "c48c8e7fab76edea47dbea2f345d31ccb56ecc7e968d0dbcce2a80015df5ed9a"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/worker-1-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/worker-1-success.log",
+      "bytes": 409,
+      "sha256": "dd1e8aa01cd14b7853685a39f1ee3a100a1ca561f5fa83b7362662f2466f67ef"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/worker-2-late_duplicate.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/worker-2-late_duplicate.log",
+      "bytes": 493,
+      "sha256": "ed725e74896bb9d418245a65dd1847becdd9e6343aa8e84dd4a94c5afaf7c8a2"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/worker-3-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/normal/worker-3-success.log",
+      "bytes": 493,
+      "sha256": "a42293d82a805897be5e980a12beab85388e57f58d68c340e44cabc8589ac532"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/offline-dryrun-manifest.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/offline-dryrun-manifest.json",
+      "bytes": 21175,
+      "sha256": "07cfe444d7ce5f916ad7f62787bceadc1b4dffb20ace9ab2b88d3b691f71eb15"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/offline-dryrun-results.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/offline-dryrun-results.json",
+      "bytes": 2043,
+      "sha256": "5f5fbe7bbfe81a69c4afc1bf62fb4d100df6337fe4b273531ca621121317cee9"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/output-reader-iam.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/output-reader-iam.json",
+      "bytes": 1942,
+      "sha256": "efdf82c443f33e29c4aceb89f3822b1a375079ac2036102a2fa26eddec0a121e"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/real-kafka-suite.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/real-kafka-suite.log",
+      "bytes": 110,
+      "sha256": "e89974ade9a89a2b7d98f58e4a57e43e530b825508080fde556a63f7fa4032d5"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/runtime-during-tests.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/runtime-during-tests.json",
+      "bytes": 3804,
+      "sha256": "613594fcf60c766b4b252bfa4afc400c928240c1dd7847a037e79ab5698a871e"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/unit-integration.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/unit-integration.log",
+      "bytes": 1516,
+      "sha256": "aeaf5baa8a7d4848bfcf8fa57efa50ebd36b1ccdf96c55262165b373f2d14ed5"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/README.md",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/README.md",
+      "bytes": 2362,
+      "sha256": "d7dee34fe56b7fe5680994a13a26ee165e8d7e38ed22e2cf65c5d14c0b450799"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/batches.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/batches.jsonl",
+      "bytes": 214,
+      "sha256": "65dd266de641f21f53c2a8b2eb6a9a382dea44a776b16ede3d86873da6287c41"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/canonical.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/canonical.json",
+      "bytes": 1458,
+      "sha256": "4e91dfdec31c0b1b4a4036503082bf9be6169ede4c735e4676b353061b2bf50b"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/deliveries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/deliveries.jsonl",
+      "bytes": 2940,
+      "sha256": "ea3536a6f0633de0bebfee5fee022d2b575f0cdf86f5728d383bacaeb347d5b7"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/manifest.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/manifest.json",
+      "bytes": 17685,
+      "sha256": "1f9867a315c3751109dc55fe08b94d76569e38ce0f570ec6dd39dd248f304da2"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/persistent-state.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/persistent-state.json",
+      "bytes": 16149,
+      "sha256": "c1f347656cd524ae9352031562eb20446b277a2f452c72b69f8bdd7d5f774e87"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/progress.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/progress.jsonl",
+      "bytes": 2234,
+      "sha256": "9c9c45336fcfef2d2d91265ccd5f70ee97bc2aa2abc3a9ca4a7ec6c65acf7260"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/provenance.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/provenance.json",
+      "bytes": 884,
+      "sha256": "6392f1f279b258d47d8f710e0cadeb635422407dfe14962d221865fd242499ed"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/queries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/queries.jsonl",
+      "bytes": 443,
+      "sha256": "fc63c2f447aca06c83b803d0bd925c3e3422d40d9dd912a76e5f6becaa3fcf7f"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/raw-acks.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/raw-acks.json",
+      "bytes": 1145,
+      "sha256": "d90554932522636e632c1fe3a7a35ee71ff504b33b08d1e405f6e305d9f596cd"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/result.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/result.json",
+      "bytes": 47885,
+      "sha256": "f5f52206392d76a780fbf546cc41a076581f195975168e4d055b63228ecf3e07"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/worker-0-before_merge.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/worker-0-before_merge.log",
+      "bytes": 90260,
+      "sha256": "feaab50bea4fc92d603bf06742bd63b47713336d4f12723db8d9a1e5f7af5ce2"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/worker-1-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/worker-1-success.log",
+      "bytes": 577,
+      "sha256": "de3128abd2e02e83d72bf6f12b7beede9141a9c48c26d69fafc97fa15e640e16"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/worker-2-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_merge/worker-2-success.log",
+      "bytes": 493,
+      "sha256": "08069657c3f9775e7ba1b1b8304353c792785801692e5dc71cca037d0bff51f6"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/batches.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/batches.jsonl",
+      "bytes": 214,
+      "sha256": "7c68816c746fa389ae43ab0a07da80dfb4f12088ba8a0646f4a838bff1aa149a"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/canonical.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/canonical.json",
+      "bytes": 1458,
+      "sha256": "4acafeb5f3a6ee6a968feaefa8f914377b1a691b3e951f04f9a62d90b35775ef"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/deliveries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/deliveries.jsonl",
+      "bytes": 2940,
+      "sha256": "f12c4393e4f355e6c6bd3b8393fc9a9319e734588615093cf97853f0056c5a89"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/manifest.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/manifest.json",
+      "bytes": 17687,
+      "sha256": "708860cab8eb4e4d5a8d8798e403eeb290690107a7862eccf4949455d821b7fb"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/persistent-state.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/persistent-state.json",
+      "bytes": 16147,
+      "sha256": "f4b5334a0f27643cfb53397000ef1c152d6d97c2f86c23b2fd526a7443a5e046"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/progress.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/progress.jsonl",
+      "bytes": 2237,
+      "sha256": "ac5080e93c8995fe4016ab47f8719e0729e9f2ea66bb5735a3ec3f0987b6853e"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/provenance.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/provenance.json",
+      "bytes": 886,
+      "sha256": "2cec1b08d170163eb9d2e46e7990a19afe87e1e82c93f66e5316f7d3e9b47061"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/queries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/queries.jsonl",
+      "bytes": 445,
+      "sha256": "7e4ceb9010df76bdea5bb924076b0c99b500c2e8d346ef549db9c2cb02c0aa28"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/raw-acks.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/raw-acks.json",
+      "bytes": 1145,
+      "sha256": "958bbb95d61860313290b0c1892acdc0ea01261394c2722d2bd38c056e2f71fc"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/result.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/result.json",
+      "bytes": 47889,
+      "sha256": "74a14783287a02332305cd5c2d2ce201e5a2f46b4039a515a267c11d8764d8ff"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/worker-0-before_publish.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/worker-0-before_publish.log",
+      "bytes": 13178,
+      "sha256": "19adc605221e867facf8a2e59edbfbde30d40632fabbaceb4608c3ec328d9761"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/worker-1-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/worker-1-success.log",
+      "bytes": 659,
+      "sha256": "4350383f96572760494efae3d03775c617263d441dd14c36749bf5855039ec2b"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/worker-2-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/before_publish/worker-2-success.log",
+      "bytes": 493,
+      "sha256": "0e9fedaa34496a579e8eb812cb8bd40ee4c0dabe65698ffca97876a5a0763f4b"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/batches.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/batches.jsonl",
+      "bytes": 214,
+      "sha256": "7c68816c746fa389ae43ab0a07da80dfb4f12088ba8a0646f4a838bff1aa149a"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/canonical.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/canonical.json",
+      "bytes": 1458,
+      "sha256": "a9fdca5b8718f937ef332da87fb846be531e54c889d27fa863b459cb278f4b9e"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/deliveries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/deliveries.jsonl",
+      "bytes": 2940,
+      "sha256": "0c80f470758fc85a03303cb993aa76fcb88ffda9f916914671d21849d0f1021e"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/manifest.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/manifest.json",
+      "bytes": 17681,
+      "sha256": "ef860e2ffb0815bae413a88dc1a4711cb7b19a7ab5e28f2e518a0ae7c9b0665e"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/persistent-state.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/persistent-state.json",
+      "bytes": 16147,
+      "sha256": "832f2b4a5d4480a894e4d3c0238a22449405ae86d792247d6a587ceb4a687bb0"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/progress.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/progress.jsonl",
+      "bytes": 2233,
+      "sha256": "80a08c3396b850b2a9f402139bb270fa6753d4f338f3fa02ced7cdba70efb9a2"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/provenance.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/provenance.json",
+      "bytes": 878,
+      "sha256": "66762651ab19c96dc23e2e0ed08033425c8df8ee0813b9a632d9ec5428401fbf"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/queries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/queries.jsonl",
+      "bytes": 437,
+      "sha256": "14be1f81993ca4f71d4ee78c9bf8b1a068d6826eb0a4a83646d6ba28fb422a0a"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/raw-acks.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/raw-acks.json",
+      "bytes": 1145,
+      "sha256": "4860e719018e317e27b1ce691118c4bdc00de23a04d3b109a29eba901f0ed5c2"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/result.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/result.json",
+      "bytes": 47873,
+      "sha256": "e91d4a4a0f263766b6d6dbdfe7ed032f728ef05ca99e0b20b1c25402d613252c"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/worker-0-broker.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/worker-0-broker.log",
+      "bytes": 13067,
+      "sha256": "d098a8b8d3417447f980a7b774f36202d70c3b027af00bdc1705b122f2026d3c"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/worker-1-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/worker-1-success.log",
+      "bytes": 493,
+      "sha256": "dcb95740d0e6de3c3320cf602b863bcc7a7989a56dc00483479509c56cd96756"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/worker-2-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/broker/worker-2-success.log",
+      "bytes": 493,
+      "sha256": "d494b4835c4097bc5c06799f8ca1bd765f3108c1a21acddae20b500e008fee21"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/experiment-history/README.md",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/experiment-history/README.md",
+      "bytes": 719,
+      "sha256": "76beabcc85b8b05e47d8092a39d8ba797bc2e02a100d62c940f210d1c2e9b9a5"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/experiment-history/initial-6passed-2failed.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/experiment-history/initial-6passed-2failed.log",
+      "bytes": 24082,
+      "sha256": "3a52e2efe24b8b7d9ff56012e0aefb0ccd3559334b13f99a3131781206853ae0"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/experiment-history/interrupted-lazy-fetch.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/experiment-history/interrupted-lazy-fetch.log",
+      "bytes": 308,
+      "sha256": "108789327acc4c8f9c1a1c52038c9f22074fb9c0ebb7e2b80cec97f49409007d"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/batches.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/batches.jsonl",
+      "bytes": 321,
+      "sha256": "541f27e5e9f3b939554a89095fec59ee62572f591cbd60d0df1fae4c1a66a3f4"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/canonical.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/canonical.json",
+      "bytes": 1458,
+      "sha256": "35e436d7620897c7e575aa7b2c1b88a1b820673c91836a83a28e9b57d36100df"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/deliveries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/deliveries.jsonl",
+      "bytes": 4415,
+      "sha256": "ecfd8d44554417f13230c8f0bc56af049f10af753df5e537c9a1d4d58a9e65a0"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/manifest.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/manifest.json",
+      "bytes": 17687,
+      "sha256": "63d5ef75d621e6e358afae0db48ae20488e26916aa33468a11c920dc9af8dfa3"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/persistent-state.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/persistent-state.json",
+      "bytes": 16149,
+      "sha256": "5cb254a91f2773c15252aa7e077a0df451d04a2d4e4ca1fad242da074bfa0e52"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/progress.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/progress.jsonl",
+      "bytes": 2234,
+      "sha256": "eafbe2d37512f09a91d887f7360af2c9e131991605c4a5bdf69a03a621e0dead"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/provenance.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/provenance.json",
+      "bytes": 886,
+      "sha256": "885fa2b192b5846575919118265d15dfb85eb489131dd1bd9d2bafe8b851e6d0"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/queries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/queries.jsonl",
+      "bytes": 445,
+      "sha256": "141985928a17787a7a5d927e060ba11e6c66f9d8d7c60166b4dfbb670eb84eb7"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/raw-acks.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/raw-acks.json",
+      "bytes": 1145,
+      "sha256": "d08dec00289e9342bfa11cfc7837c083c2a244e2761425d05aa076a881b4cbda"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/result.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/result.json",
+      "bytes": 64697,
+      "sha256": "662101e74e22c06e00ce09927b8a4454668ae5a08c8fe40b91ac659e64053517"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/worker-0-kill_after_ack.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/worker-0-kill_after_ack.log",
+      "bytes": 493,
+      "sha256": "12f1ec5dcdfe9d34a0990c213e815a1da2355f2e6374e2f3998d5187658e4816"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/worker-1-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/worker-1-success.log",
+      "bytes": 493,
+      "sha256": "d1607a9119479c5d856820ef5b2072896230a696de44f9b4d5b8bcffb3b5f6fe"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/worker-2-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/kill_after_ack/worker-2-success.log",
+      "bytes": 493,
+      "sha256": "074fccb33b6ac697653b722efef16fdb1f6d4f77e06503555293cc1a75be6131"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/batches.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/batches.jsonl",
+      "bytes": 214,
+      "sha256": "a24d8405eadfa3d7d9c1623a3ec106f2c73d5db738bc8fe2b9003765a68052b6"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/canonical.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/canonical.json",
+      "bytes": 1458,
+      "sha256": "a6335c28842fc873c944543167d47836e03c487b8d317d276bcda025e923d9e6"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/deliveries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/deliveries.jsonl",
+      "bytes": 3234,
+      "sha256": "299c9cd906df5a050ee8ea9631524d82d68bc8f3c5d03094175df4b11505dbb9"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/manifest.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/manifest.json",
+      "bytes": 17683,
+      "sha256": "ac8cb9912123e8ff83f64ff010e3ad6896648a9adf3eba47d0be26d23a5d857c"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/persistent-state.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/persistent-state.json",
+      "bytes": 16147,
+      "sha256": "dbde390e73bde0f73841097e5faf3d4da9d3e021eb5bebc17d496f898cc74ec7"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/progress.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/progress.jsonl",
+      "bytes": 2235,
+      "sha256": "3c30037086511a0bd9e5179a48751f3b763d8c617734b020440aa64f2eecbf30"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/provenance.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/provenance.json",
+      "bytes": 882,
+      "sha256": "89d6c9aa0d551bf6993f3940ca56955f67cf3a9a24a7cfb22f161537188f841a"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/queries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/queries.jsonl",
+      "bytes": 441,
+      "sha256": "1bc091cdb4317d0b62206a43499fb9a42375f977e361e1a3206f0636d91c9e8a"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/raw-acks.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/raw-acks.json",
+      "bytes": 1145,
+      "sha256": "974f05ff528762be1a0dadd5cc06a07560f3abb9176565e534505b8f1bbd0269"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/result.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/result.json",
+      "bytes": 50261,
+      "sha256": "08ce41a089b9e44d63d51d5f49a1452d00e8b75944c6cbd80b287afd634a5dfa"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/worker-0-quarantine.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/worker-0-quarantine.log",
+      "bytes": 12923,
+      "sha256": "3221bdd712d7274248b5e0a23b961dbf668e7e755f8730aadc1114968b8b6c97"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/worker-1-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/worker-1-success.log",
+      "bytes": 575,
+      "sha256": "03c426f9814323effa744b64e612952d9abb1cc2d52f7e492f24b97006c28eea"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/worker-2-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/quarantine/worker-2-success.log",
+      "bytes": 493,
+      "sha256": "310252c7b8c618da76b98df3b72ddb62ad547332435d5dc0b13290704c2b2268"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/batches.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/batches.jsonl",
+      "bytes": 214,
+      "sha256": "65dd266de641f21f53c2a8b2eb6a9a382dea44a776b16ede3d86873da6287c41"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/canonical.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/canonical.json",
+      "bytes": 1458,
+      "sha256": "e429f05e507c7fda86a11e4bd955371724fce0e838606d0fbdcab277b731f180"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/deliveries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/deliveries.jsonl",
+      "bytes": 2940,
+      "sha256": "50a66351163bf07ab0b2ca7c2abbebea2826ed7f6911b32d44d243b691db8899"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/manifest.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/manifest.json",
+      "bytes": 17683,
+      "sha256": "68d9aa08f1e2ec7aca0125bfa2409e9a4becf5af8592867afc03a49401cd9970"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/persistent-state.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/persistent-state.json",
+      "bytes": 16149,
+      "sha256": "3bc77aa01e3b2aec9aa8688a8adde3d70c9b4c6952d600cbf74e49ae41bea5b9"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/progress.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/progress.jsonl",
+      "bytes": 2236,
+      "sha256": "317bcb6412f41270a169d77e7e97bfd436963ebd6a66d230bd52d0469285b2c6"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/provenance.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/provenance.json",
+      "bytes": 880,
+      "sha256": "20f797d66304a0bfead3181d759095e73b57a37c99bc76195b2f0e1760664c86"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/queries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/queries.jsonl",
+      "bytes": 439,
+      "sha256": "b278ea72dcf31b26ec869b5a356a870cb3bf8bf837f06a3b240dc813bcfd022c"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/raw-acks.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/raw-acks.json",
+      "bytes": 1145,
+      "sha256": "43f66a890a60b3eea26c3d44d3872c9d312cac36a4eabffa729b3bf27d524970"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/result.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/result.json",
+      "bytes": 47877,
+      "sha256": "e482ddb7ad297cb974613139713f1abc92cc954918c159faa6b56c2c4c38b898"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/worker-0-registry.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/worker-0-registry.log",
+      "bytes": 26235,
+      "sha256": "a7ebc3da1bd690d7c6f00163b8727b513466719f896490763e5bd8fd4b2f73e5"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/worker-1-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/worker-1-success.log",
+      "bytes": 577,
+      "sha256": "c0fc27550e15b254fbd35e69e55867c1f72a8994ce29e810cf56652672ab0892"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/worker-2-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/registry/worker-2-success.log",
+      "bytes": 493,
+      "sha256": "429c5d51aa42f34c77dc4f72aa63d34f84d077548df3fa7249dae76cff7a6dd5"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/batches.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/batches.jsonl",
+      "bytes": 214,
+      "sha256": "7c68816c746fa389ae43ab0a07da80dfb4f12088ba8a0646f4a838bff1aa149a"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/canonical.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/canonical.json",
+      "bytes": 1458,
+      "sha256": "c277a5b8cddaece3b694b3ceece105217848d492aa37abe8e4dd3b8a7e63bcf5"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/deliveries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/deliveries.jsonl",
+      "bytes": 3088,
+      "sha256": "a9365eeacfb6feb3d82aac3b22e3c47eb0c7e37a5fdc7fa11b53fcccca469c54"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/manifest.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/manifest.json",
+      "bytes": 17686,
+      "sha256": "fdf254e47fe8e79321a202c262142d70bc75ee6110b1a8de2d99c7a9612aaf1a"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/persistent-state.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/persistent-state.json",
+      "bytes": 16147,
+      "sha256": "e403078690685ede8edbd1b1f17bf4747a0229e08e923f7c0134a19e868338ef"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/progress.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/progress.jsonl",
+      "bytes": 2233,
+      "sha256": "76c5c11280a43202692c374dfdd474164909beda54b68d483eb7877088069c4c"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/provenance.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/provenance.json",
+      "bytes": 885,
+      "sha256": "23e1529f9dd1654500ff0fe29f78b16065069be96e993d1654b22981ebae2e4f"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/queries.jsonl",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/queries.jsonl",
+      "bytes": 444,
+      "sha256": "c9c941ae3919cff8716fdef0a4008fb219e8406aff61db2daf515113b537523e"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/raw-acks.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/raw-acks.json",
+      "bytes": 1145,
+      "sha256": "415f1039cadccb719004337db57f9d682aa443725f34a4b170a8f508131f1a7a"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/result.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/result.json",
+      "bytes": 49065,
+      "sha256": "d9cffcc7710e6ec3802d51ed6d72bd127eca437a8cda656e88b573484f798287"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/worker-0-uncertain_ack.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/worker-0-uncertain_ack.log",
+      "bytes": 12875,
+      "sha256": "61baaf3f8236f7cda759a6e4ab5dde3594ff78647b7f862e6b1ad2d4976a72a5"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/worker-1-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/worker-1-success.log",
+      "bytes": 575,
+      "sha256": "648e8a2051d2e6fc12895c288559a6ad8a2b6a4aafa88c9bc5d5ceea74dd589c"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/worker-2-success.log",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/local-recovery/20261023T060250Z/uncertain_ack/worker-2-success.log",
+      "bytes": 493,
+      "sha256": "fa72aa0f6a4d1c44634be6e889f0d71055288f52f9903423dc5495633c36ca71"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/msk-e2e/20261023T061445Z/README.md",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/msk-e2e/20261023T061445Z/README.md",
+      "bytes": 1538,
+      "sha256": "bef7e216d4a1fa8e9ff1b57fdc801b88b4f3fd72d9e42e673a5459d4b3891a28"
+    },
+    {
+      "relative_path": "docs/evidence/phase-2/msk-e2e/20261023T061445Z/metadata-and-cleanup.json",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/msk-e2e/20261023T061445Z/metadata-and-cleanup.json",
+      "bytes": 6309,
+      "sha256": "420334014f9126a24447d2158cbe585b7b0feb761d7b94a278afe00c3b67c978"
+    },
+    {
+      "relative_path": "tests/integration/job2_local_kafka_worker.py",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/job2_local_kafka_worker.py",
+      "bytes": 9118,
+      "sha256": "ef164732f4b82fc042d6ffae0ed787117e13802e7f81a177035ab85da597f701"
+    },
+    {
+      "relative_path": "tests/integration/test_job2_local_kafka_recovery.py",
+      "absolute_path": "/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/test_job2_local_kafka_recovery.py",
+      "bytes": 11514,
+      "sha256": "e131e07d6a74455991c2d47a8a5fd3deb92e7fb7efced226e77cc5c978f065e7"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-> 최신 판단은 문서 마지막 **2026-10-23 P2-8k — Cloud E2E Blocker Resolution**을 따른다. 로컬 안전성 보완은 완료했으나 전체 Cloud 실행은 BLOCKED이며 실제 Cloud E2E는 미실행이다. 과거 검증 이력은 보존했다.
+> 최신 판단은 마지막 **Autonomous Completion Mission — 2026-10-23** 절을 따른다. 실물 로컬 Kafka/Spark/Delta 복구는 통과했고 MSK metadata도 실측했다. Databricks data E2E는 비용 조건으로 BLOCKED이며 Phase 2 전체는 미완료다. 과거 검증 이력은 보존했다.
 
 # Phase 2 검증 초안 — P2-8A
 
@@ -1890,3 +1890,360 @@ Silver canonical fingerprint 대사, Kafka checkpoint 재시작·sink 부분 실
 포트폴리오 촬영은 test-results.txt의823 passed와 로컬 Delta1 passed 결과,
 비밀값을 제거한 auth 진단·IAM evaluation 표를 권장한다. 화면 제목은 local verification/
 management preflight로 표시하고 Cloud E2E 성공 화면처럼 사용하지 않는다.
+
+
+## 2026-10-23 P2-8l — Databricks Cloud E2E 실행 차단 해소
+
+전체 Cloud E2E는 **BLOCKED**이며 실제 실행하지 않았다. 인증·UC·배포·네트워크·
+공개 단가의 관측을 늘려 기존 차단 범위를 줄였다. 생산 code/launcher/test 변경 없음.
+
+### 1. Git HEAD / origin
+
+로컬 HEAD/tracking ref/실제 ls-remote 서버 SHA가 모두
+`3d772bdea261de4275f5888599d661b7f888fb73`이다. 사용자의7개 정리 commit과 push를
+실제로 확인했다. E2E source/test는0c0b9dc가 선택 SHA에 포함된다.
+시작 tracked clean, 보류 README/script3개만 U. ignored runtime도 보존했다.
+개인정보 README·legacy script는 새 package에 넣지 않았고 어떤 Git 변경 명령도 실행하지 않았다.
+
+### 2. Databricks 인증
+
+auth profiles의 ktd valid/default=true, current-user me 성공. 기존 profile만 사용했으며
+새 로그인·토큰 생성·출력 없음. P2-8k의 invalid refresh token 차단은 현재 해소되었다.
+
+### 3. Workspace / Principal
+
+Workspace `https://dbc-1c3b2d11-7408.cloud.databricks.com`, ID7474648508646287.
+Active user ID77582772021430, direct users/admins, 현재 Job run-as/creator와 일치한다.
+개인 이메일은 공개 증빙에서 CURRENT_USER alias로 제거했다. AWS 관리 principal은 chan이다.
+
+### 4. UC 리소스 / Grants
+
+ktd catalog, ktd.silver schema, MANAGED checkpoints Volume, 운영 MANAGED DELTA
+sensor_validated10필드가 존재하며 모두 현재 사용자 owner다. 두 service credential의
+실제 role ARN도 runtime과 일치하고 현재 사용자 owner이며 producer ACCESS explicit도 있다.
+Registry scope/key metadata 및 현재 사용자의 scope MANAGE를 확인했고 secret 값은 읽지 않았다.
+
+owner 권한과 grants 목록을 함께 해석했다. 같은 사용자로 실행하면 USE CATALOG/SCHEMA,
+CREATE TABLE, owned run table SELECT/MODIFY, Volume READ/WRITE, credential ACCESS의
+추가 grant 부족은 관측되지 않았다. 기존 schema/Volume 생성이나 새 grant를 기본안에서 제거했다.
+객체 owner 권한의 의미는 [공식 UC 문서](https://docs.databricks.com/aws/en/data-governance/unity-catalog/manage-privileges)를 따른다.
+실제 SELECT/MERGE/Volume IO/signer는 runtime 미실행이므로 미검증이다.
+
+preview run table UUID4는 API 부재 응답 확인. 실제 승인 run에서는 새 UUID를 다시
+확인하고 승인 후 table1개만 생성한다. 신규 checkpoint 디렉터리 부재와 쓰기는 아직
+미검증이며 Volume metadata 성공과 다르다. Volume WRITE는 전체 Volume 범위다.
+
+### 5. Job / Writer / 배포 SHA
+
+Job50294370651632는 기존 Compute0929-113111-cgu7k91c의 Workspace FILE launcher를
+--check-kafka-metadata로 실행하도록 설정돼 있다. 현재 Job/Task timeout0이며 새 E2E
+request의600초와 다르다. 기존 Job을 재사용·수정·실행하지 않았다.
+
+실제 경로는 ktd-job2-b8c6ee2 root다. FILE은 RAW export가 unsupported였고 /Users API
+namespace+AUTO로 launcher/runtime bytes를 읽어 local hash 일치를 확인했다.
+전체 artifact SHA는 경로 이름만으로 확정할 수 없다. 같은 root에 cloud_e2e.py가 없다는
+명시적 응답을 확인했으므로 최신 E2E 배포는 BLOCKED다. 초기 format/path 오류도 남겼다.
+
+현재 유일하게 조회되는 classic cluster는 TERMINATED, visible active job runs=[]다.
+해당 cluster에 live query는 없으나 다른 external/serverless Writer 부재는 보장하지 않는다.
+현재 사용자 Job IS_OWNER/cluster CAN_MANAGE라 실행/정리 권한의 metadata 근거를 확인했다.
+실행 직전 독점 시간·새 active runs 확인은 여전히 필요하다.
+
+3d772bd를 정확한 배포 source로 선정하고 git archive의 명시 경로28파일을 /tmp에
+구성했다. ignored runtime은 SecretReference 이름만 가진 JSON으로 주입하고 processing_version을
+선정 SHA로 바꾼 새 예시를 만들었다. 원본은 그대로다. package 내부에서 기존 도구로
+source23개/config/rules/schema hash와 manifest를 검증했다. 원격 업로드는 하지 않았다.
+문서 commit으로 HEAD가 바뀌어도 이 패키지 source는3d772bd로 고정하며 실행본은
+package의 기존 make_manifest(deployment_sha=선정SHA)로 새 시각/UUID를 만들어 재검증한다.
+
+### 6. Kafka IAM 실효 범위
+
+기존 consumer role의 현재 Connect 및 group2 action은 simulation allowed3,
+양쪽 output DescribeTopic/ReadData는 implicitDeny4다. 현재 UC credential이 이 role을
+참조함을 실측했으므로 추가 범위가 명확하다. 기존 P2-8k delta의 output2 읽기만
+임시 추가·회수하는 안을 유지했다. IAM/credential/topic 변경 없음.
+기존 raw/group 권한은 유지하며 simulation은 broker 또는 SCP/session/trust 검증이 아니다.
+실제 metadata/ACK/offset은 현재 미검증이다.
+
+### 7. 비용 / credits / NAT·EIP 의존성
+
+EC23대stopped, gp3 46GiB, NAT2개available/EIP2개연결,MSK ACTIVE를 재확인했다.
+두 EIP는 NAT ENI에 연결돼 있고 각각 main route table의0.0.0.0/0→NAT를 통해
+subnet4개에 적용된다. 현재 Workspace tag가 있는10.94 VPC의 NAT와 다른 WorkerEnv
+VPC의 NAT를 구분했다. 후자는 미사용으로 추측하지 않고 둘 다 보존했다.
+MSK↔현재 DBR VPC peering/양방향 route/TCP9098 SG 참조는 구성상 확인했다.
+실제 packet/executor/Registry 연결은 실행하지 않았다.
+
+무료 Price List API로 Seoul r5d.large $0.173/h,t3.micro $0.013/h,
+standard NAT $0.059/h/개·$0.059/GB,gp3 storage $0.0912/GB-month,
+MSK cluster $0.92/h·partition $0.0018/h·in/out $0.123/$0.061 per GB를 확인했다.
+Databricks VM은 num_workers0/first_on_demand1의 r5d.large 후보이며30분 VM2대
+증가 추정은 $0.093이다. **DBU/추가 IP·storage/traffic·세금·credits 제외**다.
+
+현재 MSK cluster+NAT2+EIP2만의 gross subtotal은 $1.048/h,
+720h 계속 유지 시$754.56이다. partition/EBS/DBR/traffic은 빠진 조건부 추정이며
+실제 청구액이 아니다. 46GiB 기본 storage만은 약$4.1952/month다.
+기존 지속 비용과 E2E 신규 증가액을 분리했다. Compute 종료가 AWS 비용0을 뜻하지 않는다.
+실제 DBU/h·계약 rate·누적 DBR 현금·credits 적용/잔액은 미확인이다.
+$10 Databricks 현금 목표 판정과 승인 총액은 이 근거를 얻기 전 BLOCKED다.
+Price List는 user billing이 아니며 Cost Explorer/billing SQL은 실행하지 않았다.
+
+### 8. 수정·검증 파일
+
+기존 Runbook §12와 본 보고서를 갱신하고 아래11개 증빙만 만들었다.
+source/test/launcher/runtime 원본/보류 파일·기존 증빙은 보존했다. 새로운 CLI는 없다.
+
+| 상대 경로 | 절대 경로 |
+|---|---|
+| `docs/implementation/p2-8i-cloud-e2e-runbook.md` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/implementation/p2-8i-cloud-e2e-runbook.md` |
+| `docs/reports/phase-2-verification.md` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/reports/phase-2-verification.md` |
+| `docs/evidence/phase-2/p2-8l-cloud-readiness/auth-and-git-preflight.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8l-cloud-readiness/auth-and-git-preflight.json` |
+| `docs/evidence/phase-2/p2-8l-cloud-readiness/aws-network-and-iam.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8l-cloud-readiness/aws-network-and-iam.json` |
+| `docs/evidence/phase-2/p2-8l-cloud-readiness/databricks-management.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8l-cloud-readiness/databricks-management.json` |
+| `docs/evidence/phase-2/p2-8l-cloud-readiness/deployment-package-plan.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8l-cloud-readiness/deployment-package-plan.json` |
+| `docs/evidence/phase-2/p2-8l-cloud-readiness/deployment-preflight.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8l-cloud-readiness/deployment-preflight.json` |
+| `docs/evidence/phase-2/p2-8l-cloud-readiness/local-test-results.txt` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8l-cloud-readiness/local-test-results.txt` |
+| `docs/evidence/phase-2/p2-8l-cloud-readiness/manifest-preview.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8l-cloud-readiness/manifest-preview.json` |
+| `docs/evidence/phase-2/p2-8l-cloud-readiness/public-price-observations.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8l-cloud-readiness/public-price-observations.json` |
+| `docs/evidence/phase-2/p2-8l-cloud-readiness/readiness-blocked.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8l-cloud-readiness/readiness-blocked.json` |
+| `docs/evidence/phase-2/p2-8l-cloud-readiness/readiness-summary.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8l-cloud-readiness/readiness-summary.json` |
+| `docs/evidence/phase-2/p2-8l-cloud-readiness/runtime-config-preview.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8l-cloud-readiness/runtime-config-preview.json` |
+
+### 9. 로컬 테스트
+
+- `.venv/bin/python -m pytest -q tests/unit tests/integration
+  --basetemp=/tmp/ktd-8l-tests`: **823 passed/11 skipped/1 warning,3.16s**.
+- `JAVA_HOME=/tmp/ktd-8h-java/jdk-21.0.13+9/Contents/Home
+  KTD_LOCAL_DELTA_JARS=/tmp/ktd-8h-jars/delta-spark.jar,/tmp/ktd-8h-jars/delta-storage.jar
+  KTD_RUN_LOCAL_DELTA=1 /tmp/ktd-8h-spark/bin/python -m pytest -q
+  tests/integration/test_job2_local_delta_recovery.py --basetemp=/tmp/ktd-8l-local-delta`:
+  **1 passed,45.54s**. 기존 local file-source/OSS Delta 실행이며 UC/MSK 증거가 아니다.
+- 기존 CLI prepare/dry-run:10건/canonical4/validated5/Quarantine5,cloud_access=false.
+  package 내부 load_manifest에서23개 source hash와config/rules/schema 일치 PASS.
+- warning은 기존 Authlib,skip11개는 외부 opt-in 미실행이다.
+  새 결함이 없어 구현 수정이나 테스트 추가는 하지 않았다.
+
+명령·로그는 local-test-results.txt에 보존했다. 로컬 Delta/fake ACK를 Cloud 증거로 취급하지 않는다.
+
+### 10. READY / BLOCKED / UNVERIFIED
+
+확인 완료: origin 실제 반영·인증·principal, UC 존재/owner·credential role binding,
+Job run-as/종료 권한, TERMINATED/active runs 없음, 네트워크 설정·NAT/EIP 의존,
+공개 AWS단가, local package/hash/test. 이 범위의 metadata 준비만 READY다.
+
+BLOCKED: 전체 Cloud E2E, output 읽기 IAM delta 미적용, 격리 table 미생성,
+새 artifact 미배포, DBU/credits/누적 현금·예산·실행 승인 미확정.
+
+UNVERIFIED: runtime dependencies/import/실제 연결·Registry schema ID, 실제 raw bounds/ACK,
+새 checkpoint path/IO, UC canonical/output 대사, 외부 Writer 부재, DBU/h·실제 청구,
+SCP/session/trust 전체 조건. topic 존재는 과거 P2-8g 증거이며 이번 broker 조회는 아니다.
+
+### 11. 정상 Cloud E2E에 필요한 정확한 승인 범위
+
+Runbook §12.6에 명령/중단 조건과 아래 범위를 통합했다. 현재 하나도 실행하지 않았다.
+
+1. 기존 consumer role에 exact output2 DescribeTopic/ReadData만의 임시 policy 추가·회수.
+2. 기존 ktd.silver에 fresh UUID Managed Delta table1개 생성. 같은 owner/run-as 조건에서
+   새 GRANT/Volume 생성은 기본안에서 제외한다. table 생성 승인은 여전히 필요하다.
+3. 선정 SHA의28파일 artifact를 새 Workspace root에 upload, secret 참조 config 주입·hash 확인.
+4. 기존 EC2 i-08e374efb0c31160d와 Compute0929-113111-cgu7k91c만 시작·종료.
+   import 누락 시 설치/신규 자원을 자동 실행하지 않고 중단.
+5. 실제 raw snapshot→fixture10 publish/ACK→isolated Job2→canonical4/validated최소5/
+   Quarantine5의 bytes/fingerprint/lineage/offset/reason 대사와 증빙 저장.
+6. Consumer close/query inactive/task terminal/Compute TERMINATED/EC2 stopped/
+   이번 policy만 회수 확인 및 시작·종료/예산·credits/잔여 비용 기록.
+
+Query<=180초, task/run600초·retry0, startup~종료 포함 최대30분안이다.
+기존 auto termination60분은 비용 상한이 아니며 수동 종료 권한만 확인했다.
+장애 주입·checkpoint 재시작·기존 offset/checkpoint/table 변경·topic 변경·NAT/EIP 삭제·
+설치/신규 유료 자원은 이 최소안에 포함하지 않는다. run table/checkpoint는 증빙으로 보존한다.
+
+### 12. Phase 2 잔여 DoD / commit 후보
+
+실제 MSK/Registry/UC 정상 E2E, Kafka checkpoint 재시작·sink 부분 실패 복구,
+raw retention/lag·canonical/output 대사, 실제 종료·권한 회수·현금 비용 증빙이 남았다.
+이번 read-only/로컬 준비 작업을 끝내고 정상1회도 별도 실행 승인까지 진행하지 않는다.
+
+위13개 경로만 이번 commit 후보이며 Git 명령은 사용자가 검토 후 직접 실행한다.
+권장 메시지: `docs(phase2): verify authenticated cloud E2E prerequisites`
+
+```sh
+git add -- \
+  docs/implementation/p2-8i-cloud-e2e-runbook.md \
+  docs/reports/phase-2-verification.md \
+  docs/evidence/phase-2/p2-8l-cloud-readiness/auth-and-git-preflight.json \
+  docs/evidence/phase-2/p2-8l-cloud-readiness/aws-network-and-iam.json \
+  docs/evidence/phase-2/p2-8l-cloud-readiness/databricks-management.json \
+  docs/evidence/phase-2/p2-8l-cloud-readiness/deployment-package-plan.json \
+  docs/evidence/phase-2/p2-8l-cloud-readiness/deployment-preflight.json \
+  docs/evidence/phase-2/p2-8l-cloud-readiness/local-test-results.txt \
+  docs/evidence/phase-2/p2-8l-cloud-readiness/manifest-preview.json \
+  docs/evidence/phase-2/p2-8l-cloud-readiness/public-price-observations.json \
+  docs/evidence/phase-2/p2-8l-cloud-readiness/readiness-blocked.json \
+  docs/evidence/phase-2/p2-8l-cloud-readiness/readiness-summary.json \
+  docs/evidence/phase-2/p2-8l-cloud-readiness/runtime-config-preview.json
+```
+
+## Autonomous Completion Mission — 2026-10-23 실제 로컬 Kafka 수용 검증
+
+### 판정과 Git 기준
+
+**로컬 실물 수용·복구는 VERIFIED_LOCAL, Phase 2 전체는 미완료다.**
+MSK output metadata/config는 VERIFIED_CLOUD지만 MSK→Databricks→UC data E2E는
+NOT_TESTED/BLOCKED_COST다. 로컬 성공을 Cloud 성공으로 바꾸지 않는다.
+
+Branch `feat/phase2-validation-silver`, production HEAD
+`3d772bdea261de4275f5888599d661b7f888fb73`. 이번 `git ls-remote --heads origin
+feat/phase2-validation-silver` 결과도 같은 SHA다. Git staging/publication은 하지 않았다.
+기존 P2-8l 문서 내용과 보류 파일·runtime·증빙을 보존하고 본 절을 추가했다. 문서 첫머리의 최신 결과 안내도 현행화했다.
+로컬 기준 계획서는 접근 가능했고, 별도 root의
+`ktd-forward-execution-plan-2026-10-06.md`는 없었다. 제외된 계획서 본문은 복사하지 않았다.
+
+### 실물 로컬 환경과 정상 결과
+
+- Docker28.3.3, 기존 Kafka apache/kafka4.1.0과 Registry8.1.5 재사용.
+- 기존 `/tmp/ktd-8h-spark` Python/PySpark4.0.1, Java21.0.13, Delta4.0.0,
+  confluent-kafka2.16.0, fastavro1.13.1. Kafka connector4.0.1/client3.9.1/pool2
+  JAR를 `/tmp`에서 사용했다. 버전·SHA256은 dependencies.json에 있다.
+- 실제 Kafka source→기존 `process_batch`→기존 DeltaSilverStorage/SilverSink→
+  기존 validated/quarantine publisher를 연결했다. production 코드는 바꾸지 않았다.
+- fresh UUID의 로컬 raw/validated/quarantine topic3개(각3 partitions, RF1),
+  독립 Delta 경로와 checkpoint를 시나리오별로 만들었다. 기존 topic·schema·
+  volume·checkpoint는 지우지 않았다. 장애는 별도 KTD container에서만 주입했다.
+- 최초 fixture10건은 raw partition1 offset0..9에서 실제 ACK를 받았다.
+  canonical4 ID, validated5, quarantine5가 실제 bytes/key/headers/lineage/
+  failure_reason/canonical payload·fingerprint 대사를 통과했다.
+- 업무 이상값은 validated, 단위 불일치는 UNIT_MISMATCH, corrupt framing은
+  INVALID_CONFLUENT_FRAME, unknown ID는 UNKNOWN_SCHEMA_ID, payload 충돌은
+  EVENT_ID_CONFLICT, 미래 이벤트는 FUTURE_EVENT_TIME으로 분기했다.
+- 동일 ID/동일 payload는 canonical을 늘리지 않고 validated를 재발행했다.
+  늦은 정상 이벤트도 보존했다. Asia/Seoul Spark session에서 UTC canonical을 대사했다.
+- 완료 checkpoint 재개 시 bounds는 변하지 않았다. 같은 checkpoint에 추가된
+  오래된 동일 이벤트(offset10)를 통제된 clock20분 뒤 처리해 received=duplicate=late=1,
+  canonical 불변을 확인했다. fresh checkpoint11건 replay도 같은 fingerprint로 수렴했다.
+  이는 현재 Job2 시간 분류/영속 dedup 검증이며 native stateful watermark 실험은 아니다.
+
+### ACK·이중 쓰기·프로세스 복구
+
+모든 실패 실행은 checkpoint batch0 commit 부재를 assert한 뒤 새 Spark 프로세스에서
+같은 checkpoint로 재개했다. query id는 유지되고 run id는 바뀌었다. 별도 fresh
+checkpoint replay도 수행했다. Delta 결과는 row count뿐 아니라4 canonical payload/
+fingerprint를 대사했다. Kafka 중복은 허용되며 분산 sink 전체 exactly-once를 주장하지 않는다.
+
+| 주입 위치 | 방식 | 복구 후 추가 전달 | fresh replay 후 추가 전달 | 결과 |
+|---|---|---:|---:|---|
+| Silver commit 전 | 실제 invalid MERGE AnalysisException |0|10|PASS|
+| Silver commit 후, validated 전 | 통제된 produce 직전 timeout |0|10|PASS|
+| Kafka 요청 후 ACK 불확실 | 실제 broker ACK 후 application callback 억제 |1|11|PASS|
+| validated 성공 후 quarantine 실패 | 실제 validated ACK 후 produce 직전 timeout |2|12|PASS|
+| ACK 후 checkpoint 전 / Driver 종료 | 소유한 process group만 SIGKILL |10|20|PASS|
+| Broker 중단·복구 | 별도 Kafka stop/start, 실제 Producer delivery failure |0|10|PASS|
+| Registry 중단·복구 | 별도 Registry stop/start, 실제 HTTP 실패 전파 |0|10|PASS|
+
+추가 전달은 최초 기대 출력10건 대비 중복 개수다. Registry 장애는 품질 Quarantine으로
+흡수하지 않고 batch/query 실패로 전파됐다. Quarantine ACK 실패도 checkpoint 성공으로
+처리하지 않았다. bool/잘못된 타입/음수 ACK offset·flush0/callback 누락은 기존 unit
+테스트의 계약이며 이번 전체 회귀에서 다시 통과했다. MERGE 실험은 분석 오류이며
+스토리지 IO 장애 전체, 다중 writer, DBR executor 장애까지 검증한 것은 아니다.
+
+### 실제 실행 명령과 결과
+
+1. `.venv/bin/python -m pytest -q tests/unit tests/integration
+   --basetemp=/tmp/ktd-mission-regression`: **823 passed/19 skipped/1 warning,4.02s**.
+   기존 외부 opt-in11개와 새 실물 opt-in8개가 skip이다. warning은 기존 Authlib다.
+2. `KTD_RUN_LOCAL_KAFKA=1 KTD_LOCAL_KAFKA_JARS=<dependencies.json의6 JAR>
+   JAVA_HOME=/tmp/ktd-8h-java/jdk-21.0.13+9/Contents/Home
+   /tmp/ktd-8h-spark/bin/python -m pytest -q
+   tests/integration/test_job2_local_kafka_recovery.py
+   --basetemp=/tmp/ktd-mission-final2`: **8 passed,310.97s**.
+3. 기존 `KTD_RUN_LOCAL_DELTA=1` file-source Delta 복구 테스트:
+   `tests/integration/test_job2_local_delta_recovery.py
+   --basetemp=/tmp/ktd-mission-file-delta`: **1 passed,47.94s**. 별도 JVM에서 실행했다.
+4. 기존 cloud_e2e CLI의 prepare/snapshot/publish/run-job/verify를 example config와
+   `/tmp/ktd-mission-dryrun/manifest.json`으로 실행: 모두 exit0, network 없는 dry-run.
+5. 초기 전체 실험은6 passed/2 failed. Docker IPv4 binding과 advertised localhost의
+   IPv6 해석 충돌을 명시적127.0.0.1로 고쳤다. 중간 실행은6개 통과 후 lazy source
+   fetch 대기를 확인해 소유한 테스트만 중단했다. source materialization 뒤로 Broker
+   장애 경계를 옮기고 restart readiness를 추가한 최종8개가 통과했다. 기존 assertion은
+   약화하지 않았다. 실패·중단 로그는 experiment-history에 별도로 보존했다.
+
+### MSK metadata 실측과 필수 정리
+
+실제 발행은 하지 않았다. 다른 raw Writer/Consumer의 영향 격리와 Cloud Job2 실행
+조건이 미충족이므로 fixture0건으로 제한했다. IAM user chan이 관리하고 기존
+`ktd-msk-producer-role`/EC2 `i-08e374efb0c31160d`의 기존 client/JAR를 사용했다.
+
+- MSK ACTIVE, 두 output 모두 실제 broker metadata/config 조회 성공.
+- 각각 partitions3/RF3/min ISR2/cleanup.policy=delete/retention.ms=604800000/
+  retention.bytes=-1. 각 partition leader·ISR도 조회했다. topic 변경은0건이다.
+- 임시 policy `ktd-p2-metadata-20261023T061445Z`: 두 exact output ARN에
+  DescribeTopic/DescribeTopicDynamicConfiguration만 추가했다. Connect는 기존 권한이다.
+  CreateTopic/WriteData/ReadData를 추가하지 않았다. 기존 role 의존은 EC21개/profile1개로 확인했다.
+- 시작 요청06:14:57Z→stopped 확인까지59.12초. 최종 stopped, policy NoSuchEntity,
+  기존 inline/attached 정책 내용 동일, cleanup_errors=[]를 확인했다.
+- 직전 공개 단가 t3.micro0.013/h+추가 IPv40.005/h를 단순 적용하면 약$0.0003다.
+  최소 과금·billing rounding·credit·트래픽/SSM·세금은 이 식으로 확인되지 않는다.
+  $0.05는 계획 예산이며 billing hard cap이 아니다. 실제 청구/크레딧 잔액은 미확인이다.
+  기존 MSK/NAT/EIP/EBS 지속 비용은 별도이며 이번에 삭제하거나 무료로 간주하지 않았다.
+- output reader role의 exact2 topic×DescribeTopic/ReadData4조합은 이번 IAM simulation도
+  implicitDeny다. broker 인증 증거와 구분하며 이 role은 변경하지 않았다.
+
+### Databricks 비용 gate 및 최종 Docker 상태
+
+ktd profile valid/current user active, Catalog/Schema/checkpoints Volume/production
+Silver Delta Table 조회 성공. 기존 Job50294370651632는 과거 b8c6ee2 launcher 경로다.
+현재 artifact 배포·UC write는 수행하지 않았다. Compute0929-113111-cgu7k91c는
+TERMINATED, active job runs0. DBU rate/credits의 실제 서비스 적용과 AWS 측 현금 위험을
+입증할 수 없어 **BLOCKED_COST**, Compute 실행0건이다. UC 존재/읽기가 UC 쓰기 증거는 아니다.
+
+기존 Kafka는 원래처럼 running, 시작했던 기존 Registry는 다시 exited, init exited0,
+Postgres exited0, ecommerce-dw exited0 유지. 전용 fault container6개는 모두 exited다.
+모든 container/volume/data를 보존했다. 최초 Compose config 출력에 로컬 PostgreSQL
+비밀번호가 포함된 실수가 있었으며 이후 재출력하지 않고 저장 증빙에서 제외했다.
+
+### Phase 2 DoD 현황
+
+| 항목 | 상태 | 이번 증거/남은 조건 |
+|---|---|---|
+| Raw→Spark Job2 | VERIFIED_LOCAL | 실제 Kafka source + 기존 process_batch |
+| Confluent Decode/UTC/schema/domain | VERIFIED_LOCAL | 실제 Registry +10필드 +회귀 |
+| Dedup/collision/late | VERIFIED_LOCAL | 실제 canonical/Quarantine/시간 경계 밖 중복 |
+| Silver Delta 영속 멱등성 | VERIFIED_LOCAL | 단일 writer, 같은/새 checkpoint, 별도 process |
+| validated/quarantine 전달·ACK | VERIFIED_LOCAL | 실제 bytes/lineage/ACK +실패 전파 |
+| 부분 실패·Spark checkpoint 재시작 | VERIFIED_LOCAL |7개 실패 경계 +별도 process 재개 |
+| MSK output topic/config | VERIFIED_CLOUD | 실제 VPC client metadata/config, IAM/EC2 정리 |
+| MSK 실제 Job2 데이터 전달 | NOT_TESTED | shared raw 영향 미격리, fixture0 |
+| Cloud 출력 읽기 권한 | BLOCKED_ACCESS | consumer role simulation4 implicitDeny |
+| Databricks UC Delta 통합 | BLOCKED_COST | cash-free 조건·runtime 연결·UC write 미입증 |
+| 최종 보고/증빙 | VERIFIED_LOCAL | 본 절과 아래 새 증빙; Phase2 완료 판정 아님 |
+
+남은 최소 작업은 현금0의 실제 credit/서비스·AWS 비용 조건 증빙, output 읽기 임시
+최소 권한, 배포 SHA/새 격리 table/checkpoint와 Writer quiet-window 확보 후 정상 Cloud
+10건 E2E다. 이후 동일 Cloud runtime에서 checkpoint/부분 실패 복구·raw retention/lag/
+Bronze lineage 대사와 종료·권한회수·비용을 확인해야 한다. 그 전 main merge는 차단한다.
+
+### 증빙·변경 파일·commit 후보
+
+새 코드 전체 경로:
+
+- `tests/integration/job2_local_kafka_worker.py`
+- `tests/integration/test_job2_local_kafka_recovery.py`
+
+새 증빙 디렉터리(내부 파일 전체 목록은 local-kafka-e2e의 file-inventory.json 참조):
+
+- `docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/`
+- `docs/evidence/phase-2/local-recovery/20261023T060250Z/`
+- `docs/evidence/phase-2/msk-e2e/20261023T061445Z/`
+
+기존 Runbook와 본 보고서를 갱신했다. 그 외 기존 source/runtime/보류 파일·증빙의
+시작 SHA256과 비교해 그대로 보존했음을 확인한다. Git 명령은 검토 후 사용자만 실행한다.
+
+1. 기존 P2-8l 준비 문서/11개 증빙을 먼저 별도 commit 후보로 유지한다.
+2. `test(phase2): verify real Kafka Delta recovery and checkpoint replay`
+   — 새 테스트2개와 local-kafka-e2e/local-recovery의 이번 run 디렉터리.
+3. `docs(phase2): record MSK metadata cleanup and remaining cloud gates`
+   — 이번 MSK 증빙과 두 문서의 본 mission 추가 절. P2-8l 절과 섞이면 `git add -p`로 분리한다.
+
+보류: 기존 docker0바이트, p2-8b/README의 개인정보, legacy happy_path scripts3개,
+ignored 실제 runtime. 이들을 새 commit에 넣지 않는다. 새 untracked 증빙도 먼저 secret
+검사를 거친다. 증빙 file-inventory의 sha는 그 파일 자체를 제외해 자기 참조를 피했다.

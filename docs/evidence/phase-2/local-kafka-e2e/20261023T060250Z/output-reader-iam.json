@@ -1,0 +1,46 @@
+{
+  "scope": "IAM simulation only; not broker authentication or delivery proof",
+  "exit_code": 0,
+  "requested_resources": [
+    "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+    "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine"
+  ],
+  "requested_actions": [
+    "kafka-cluster:DescribeTopic",
+    "kafka-cluster:ReadData"
+  ],
+  "decisions": [
+    {
+      "EvalActionName": "kafka-cluster:DescribeTopic",
+      "EvalDecision": "implicitDeny",
+      "ResourceSpecificResults": [
+        {
+          "EvalResourceName": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+          "EvalResourceDecision": "implicitDeny"
+        },
+        {
+          "EvalResourceName": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine",
+          "EvalResourceDecision": "implicitDeny"
+        }
+      ],
+      "PermissionsBoundaryDecisionDetail": null,
+      "OrganizationsDecisionDetail": null
+    },
+    {
+      "EvalActionName": "kafka-cluster:ReadData",
+      "EvalDecision": "implicitDeny",
+      "ResourceSpecificResults": [
+        {
+          "EvalResourceName": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+          "EvalResourceDecision": "implicitDeny"
+        },
+        {
+          "EvalResourceName": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine",
+          "EvalResourceDecision": "implicitDeny"
+        }
+      ],
+      "PermissionsBoundaryDecisionDetail": null,
+      "OrganizationsDecisionDetail": null
+    }
+  ]
+}

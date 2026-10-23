@@ -1,3 +1,5 @@
+> 최신 결과는 **§13 Autonomous Mission**, Cloud 실행 조건은 §12·§13을 따른다. 실물 로컬 복구와 MSK metadata는 확인했지만 전체 Cloud E2E는 BLOCKED다.
+
 # P2-8i — Cloud E2E 실행 준비 패키지 (P2-8j 안전성 보강)
 
 **CLOUD EXECUTION BLOCKED / LOCAL VERIFIED.** 2026-10-23 KST 갱신.
@@ -108,7 +110,7 @@ HEAD SHA만으로 해당 artifact를 재현할 수 없으므로 source hash 증�
 
 ## 4. 실행 전 gate — 현재 차단 요소
 
-아래 조건의 현재 조회 결과는 마지막 P2-8k 절을 따른다. 미충족 상태에서는
+아래 조건의 현재 조회 결과는 마지막 P2-8l 절을 따른다. 미충족 상태에서는
 cloud 명령을 실행하지 않는다. `--execute`/run 승인만으로는 부족하며 검토된
 `--readiness`가 추가로 필요하다. prepare가 만드는 기본 양식은 BLOCKED다.
 
@@ -844,3 +846,320 @@ Seoul 단가로 확인하지 못한 MSK/NAT에 US East 예시 요금을 대입�
 현재 요청할 수 있는 다음 단계는 **사용자의 ktd 정상 재인증**이다. 그 뒤 read-only
 관리 조회로 나머지 UC/배포/Writer/비용 조건을 채우고 위 정상1회 실행을 별도 승인한다.
 이번 작업은 IAM 적용/로그인/테이블 생성/Compute·EC2 시작/발행 없이 여기서 멈춘다.
+
+
+## 12. P2-8l — 인증 복구 이후 실측 실행 준비 (2026-10-23 KST)
+
+**전체 정상 Cloud E2E: BLOCKED.** 이번에는 인증·UC·배포·네트워크 실측으로 이전
+미확인 항목을 해소했다. 아래는 관리 metadata와 로컬 검증이며 실제 데이터 E2E가 아니다.
+source/launcher/테스트 코드는 변경하지 않았다. 새 증빙은
+`docs/evidence/phase-2/p2-8l-cloud-readiness/`다.
+
+### 12.1 Git와 인증 / 실행 주체
+
+- 로컬 HEAD, local origin tracking ref 및 실제 `git ls-remote --heads origin
+  feat/phase2-validation-silver` 결과가 모두
+  `3d772bdea261de4275f5888599d661b7f888fb73`로 일치한다. push 반영을 서버에서 확인했다.
+- P2-8k source/test는0c0b9dc로 commit되었고 선택한3d772bd에 포함된다.
+  추적 파일은 시작 시 clean, 미추적 보류4개(개인정보 README와 legacy script3개)는 보존했다.
+  ignored `config/job2-runtime.json`도 보존했다. 이 파일의 old processing_version은
+  실제 배포 SHA 증거가 아니며 E2E는 manifest SHA로 override한다.
+- `databricks auth profiles`에서 ktd valid/default=true,
+  `current-user me --profile ktd` 성공. Active 사용자 ID `77582772021430`, direct users/admins.
+  개인정보 username은 증빙에서 CURRENT_USER alias로 처리했다. 로그인/토큰 생성·출력 없음.
+- Workspace는 `https://dbc-1c3b2d11-7408.cloud.databricks.com`, ID7474648508646287.
+  AWS 관리자는 기존 chan. raw 역할은 기존 EC2 ktd-msk-producer-role,
+  Job2 source/output-reader 후보는 ktd-databricks-msk-consumer-role,
+  output producer는 ktd-msk-job2-producer-role로 유지한다.
+
+### 12.2 UC 실측과 추가 Grant 판단
+
+| 객체 | 실측 존재/형식 | 현재 owner·권한 판단 |
+|---|---|---|
+| ktd | catalog 존재 | 현재 사용자 owner. USE CATALOG 근거 |
+| ktd.silver | schema 존재 | 현재 사용자 owner. USE SCHEMA/CREATE TABLE 근거 |
+| ktd.silver.checkpoints | MANAGED Volume 존재 | 현재 사용자 owner. READ/WRITE VOLUME 근거 |
+| ktd.silver.sensor_validated | MANAGED/DELTA/10필드 metadata 일치 | 현재 사용자 owner. 운영 table을 시험에 재사용하지 않음 |
+| ktd-msk-consumer | SERVICE credential, 실제 consumer role ARN 일치 | 현재 사용자 owner. 추가 ACCESS grant 필요 근거 없음 |
+| ktd-msk-job2-credential | SERVICE credential, producer role ARN 일치 | 현재 사용자 owner, ACCESS explicit도 조회됨 |
+| Registry 참조 | scope ktd-job2/key schema-registry-basic-auth metadata 존재 | 현재 사용자 scope MANAGE. secret 값은 읽지 않음 |
+
+실제 grants get-effective도 조회했다. owner 권한은 결과의 빈 grant 목록만으로
+없다고 판단하지 않는다. 객체 owner는 객체의 모든 privilege를 가진다.
+[UC owner 권한](https://docs.databricks.com/aws/en/data-governance/unity-catalog/manage-privileges).
+기존 Job run-as도 현재 사용자다. **동일 사용자를 새 E2E 실행 주체로 유지하면 새 UC
+GRANT는 기본 실행안에 필요하지 않다.** 다른 SP/group으로 바꾸면 이 판단을 재사용하지 않는다.
+실제 SELECT/MERGE/checkpoint IO와 service credential signer는 Compute 미실행이라 미검증이다.
+
+preview 이름 `ktd.silver.sensor_validated_e2e_44444444444444444444444444444444`는
+metadata API에서 부재 응답을 확인했다. 실제 실행의 새 UUID에서는 다시 확인한다.
+해당 run table 생성만 승인 대상이며 기존 catalog/schema/Volume 생성은 불필요하다.
+checkpoint 경로는 `/Volumes/ktd/silver/checkpoints/job2/e2e/<run_id>`다.
+Volume 존재와 신규 디렉터리 부재는 별개이며 실제 경로 부재/IO는 아직 미검증이다.
+Volume 전체 WRITE 권한을 run 경로 권한 격리라고 표현하지 않는다.
+
+### 12.3 실제 Job·Compute·원격 artifact
+
+| 항목 | 현재 실측 / 실행 판단 |
+|---|---|
+| Job |50294370651632, task job2-validation-silver. 현재 run-as/creator=현재 사용자, Job IS_OWNER |
+| 실행 source | Workspace FILE `/Workspace/Users/<CURRENT_USER>/ktd-job2-b8c6ee2/scripts/run_job2_databricks.py` |
+| 실제 Parameters | --runtime-config config/job2-runtime.json --check-kafka-metadata. E2E run-job가 아님 |
+| Job/Task timeout | 둘 다0. 새 E2E request의600초와 다름. retries는 현재 명시값 미확인 |
+| Git source | Jobs git_source 없음, repos list도 빈 목록. 경로 이름 b8c6ee2를 artifact SHA로 확정하지 않음 |
+| 배포 파일 읽기 | launcher/runtime JSON을 AUTO export하여 hash 비교. 두 파일은 local과 일치 |
+| E2E 도구 | 동일 배포 root의 scripts/phase2/cloud_e2e.py는 명시적 부재 응답. 전체 현재 SHA 배포 안 됨 |
+| Compute |0929-113111-cgu7k91c / ktd-phase1-dev, TERMINATED, DBR17.3.x-scala2.13, USER_ISOLATION, UI source |
+| 규모/자동 종료 | driver/worker node type r5d.large, num_workers0, SPOT_WITH_FALLBACK/first_on_demand1, autotermination60분 |
+| 종료 권한 | 현재 사용자 CAN_MANAGE 확인. 실제 start/stop은 하지 않음 |
+| 현재 Writer | visible active Job runs=[], 조회된 classic Compute는 이1개이고 TERMINATED. 해당 Compute의 live Spark query는 없음. 외부/서버리스 writer까지 부재를 보장하지 않음 |
+
+Workspace API namespace는 `/Users/...`, 실행 filesystem은 `/Workspace/Users/...`다.
+FILE의 RAW export는 unsupported였으며 **AUTO export**로 실제 bytes/hash를 확인했다.
+처음 namespace/format 오류도 증빙에 남겼다. 실패를 artifact 부재로 오인하지 않았다.
+원문 source/설정 secret을 출력하지 않고 hash/허용된 설정 참조만 저장했다.
+현재 cluster library-status는 설치 상태 근거를 반환하지 않았다. 기존 Job libraries에는
+confluent-kafka2.15.1/fastavro1.12.2/MSK signer1.0.2가 있지만 새 request에 자동 상속된다고
+가정하지 않는다. 준비된 Compute의 실제 import와 EC2의 kafka-python/fastavro/confluent/
+MSK signer/botocore를 승인 범위에서 확인하고 누락 시 설치 전에 중단한다.
+
+### 12.4 안전한 배포 artifact와 runtime 주입
+
+정확한 배포 source SHA는 **3d772bdea261de4275f5888599d661b7f888fb73**로 선정했다.
+로컬 `/tmp/ktd-8l-deployment/`에 git archive로 streaming 전체, Avro10필드 schema,
+validation rules, E2E 도구와 기존 raw producer, pyproject/lock만 구성했다(총28파일).
+legacy script3개/개인정보 README/다른 Phase/실제 credential 파일은 포함하지 않았다.
+source hash23개와 config/rules/schema를 격리 package 안에서 기존 load_manifest로 검증했다.
+이 package는 아직 원격에 업로드하지 않았다. package-plan JSON의 파일별 hash가 기준이다.
+
+runtime JSON은 strict load가 허용하는 기존 설정과 **SecretReference 이름만** 가져오고
+processing_version을 선정 SHA로 생성했다. 새 증빙 runtime-config-preview.json은 비밀값이
+없는 주입 예시다. 실제 Secret은 기존 UC credential/Databricks secret scope에서 실행 시
+해석한다. ignored 원본 파일을 force-add하거나 access key/token을 배포 파일에 넣지 않는다.
+preview의 schema ID1/오래된 reference_time/UUID4는 Cloud 검증되지 않은 계획이고 실행본이 아니다.
+
+향후 배포 승인 후, 새 경로 부재를 먼저 확인하고 정확한 package만 업로드한다.
+아래는 **지금 실행하지 않은 승인 대기 명령**이다. CURRENT_USER는 직접 확인한 사용자
+namespace로 치환하고, 기존 b8c6ee2 디렉터리를 덮어쓰지 않는다.
+
+```sh
+databricks workspace get-status /Users/<CURRENT_USER>/ktd-job2-3d772bd -p ktd
+databricks workspace import-dir /tmp/ktd-8l-deployment /Users/<CURRENT_USER>/ktd-job2-3d772bd -p ktd
+```
+
+새 root의 source/runtime/rules/schema를 AUTO export/hash로 다시 비교한 뒤에만
+readiness의 deployed_artifact를 READY로 바꾼다. 기존 Job을 수정하지 않고 새 one-off
+Jobs submit JSON으로 절차를 수행한다. 기존 metadata 진단 Job을 Run now하지 않는다.
+
+### 12.5 IAM과 실제 네트워크 의존성
+
+현재 IAM 정의와 실제 ARN별 simulation을 다시 조회했다. 기존 consumer의 Connect1/
+검증 group DescribeGroup·AlterGroup2는 allowed, output2×DescribeTopic/ReadData4는
+**implicitDeny**다. UC credential은 이 실제 역할에 연결됨을 확인했으므로 부족 범위가
+명확해졌다. 추가 grant는 기존 §11.2/아래 JSON의 output 두 topic 읽기뿐이다.
+
+`docs/evidence/phase-2/p2-8k-cloud-unblock/output-reader-policy-delta.json`
+
+승인 전 적용하지 않는다. 승인 후에도 원래 role 정책/credential은 유지하고, 새 inline
+policy 이름이 기존에 없음을 확인해 이번 정책만 추가·회수한다.
+
+```sh
+aws iam get-role-policy --role-name ktd-databricks-msk-consumer-role --policy-name ktd-p2-e2e-output-reader-temporary --region ap-northeast-2
+# 위의 정확한 NoSuchEntity 확인·기존 정책 보존·사용자 승인 후에만:
+aws iam put-role-policy --role-name ktd-databricks-msk-consumer-role --policy-name ktd-p2-e2e-output-reader-temporary --policy-document file://docs/evidence/phase-2/p2-8k-cloud-unblock/output-reader-policy-delta.json --region ap-northeast-2
+```
+
+이 역할의 기존 raw/group wildcard 권한은 축소하지 않는다. simulation은 실제 broker
+성공이나 SCP/session/trust 전체 증거가 아니다. 기존 Job2 producer에 CreateTopic을
+추가하거나 MSK topic/자동 생성 설정을 바꾸지 않는다.
+
+네트워크 관리 실측:
+
+- MSK ACTIVE/SERVERLESS, IAM enabled, bootstrap 기존 runtime과 일치.
+- VPC10.94/16(현재 Workspace ID tag)↔KTD10.20/16 peering active·양방향10.20/10.94 route.
+  MSK SG의TCP9098이 현재 Databricks worker SG2개와 기존 EC2 client SG를 참조한다.
+  이 설정은 TCP/Registry 실제 연결 성공을 입증하지 않는다.
+- EIP eipalloc-02c2bbfa08f1f20da → NAT nat-04acfddc496fd144e,
+  VPC vpc-097807d9351692806. main route rtb-0d538aeb6844f75ae가0.0.0.0/0→NAT,
+  다른 route table에 명시 연결되지 않은 subnet4개가 이 경로에 의존한다.
+- EIP eipalloc-0c8326e202cac064d → NAT nat-04a269200987189f1,
+  VPC vpc-0d04681c8530be6fe. main route rtb-01a71a3f6f364aa68가 같은 방식으로
+  subnet4개에 적용된다. 이 VPC는 다른 Databricks WorkerEnv tag가 있어 불필요 자원으로
+  단정하지 않는다. 정확한 workload 소유/계정 binding은 추가 확인 대상이다.
+- 두 EIP는 EC2에 직접 연결된 idle IP가 아니라 NAT ENI에 연결되어 있다.
+  삭제 시 NAT outbound·외부 Registry/패키지 접근을 끊을 수 있어 제거하지 않았다.
+
+### 12.6 현재 비용과 정상1회 승인 범위
+
+무료 AWS Price List Query API의 **Seoul 공개 OnDemand 단가**를 조회했다.
+청구서/credit-adjusted 현금 비용과 구분한다. 가격 조회6회, 자원/IAM 조회24회다.
+
+| 항목 | 관측/단가 | 추정 범위 |
+|---|---|---|
+| 기존 EC2 |3대 모두stopped, raw client t3.micro=$0.013/h | E2E 때 기존1대30분 사용 시$0.0065; 실행 전 permission/import 확인 필요 |
+| DBR VM |r5d.large=$0.173/h, num_workers0/first_on_demand1 |1 VM30분=$0.0865. DBU·추가 storage/IP·traffic/세금 제외 |
+| Databricks DBU |기존 UI Compute, 실제 DBU/h/SKU/rate·credits·기지출 미확인 | Jobs task라서 Jobs Compute 할인 단가로 간주하지 않음. $10 현금 목표 판정은 BLOCKED |
+| NAT |2개 available, standard NAT $0.059/h/개 및$0.059/GB |2개 유지 시간당$0.118; 신규 E2E 증가액과 구별 |
+| IPv4 |기존 EIP2개, 공개$0.005/IP-hour |기존$0.01/h. EC2에 새 ephemeral public IP가 붙으면 그 비용도 별도 |
+| EBS |gp3 46GiB, 공개 저장 단가$0.0912/GB-month |storage 기준$4.1952/month, 추가 IOPS/throughput·세금/credit 제외 |
+| MSK |cluster$0.92/h, partition$0.0018/h, in$0.123/GB,out$0.061/GB,storage$0.114/GB-month |실제 현재 partition 수/저장/traffic은 broker 미조회로 미확인. 기존9 partitions 가정은 조건부 추정만 가능 |
+
+현재 관측한 cluster1+NAT2+EIP2만 유지하는 gross subtotal은 **$1.048/h**,
+720시간 유지 시 **$754.56**다. partition/EBS/traffic/DBR는 빠진 값이며 실제 청구액이
+아니다. Compute를 종료해도 이 기존 비용은 남는다. 실험30분의 VM2대 증가 추정
+$0.093과 기존 지속 비용을 혼동하거나 중복 합산하지 않는다.
+AWS credits가 어느 비용을 언제까지 덮는지, Databricks 계약/credit/현금 누적은 확인하지
+못했다. billing SQL/Cost Explorer는 실행하지 않았다. 사용자의 Billing/Credits 확인 후
+누적 DBR 현금+승인 DBR액<=약$10, 별도 AWS 승인액을 채워야 한다.
+
+[무료 가격 API 근거](https://aws.amazon.com/blogs/aws-cloud-financial-management/aws-price-list-gets-a-natural-language-upgrade-introducing-the-aws-pricing-mcp-server/),
+[AWS Price List](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-changes.html),
+[IPv4/NAT](https://aws.amazon.com/vpc/pricing/),
+[Databricks calculator](https://www.databricks.com/product/pricing/product-pricing/instance-types).
+calculator의 검색 snippet을 계약 단가나 DBU/h 근거로 사용하지 않았다.
+
+**승인할 최소 변경/실행은 다음 정상 E2E1회뿐이다. 현재 실행하지 않았다.**
+
+1. 기존 consumer role에 위 output2 읽기 임시 policy 추가·회수.
+2. 새 run table1개를 기존 ktd.silver에10필드 Managed Delta로 생성. 현재 owner/run-as
+   동일 조건에서 추가 UC GRANT/Volume 생성은 기본안에서 제외한다.
+3. 선정 SHA package28파일을 새 Workspace 경로에 배포, runtime 참조 주입·hash 검증.
+4. 기존 EC2 i-08e374efb0c31160d와 Compute0929-113111-cgu7k91c만 시작·종료.
+   라이브러리 설치/새 자원 생성은 포함하지 않고 import 누락이면 중단한다.
+5. Compute/권한/deploy 준비·Writer 독점 시간을 확인한 다음 fresh UUID·시각·실제 schema ID의
+   manifest/readiness를 만든다. package source와 선택 SHA를 고정해 docs HEAD 변경과 구분한다.
+   CLI prepare를 다른 HEAD에서 실행해 SHA를 섞지 않고 기존 make_manifest API의
+   deployment_sha 인자를 사용해 정확한 package에서 생성/검증할 수 있다.
+6. §5.2의 기존 snapshot→publish→run-job→verify 명령을 새 경로/동일 manifest로 사용한다.
+   실제 raw0/1/2 high 기록→10 ACK 확인→ACK 위치만 handler 전달→canonical4·validated최소5·
+   Quarantine5와 bytes/fingerprint/lineage/offset/reason 대사. publish2분 TTL 초과 시 중단한다.
+7. job_request의 one-off 기존 Compute request는 timeout600/retry0/query<=180을 확인해
+   `databricks jobs submit --json @<reviewed-request.json> -p ktd`로 승인 후에만 제출한다.
+   이 API가 TERMINATED Compute를 시작할 수 있으므로 read-only 단계에서는 호출하지 않는다.
+8. 최대 총30분 계획에 startup/대기/검증/종료를 포함한다. 현재 auto termination60분을
+   비용 상한으로 쓰지 않고 CAN_MANAGE 주체가 수동 종료·TERMINATED 재확인한다.
+   Consumer close/query inactive/task terminal/EC2 stopped/이번 policy만 회수·조회/비용 기록까지
+   성공·실패 공통으로 수행한다. 임시 policy 제거 실패나 Compute 종료 실패면 미완료다.
+
+추가 승인에서 제외: 장애 주입·checkpoint 재시작·기존 Kafka offset/checkpoint 변경,
+기존 table 변경/재사용, topic 변경, NAT/EIP 제거, 설치/신규 유료 자원, 다른 Phase.
+새 run table/checkpoint/artifacts는 증빙으로 보존하고 자동 삭제하지 않는다.
+최종 Writer quiet-window와 실제 DBU/credit budget이 없으면 READY로 바꾸지 않는다.
+
+### 12.7 로컬 검증과 남은 실행 gate
+
+이번 전체 unit/integration823 passed/11 skipped/1 warning, 실제 local Spark/Delta
+fresh-process 복구1 passed45.54s, package source23개/hash 및 manifest 재검증 PASS,
+prepare/dry-run은 cloud_access=false다. 기존 Authlib warning이다. code defect는 발견되지
+않아 source/test를 수정하지 않았다. 로컬 결과는 Kafka/Registry/UC runtime 증거가 아니다.
+
+해소: 인증/실제 원격 push, UC 존재·owner·기본 권한, credential role 연결/Registry 참조,
+Job run-as·종료 권한, Compute 현 상태·네트워크 설정·NAT/EIP 의존성, 공개 AWS단가.
+남음: IAM delta 적용 승인, 새 table 생성·artifact 배포 승인, 실제 DBU/credits 예산,
+승인된 runtime import/network 확인과 raw snapshot, 최종 독점 시간/정상1회 실행 승인.
+전체 E2E는 BLOCKED, 실제 데이터 연결·실행은 UNVERIFIED로 유지하고 여기서 멈춘다.
+
+## 13. Autonomous Mission — 실물 로컬 대체 검증과 Cloud 미완료 gate (2026-10-23)
+
+§12의 과거 read-only 결과에 추가된 실행 기록이다. **로컬 수용 검증은 완료했지만
+Databricks/MSK data E2E 승인·성공으로 바꾸지 않는다.** production SHA는
+`3d772bdea261de4275f5888599d661b7f888fb73`이고 실제 origin도 동일했다.
+
+### 13.1 재사용 가능한 실물 로컬 검증
+
+새 테스트 `tests/integration/test_job2_local_kafka_recovery.py`는 별도 process의
+`tests/integration/job2_local_kafka_worker.py`를 호출한다. 기존 Kafka/Registry와
+기존 Job2 process_batch/Delta storage/publisher를 연결하며 launcher·물리 계약을
+재작성하지 않았다. 입력은10건, canonical4, validated5, quarantine5다.
+
+```sh
+export JAVA_HOME=/tmp/ktd-8h-java/jdk-21.0.13+9/Contents/Home
+export KTD_LOCAL_KAFKA_JARS="$(find /tmp/ktd-mission-jars /tmp/ktd-8h-jars -name '*.jar' | paste -sd, -)"
+KTD_RUN_LOCAL_KAFKA=1 /tmp/ktd-8h-spark/bin/python -m pytest -q \
+  tests/integration/test_job2_local_kafka_recovery.py \
+  --basetemp=/tmp/ktd-local-<새로운-고유-run>
+```
+
+이는 이 Mac의 기존 환경 경로다. Kafka/Registry9092/8081 준비와 Java/Python/JAR
+경로를 먼저 확인한다. 전용 fault container용19092/18081 포트도 비어 있어야 한다.
+외부 source/dependency를 추측해 설치하지 않는다. dependency 버전·hash는 증빙을
+참조한다. pytest basetemp는 기존 경로를 정리할 수 있으므로 반드시 새 경로를 쓴다.
+
+최종 **8 passed,310.97s**. 실제 broker ACK/Registry decode, corrupt framing/unknown
+schema/domain/collision/future 분기, 영속 canonical, 오래된 중복, checkpoint 재개,
+fresh replay, Delta MERGE 오류, 발행 전 실패, ACK 불확실성, quarantine 실패,
+ACK 후 Driver SIGKILL, 별도 Broker/Registry stop/start를 검증했다.
+입력 source를 materialize한 뒤 Broker를 중단해 producer delivery failure를 확인했다.
+시간 분류는 fixture 기준의 controlled clock이며 native Spark watermark state 실험은 아니다.
+Kafka 중복 발행을 허용하는 복구이며 단일 writer/OSS Delta/local RF1 범위다.
+
+별도 실행한 기존 unit/integration은823 passed/19 skipped/1 Authlib warning,
+기존 file-source local Delta는1 passed47.94s, Cloud CLI5단계는 dry-run만 exit0다.
+최종 테스트 소스와 initial/interrupted 실험은 구분해 보존했다.
+
+### 13.2 이번 MSK metadata 실행과 원상 복구
+
+사용자의 mission 승인 범위에서 기존 EC2만59.12초(시작요청→stopped 확인) 사용했다.
+IAM user chan→기존 EC2 role/client 경로로 실제 두 output metadata/config가 조회됐다.
+partitions3/RF3/min ISR2/delete/retention604800000ms/bytes=-1로 일치했다.
+설치·topic 변경·데이터 발행·Databricks Compute 실행은0건이다.
+
+임시 `ktd-p2-metadata-20261023T061445Z`는 exact2 output ARN의
+DescribeTopic/DescribeTopicDynamicConfiguration만 추가했고 최종 NoSuchEntity다.
+EC2 stopped/기존 inline 및 attached 정책 동일/cleanup_errors=[]를 확인했다.
+완료 증거와 실제 client 명령은 아래 metadata-and-cleanup.json에 있다.
+VM/IPv4 단순 추정은 약$0.0003이며 실제 청구·최소 과금·credits는 미확인이다.
+$0.05 계획 예산은 billing hard cap이 아니다. 기존 상시 AWS 자원 비용은 별도다.
+
+실제 raw에 영향을 줄 외부 Writer/Consumer의 완전 격리가 입증되지 않아 fixture0건으로
+제한했다. output reader role은 이번 IAM simulation에서도 exact2×2 권한이 implicitDeny다.
+이 결과를 broker produce/consume 실패 재현 또는 Cloud data E2E 증거로 쓰지 않는다.
+
+### 13.3 비용 gate와 다음 최소 실행
+
+Databricks auth/UC metadata 조회는 성공했고 Compute는 TERMINATED, active runs0이다.
+현금0의 credit 적용과 AWS 부대 과금 통제를 입증할 수 없어 **BLOCKED_COST**다.
+현재 Job의 과거 b8c6ee2 artifact를 새 HEAD의 배포물로 간주하지 않는다.
+
+다음은 이번 mission에서 실행하지 않은 잔여 gate다.
+
+1. 실제 credits/rate/service 적용·AWS 비용을 확인해 현금0 가능 여부를 증빙한다.
+   현금 위험이 있으면 별도 사용자 지시 전 Compute를 실행하지 않는다.
+2. output reader exact2 topic DescribeTopic/ReadData 최소 임시 권한과 회수를 검토한다.
+3. selected SHA의 검토된 package 배포, 격리 UC Delta table/checkpoint, 원격 dependency/
+   Registry 인증·네트워크와 Writer quiet-window를 확보한다.
+4. §12.6의 실제 raw offset snapshot→10건 ACK→Job2→canonical/output 대사→모든
+   client/query/Compute 종료·policy 회수·비용 기록을 수행한다.
+5. 같은 Cloud runtime의 checkpoint 재시작·부분 실패 복구와 Job1 raw retention/lag/
+   Bronze lineage 대사를 마감한다. 로컬 증거만으로 main merge하지 않는다.
+
+### 13.4 증빙과 사용자 commit 경계
+
+- `docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z/`
+- `docs/evidence/phase-2/local-recovery/20261023T060250Z/`
+- `docs/evidence/phase-2/msk-e2e/20261023T061445Z/`
+
+최종 기존 Kafka running/Registry stopped, init·Postgres stopped/exited,
+ecommerce-dw untouched, 이번 fault container6개 stopped. container/volume/topic/schema/
+checkpoint/Delta data는 삭제하지 않았다. 기존214개 파일 SHA256은 의도한 문서2개
+추가 절을 제외하고 보존한다. 실제 runtime/보류 파일은 staging 대상에서 제외한다.
+
+아래는 **실행하지 않은 사용자용 명령**이다. 먼저 기존 P2-8l 변경을 검토하고,
+동일 문서의 새 §13/보고서 mission 절은 `git add -p`로 분리한다.
+
+```sh
+git add -- tests/integration/job2_local_kafka_worker.py \
+  tests/integration/test_job2_local_kafka_recovery.py \
+  docs/evidence/phase-2/local-kafka-e2e/20261023T060250Z \
+  docs/evidence/phase-2/local-recovery/20261023T060250Z
+# 권장: test(phase2): verify real Kafka Delta recovery and checkpoint replay
+
+git add -- docs/evidence/phase-2/msk-e2e/20261023T061445Z
+git add -p -- docs/implementation/p2-8i-cloud-e2e-runbook.md \
+  docs/reports/phase-2-verification.md
+# 권장: docs(phase2): record MSK metadata cleanup and remaining cloud gates
+```
+
+포트폴리오 캡처는 real-kafka-suite.log의8 passed와 normal/result.json의 canonical
+fingerprint/lineage, recovery query id/run id, MSK 두 topic/config와 cleanup 상태를
+보여주면 된다. Compose credentials·토큰·실제 runtime 값은 공유하지 않는다.

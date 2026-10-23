@@ -1,0 +1,71 @@
+{
+  "auth profiles": {
+    "exit_code": 0,
+    "profiles": [
+      {
+        "name": "ktd",
+        "valid": true
+      }
+    ]
+  },
+  "current-user me": {
+    "exit_code": 0,
+    "id": "77582772021430",
+    "active": true,
+    "groups": [
+      "users",
+      "admins"
+    ]
+  },
+  "clusters get": {
+    "exit_code": 0,
+    "cluster_id": "0929-113111-cgu7k91c",
+    "state": "TERMINATED",
+    "node_type_id": "r5d.large",
+    "num_workers": 0,
+    "autotermination_minutes": 60,
+    "spark_version": "17.3.x-scala2.13"
+  },
+  "jobs list-runs": {
+    "exit_code": 0,
+    "active_run_count": 0
+  },
+  "catalogs get ktd": {
+    "exit_code": 0,
+    "name": "ktd",
+    "full_name": "ktd"
+  },
+  "schemas get ktd.silver": {
+    "exit_code": 0,
+    "name": "silver",
+    "full_name": "ktd.silver"
+  },
+  "volumes read ktd.silver.checkpoints": {
+    "exit_code": 0,
+    "name": "checkpoints",
+    "full_name": "ktd.silver.checkpoints",
+    "volume_type": "MANAGED"
+  },
+  "tables get ktd.silver.sensor_validated": {
+    "exit_code": 0,
+    "name": "sensor_validated",
+    "full_name": "ktd.silver.sensor_validated",
+    "table_type": "MANAGED",
+    "data_source_format": "DELTA"
+  },
+  "jobs get 50294370651632": {
+    "exit_code": 0,
+    "job_id": 50294370651632,
+    "timeout_seconds": 0,
+    "tasks": [
+      {
+        "task_key": "job2-validation-silver",
+        "existing_cluster_id": "0929-113111-cgu7k91c",
+        "timeout_seconds": 0,
+        "max_retries": null,
+        "source_kind": null,
+        "python_file": "/Workspace/Users/<redacted>/ktd-job2-b8c6ee2/scripts/run_job2_databricks.py"
+      }
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "java_home": "/tmp/ktd-8h-java/jdk-21.0.13+9/Contents/Home",
+  "packages": {
+    "pyspark": "4.0.1",
+    "delta-spark": "4.0.0",
+    "confluent-kafka": "2.16.0",
+    "fastavro": "1.13.1"
+  },
+  "jars": {
+    "/tmp/ktd-mission-jars/kafka-clients.jar": {
+      "sha256": "7568b998572d256f0b7bc0afdc1b7a2588b8b08415c62ce314c864a6851ae9d9",
+      "bytes": 9215194
+    },
+    "/tmp/ktd-mission-jars/spark-sql-kafka-0-10_2.13.jar": {
+      "sha256": "a9c5366a61087e7e7ff903c3dc160e80b33d2ea04d365e0795cc4a58befc3a16",
+      "bytes": 467591
+    },
+    "/tmp/ktd-mission-jars/commons-pool2.jar": {
+      "sha256": "6d3bd18df8410f3e31b031aca582cc109342358a62a2759ebd0c4cdf30d06f8b",
+      "bytes": 150048
+    },
+    "/tmp/ktd-mission-jars/spark-token-provider-kafka-0-10_2.13.jar": {
+      "sha256": "adaf5b803fdffc4d8d95dad73c11d26f991e590d81ce1b31aa429595aa1c4733",
+      "bytes": 64977
+    },
+    "/tmp/ktd-8h-jars/delta-storage.jar": {
+      "sha256": "9bdb9fb450f1e119eba53feb427f331b0d09072d26485b8273883ad72c9a2e1d",
+      "bytes": 69732
+    },
+    "/tmp/ktd-8h-jars/delta-spark.jar": {
+      "sha256": "538511702aae0ef6973a6a70af3d4543c9009f8edbed786a00737e2d3cd7f04e",
+      "bytes": 7727374
+    }
+  },
+  "connector_source": "https://spark.apache.org/docs/4.0.1/streaming/structured-streaming-kafka-integration.html",
+  "local_rf": 1,
+  "cloud_validation": false
+}

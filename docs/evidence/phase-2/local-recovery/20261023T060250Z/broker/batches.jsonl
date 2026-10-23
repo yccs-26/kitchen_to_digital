@@ -1,0 +1,2 @@
+{"batch_id": 0, "received": 10, "validated": 5, "quarantine": 5, "conflict": 1, "duplicate": 2, "late": 1}
+{"batch_id": 0, "received": 10, "validated": 5, "quarantine": 5, "conflict": 1, "duplicate": 5, "late": 1}
