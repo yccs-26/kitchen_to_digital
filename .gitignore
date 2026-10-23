@@ -20,6 +20,9 @@ htmlcov/
 .env
 .env.*
 !.env.example
+/config/job2-runtime.json
+/.aws/
+/.databrickscfg
 
 # docs
 docs/plans
