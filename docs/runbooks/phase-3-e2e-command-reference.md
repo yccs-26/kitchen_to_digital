@@ -23,11 +23,11 @@ assert report['static_validation'] == 'PASS'
 assert report['overall'] == 'BLOCKED'
 ```
 
-`start_configured_metric_aggregation`는 현재 항상 배포 게이트에서 실패한다.
+`start_configured_metric_aggregation`는 별도 범위 승인 기록이 없으면 배포 게이트에서 실패한다.
 `gold_format_approved=true` 또는 명시적 adapter 선택만으로 해제되지 않는다.
 기존 `UC_GOLD_WRITER_NOT_IMPLEMENTED` 코드는 이전 소비자와 테스트 호환을 위해
-남겼다. 현재 뜻은 '승인된 live launcher 미구현'이며 후보 Writer 미구현이 아니다.
-실제 승인을 받은 후 별도 검토 작업에서 launcher 게이트와 UC 수용 절차를 연결해야 한다.
+남겼다. 현재는 별도 승인 context 누락을 뜻하며 launcher 코드 부재를 뜻하지 않는다.
+launcher·격리 publisher·probe의 새 API와 별도 승인 기록은 E2E runbook 마지막 실행 코드 연결을 따른다.
 환경변수나 설정 우회, monkeypatch로 게이트를 해제하여 운영 실행하지 않는다.
 
 ## 2. Gold 형식·UC 대상·권한 승인 후 수용 검사 — 현재 실행 금지
@@ -75,7 +75,8 @@ client를 캡처하지 않는다. 실제 Secret 해석 방법과 executor 인증
 Registry transport 오류는 전파하며 임의 skip/offset commit하지 않는다.
 동일 ID 상이 payload는 native dedup이 충돌 검출하지 않으므로 Phase 2 보장을 확인한다.
 
-실제 publisher 명령은 아직 없다. 랜덤 simulator나 validated 직접 발행으로 대체하지 않는다.
+publisher CLI는 dry-run만 제공한다. 별도 승인된 발행은 기존 Phase2 raw route API로 수행한다.
+랜덤 simulator나 validated 직접 발행으로 대체하지 않는다.
 runbook의 오프라인 후보는 과거 시각·원본 장비이므로 그대로 발행하면 안 된다.
 
 ## 4. DBR·Compute 및 checkpoint 승인 — 현재 실행 금지
@@ -116,7 +117,7 @@ UTC [start,end), 5분 길이/1분 slide. 실제 progress watermark가 마지막 
 실패: 새 checkpoint를 만들거나 운영 state를 지우지 않는다. offset/state/Delta history와
 최초 예외를 보존하고 같은 격리 checkpoint에서 재시도한다. MERGE 성공 뒤 checkpoint 실패는
 재실행 NO-OP를 확인한다. 상이 final 또는 1 ULP 차이는 CONFLICT이며 값을 덮어쓰지 않는다.
-DBR 장애 hook 미구현 상태에서 로컬 killpg/SIGKILL을 compute에 적용하지 않는다.
+새 MERGE 경계 probe는 테스트 query 예외 주입이다. 로컬 killpg/SIGKILL을 compute에 적용하지 않는다.
 
 시간/금액 설정은 자동 과금 차단 기능이 아니다. 실제 가격/크레딧은 미조회이며 비용을
 추정하지 않았다. 취소 이후에도 Job/compute 종료와 별도 리소스 비용을 확인한다.

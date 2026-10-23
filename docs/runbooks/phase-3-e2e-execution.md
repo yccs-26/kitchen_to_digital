@@ -1,8 +1,9 @@
 # Phase 3 Kafka·Databricks E2E 실행 절차
 
 2026-10-23. **준비 문서이며 cloud read/write 명령은 실행하지 않았다.**
-UC Gold 후보 Writer는 로컬 구현·검증했다. 실제 UC 수용, 결정적 raw 입력 publisher와
-DBR 장애 hook, 별도 live launcher 승인 전 실제 실행은 BLOCKED다.
+UC 후보·범위 승인 launcher·격리 raw publisher·MERGE 경계 probe를 로컬 구현했다.
+실제 UC/Kafka/DBR 수용과 별도 실행 승인은 없으므로 실제 실행은 BLOCKED다.
+최신 실행 API는 마지막 「실행 코드 연결」을 따르고 이전 미구현 표현은 당시 이력으로 구분한다.
 명령 문법과 실행 순서를 정리한 것이 E2E 실행 가능/완료를 의미하지 않는다.
 Phase 1/2 운영 table/checkpoint는 공유·변경하지 않는다.
 
@@ -48,7 +49,7 @@ Confluent framing/schema ID, 실제 등록 장비·metric/unit 확인.
 ```python
 from streaming.config.phase3_runtime import load_phase3_runtime
 settings = load_phase3_runtime("<approved-phase3-config-path>")
-settings.require_deployment_ready()  # 현재 여기서 예외, 이후 live 호출 금지
+settings.require_deployment_ready()  # 별도 ExecutionApproval 없으면 계속 예외
 ```
 
 승인 후 별도 수용 검사에서 executor의 Registry schema 조회·decode 및 Kafka read 권한,
@@ -197,7 +198,8 @@ databricks jobs run-now "$JOB_ID" --no-wait --output json
 ```
 
 발행은 raw→Phase 2→validated를 지나는 승인된 bounded harness만 사용한다.
-현재 결정적·인증된 24행 raw replay publisher가 없어 발행 단계도 별도 준비/승인 대기다.
+현재 publisher는 dry-run CLI와 별도 승인된 Phase2 raw 발행 API를 제공한다.
+실제 auth/등록 장비/진행 입력 수용과 승인 없이 발행하지 않는다.
 기존 simulator를 대신 실행하거나 validated에 직접 produce해 E2E라고 표시하지 않는다.
 실제 데이터·장비·시각·ACK lineage가 승인되지 않으면 Job/producer를 시작하지 않는다.
 
@@ -277,7 +279,8 @@ checkpoint의 query/run identity를 대조한다. consumer group commit만으로
 ## 12. 동일 batch 재실행·장애 복구
 
 정상 stop→동일 checkpoint 재시작, MERGE 전 예외, MERGE 후 callback 예외를 격리 target에서 수행한다.
-UC/DBR용 승인된 장애 hook은 아직 없어 해당 harness 구현·수용 전에는 BLOCKED다.
+FailureProbe(before_merge/after_merge)는 구현했고 로컬 이름 기반 Delta 복구를 검증했다.
+실제 DBR callback 및 run 종료/재시작 수용은 여전히 BLOCKED다.
 로컬 process-group SIGKILL을 Databricks compute에 그대로 적용하지 않는다.
 성공: 같은 batch ID 재실행과 Gold 수치·키 수 불변. CONFLICT는 기존 값 보호 후 중단.
 여러 MERGE/table/checkpoint를 하나의 공동 transaction으로 가정하지 않는다.
@@ -312,3 +315,95 @@ managed table DROP은 데이터 삭제를 포함하므로 대상과 승인을 �
 참고: [CLI Jobs](https://docs.databricks.com/aws/en/dev-tools/cli/reference/jobs-commands),
 [foreachBatch](https://docs.databricks.com/aws/en/structured-streaming/foreach),
 [checkpoints](https://docs.databricks.com/aws/en/structured-streaming/checkpoints).
+
+
+## 실행 코드 연결 — 2026-10-23 후속 구현
+
+Phase2 tip은 이번 시작 시 `3d772bd`, merge-base `b8c6ee2`로 후속12개가 현재 HEAD에 없다.
+현재 checkout의 Phase2 코드는 바꾸지 않았다. wire/schema/publisher/UTC는 동일하며,
+P3 Registry boundary만 최신 40403 구분을 보완한다. Git 계보 정렬은 사용자 검토 작업이다.
+
+### 승인 전: 결정적 dry-run
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m streaming.tools.phase3_e2e_publisher --base-time 2026-10-20T12:00:00Z --namespace offline-demo --output /private/tmp/phase3-e2e-dry-run.json
+```
+
+이 시각은 과거 fixture 검증용이며 실제 발행용이 아니다. CLI에는 publish 옵션이 없다.
+`e2e_validated_events.json`은 정상/중복/UTC 경계8건 + 실제 진행1건 + late1건이다.
+고유 target7개, target Gold24행(1분6 + 5분18)이며 progress 장비 결과는 분리한다.
+fixture의 progress 장비는 미승인 표시용이다. `--equipment-map` JSON의 원본 ID별
+store_id/equipment_id/equipment_type 전체 mapping으로 등록된 격리 장비를 명시하고
+expected/문서 hash를 함께 검토해야 한다. ID 병합·mapping 누락은 거부한다.
+이 mapping 없는 dry-run은 실제 publisher wrapper에서 거부한다. 새 예상값은 독립 유한 oracle로 기존24행과 대조했다.
+
+**Phase2 실제 정책 정정:** 유효한 오래된 이벤트는 LATE로 분류되지만 Silver/validated로
+전달된다. late를 무조건 Quarantine 처리한다고 가정하지 않는다. future-invalid/도메인
+오류와 구별하며 P3에서 실제 W 이후 late drop을 관측한다.
+
+### 별도 승인 기록과 executor 인증
+
+`ExecutionApproval`에는 approval_id, settings_sha256, expires_at(aware ISO8601), job_tag,
+actions(launch/publish_raw/failure_probe 중 승인 범위), isolated_target,
+uc_acceptance_complete, single_writer_confirmed, phase2_baseline_reviewed,
+cost_controls_reviewed, fixture_sha256 및 registry_credential_env를 기록한다.
+`settings_digest(settings)`로 검토 설정을 고정하고 입력 문서는 `document_digest`로 고정한다.
+실제 기록을 이번 작업에서 생성하거나 승인하지 않았다. JSON/boolean은 인간 승인·권한·lock의
+암호학적 증거가 아니다. 검토자가 실제 수용·비용·Git baseline을 확인한 뒤 비공개 기록을 관리한다.
+설정 flag만으로는 실행되지 않으며 설정 변경/만료/미승인 action은 query 시작 전에 실패한다.
+
+worker는 `ExecutorRegistryFactory(url, credential_env)`로 처음 decode할 때 client를 만든다.
+예: 승인 compute 환경변수의 `PHASE3_REGISTRY_AUTH={{secrets/<approved-scope>/<approved-key>}}`.
+실제 credential 값은 코드/closure/설정에 저장하지 않는다. 환경변수 이름을 승인 기록과 대조한다.
+Secret 환경변수 방식은 cluster 사용자 노출·log 접근 통제와 실제 worker 전파를 검토해야 한다.
+[공식 Secret 참조 지침](https://docs.databricks.com/aws/en/security/secrets/secrets-spark-conf-env-var).
+실제 DBR 지원/인증/권한은 미검증이며 이번에 환경변수를 설정하지 않았다.
+
+### 승인된 DBR notebook의 Job3 entrypoint — 이번 실행 금지
+
+```python
+from streaming.jobs.metric_aggregation import main
+exit_code = main([
+    '--config', '<approved-phase3-config-path>',
+    '--approval', '<approved-separate-approval-json>',
+    '--adapter', 'uc_managed_delta',
+    '--registry-credential-env', 'PHASE3_REGISTRY_AUTH',
+], spark=spark)
+```
+
+기존 승인 compute/session만 사용하며 새 compute/table/CP를 만들거나 초기화하지 않는다.
+Live config parser는 기존 /Volumes CP·UTC/두 window/W10분·single writer 정적 조건을 유지한다.
+별도 승인이 통과하면 Kafka source→동일 단일 query→Mapper→UC 이름 Writer가 연결된다.
+query는 승인 minutes 동안 기다리고 timeout 시 stop한다. Job/compute 과금 종료 보장은 아니며
+외부 Job timeout/종료 감시도 필요하다. query 실패는 Job 실패로 전파한다.
+`--available-now`는 승인 입력 snapshot용이며 열린 tail window를 강제 확정하지 않는다.
+
+### 승인된 격리 raw→Phase2 publisher API — 이번 실행 금지
+
+```python
+from streaming.tools.phase3_e2e_publisher import publish_from_phase2_config
+acks = publish_from_phase2_config(
+    reviewed_document, approved_batch_index, settings=settings, approval=approval,
+    phase2_config='<approved-job2-config-path>', dbutils=dbutils, batch_ready=True,
+)
+```
+
+`reviewed_document`·settings·approval은 검토된 파일에서 로드한 객체다. factory/serializer는
+기존 Phase2 runtime/인증 옵션과 AvroSerializer를 사용한다. auto.register=false,
+use.latest=false, topic_subject_name_strategy를 유지한다. producer 연결 전에 topic/bootstrap/
+Registry route·fixture hash·Phase2 domain/future 규칙을 검사한다. 직접 validated 발행은 없다.
+배경 운영 장비/운영 bootstrap에 쓸 승인이 아니다. 실제 격리 여부는 외부 수용·권한으로 확인한다.
+한 batch마다 ACK partition/offset(non-bool int>=0)과 query 처리·W를 확인한 후 다음 batch를
+호출한다. batch_ready=true 자체는 관측 증거가 아니다. 여러 ACK는 원자적이지 않으므로 실패 시
+확인한 offset·오류를 보존하고 동일 ID로 재시도한다. source event_id를 새로 만들지 않는다.
+진행 행은 실시각이 도달한 뒤에만 허용하며 fake future clock으로 비용/시간을 우회하지 않는다.
+
+### 승인된 테스트 query의 실패 probe — 이번 실행 금지
+
+entrypoint에 `--probe-stage before_merge` 또는 `after_merge`와
+`--probe-batch-id <approved-test-batch-id>`를 함께 전달한다. 별도 failure_probe action과
+job_tag/동일 CP가 일치해야 한다. 해당 batch에서 예외를 일으켜 query 실패를 전파한다.
+재시작에서는 probe 옵션을 제거하고 같은 CP를 쓴다. MERGE 후 실패이면 동일 final은 NO-OP다.
+probe는 다른 Job의 취소/강제종료 API를 호출하지 않는다. 정상 stop/timeout, callback 예외,
+전용 로컬 SIGKILL은 서로 다른 증거다. DBR cancel/restart는 승인된 RUN_ID/Job 소유권을
+다시 확인한 뒤 기존 get-run/cancel-run 절차로 수행한다. 실제 강제 종료·DBR 복구는 미검증이다.

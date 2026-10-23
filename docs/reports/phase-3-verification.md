@@ -520,3 +520,26 @@ Gold 형식은 승인 대기이며 UC 이름 기반 **후보 구현**을 UC 배�
 로그/JUnit·expected/actual·실패 이력·현재 변경 diff·Git 제안:
 `docs/evidence/phase-3/uc-e2e-preparation/`.
 과거 실행 증빙을 보존했고 Git 쓰기는 하지 않았다. Phase3 전체 DoD와 main merge 준비는 미완료다.
+
+## Phase2 계약·E2E 실행 코드 보완 — 2026-10-23
+
+최종 fresh: 전체 Unit1043 / Phase3 Unit329(전체에 포함), 기존 Streaming10,
+기존 Gold·복구·이름 기반24(15+9), 새 binary source5, 새 probe 실제 Delta 복구2 passed.
+Unit 기존 Authlib warning1. 최종 fail/error/skip0이며 초기 source 타이밍/UTC 표현 차이
+진단 실패는 별도 보존했다. 기대 수치/기존 Assertion과 기존 P2 코드는 유지했다.
+
+Phase2 현재 로컬 tip `3d772bd`와 merge-base `b8c6ee2` 사이12개가 HEAD에 없다.
+wire/schema/publisher/UTC는 같고 P3 Registry boundary에서40403만 data error로 구분한다.
+유효한 late는 P2에서 분류 후 validated로 전달되며 무조건 Quarantine하지 않는 것을 확인했다.
+Git 계보 정렬은 미실행이고 최신 원격 상태는 UNKNOWN이다.
+
+추가: worker Secret 참조 factory·공유 binary source 변환, 범위 승인된 DBR entrypoint,
+격리 raw→P2 publisher(dry-run 기본, 실제 발행0), MERGE 전/후 callback failure probe.
+실제 source Streaming target24행과 state4/W/late drop, probe0→24 및24→24/동일CP를 관측했다.
+단일 query·window/W/Append·CP 구조와 local path Sink를 보존했다.
+
+실제 UC/DBR/Kafka/Registry·Secret 전파·IAM·비용/권한·강제 종료 수용은 미실행이다.
+Gold 형식은 여전히 승인 대기다. typed 승인 객체/JSON을 실제 승인/권한/lock의 증거로
+해석하지 않는다. 전체 Phase3 DoD 완료나 main merge를 권고하지 않는다.
+자세한 API/실행 조건은 E2E runbook 마지막 절, 결과/Git 제안은 readiness의 최신 절,
+증거는 `docs/evidence/phase-3/e2e-integration-preparation/`를 따른다.
