@@ -627,3 +627,17 @@ Health profile/source/운영 timeout은 caller가 명시해야 한다. 새 운�
 미지원 장비 fallback은 없다. Consumer·Spark Job 4·실제 scheduler·외부 sink는
 연결하지 않았다. 앞선 절의 Health 미구현 표기는 해당 구현 당시 범위이며 현재
 로컬 Health Core/Codec/Coordinator/Adapter의 상태는 Health 전용 계약을 기준으로 한다.
+
+
+## 12. State History / State Changes / Current State 출력 설계
+
+[출력·부분 실패 복구 계약](state-output-contracts.md)을 별도 설계했다.
+기존 state_change_id와 순수 출력 의도는 유지한다. Operational/Health는 change_kind와
+기존 native ID로 구별하며, 가짜 초기화/무변화 전이를 만들지 않는다. Current 최신성은
+축별 revision/승인 세대/CAS로 보호하는 논리안이다. Operational 공통 revision과 영속
+snapshot/출력 의도 기록은 현재 구현에 없으므로 후속 연결 계층의 필수 조건으로 둔다.
+
+History/Kafka/Current 부분 실패 복구에는 snapshot·명령·불변 의도의 원자적 durable
+확정과 Sink별 완료 대사가 필요하다. 물리 저장소·DDL·wire schema·Job 4·Outbox는
+구현/승인하지 않았고, 기존 RegistryResult와 FSM/Qualifier의 공개 계약도 바꾸지 않았다.
+정상·장애 32개 시나리오는 설계 표이며 테스트 통과 결과가 아니다.

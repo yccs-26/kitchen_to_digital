@@ -939,3 +939,251 @@ AWS/Databricks/Confluent 및 외부 서비스는 실행하지 않았다.
 정확한 staging 대상은 위 5개 파일이다. 권장 메시지:
 `feat(phase4): connect equipment health policies to registry`.
 Git add/commit/push/merge는 수행하지 않았으며 이번 논리 작업을 마치고 검토를 기다린다.
+
+
+## State History / State Changes / Current State — 2026-10-22 설계 검토
+
+### 현재 상태와 범위
+
+branch=feat/phase-4-twin-state,
+HEAD=a1effcbd13a62a98a19d98187b2680ddf6a8db8b, 시작 working tree는 깨끗했다.
+직전 Health Registry Adapter commit a1effcb 및 Timer Coordinator/Codec/Core commit을
+확인했다. 기존 코드·설정·테스트는 변경하지 않고 설계 및 테스트 시나리오만 작성했다.
+
+변경 파일:
+
+- docs/streaming/state-output-contracts.md: 신규 상세 논리 계약과 32개 설계 시나리오.
+- docs/streaming/equipment-state-contracts.md: 12절 출력·영속 경계 참조.
+- docs/streaming/equipment-health-contracts.md: 14절 Health payload/Current 복구 경계.
+- docs/reports/phase-4-verification.md: 이번 검토 증거와 미검증 범위.
+
+### 설계 결과·호환성
+
+기존 두 native ID를 유지하고 change_kind로 구별하는 state-output-v1 tagged envelope를
+권장한다. source lineage·정책·순서/revision·event/deadline/evaluation 의미를 분리했다.
+Health의 같은 논리 만료 ID가 서로 다른 평가 시각에서 재생성될 수 있으므로 최초
+command/evaluation/envelope를 durable 확정하고 재시도에 그대로 사용하도록 정의했다.
+
+History는 (change_kind,native ID)의 canonical 불변 변경이며 같은 payload는 no-op,
+다른 payload는 conflict다. 실제 UC History table/DDL이나 Iceberg MERGE 지원을 가정하지
+않는다. Kafka key는 기존 equipment_id를 유지하고 개별 callback/offset ACK를 요구한다.
+Current는 기존 PK=store_id/SK=equipment_id 아래 두 축 map을 독립 CAS로 갱신하는
+논리 권장안이다. event_time 대신 승인 generation과 per-axis projection revision을
+비교한다. Operational 공통 revision은 현재 Core에 없어 외부 durable 조정 계층이 필요하다.
+
+HEALTHY 유지 관측도 freshness를 바꾸므로 Current-only 투영 의도를 별도 추적한다.
+이때 History/topic의 가짜 변화나 새 health_change_id를 만들지 않는다. 상태 변경 이력만
+읽어서 완전한 Snapshot·원장·후보·timer를 복원할 수 있다고 하지 않는다.
+
+Snapshot+기록 명령+불변 의도를 원자 확정하는 Durable Publication Ledger를 논리 권장하며
+Outbox/History-first/Checkpoint-only/Kafka-first 대안과 한계를 비교했다. 새 저장소나
+인프라는 확정하지 않았다. 실제 원자성·fencing·Operational Codec·pending 스캔/ACK 기록
+구현이 선행돼야 누락 방지 계약을 만족한다. 기본 처리안은 commit→History→Kafka→Current
+완료 후 checkpoint이며 외부 저장소 사이 분산 transaction은 가정하지 않는다.
+
+### 근거 확인
+
+AGENTS 지침, 원본 checkout의 로컬 기준 실행 계획 Phase 4 DoD, architecture/ADR,
+기존 state/health 계약·구현·ID/replay/ordering 테스트, Phase 2 Silver/validated retry,
+Kafka/Gold/storage/rebuild 설계를 읽었다. Phase 3 Sink는 이 checkout에 없다. 접근 가능한
+phase-3-gold-windows의 MemoryGoldReference 테스트와 streaming 설계는 메모리/설계 증거로
+구별했고, 실제 영속 Gold 또는 세 Sink 복구를 검증했다고 처리하지 않았다.
+
+공식 Databricks Iceberg·AWS DynamoDB UpdateItem/Conditional Write·Kafka Producer 설정을
+문서 조회로 보완했다. API의 일반 기능과 실제 KTD runtime 지원을 구별했으며 외부
+서비스/compute/API 실행은 하지 않았다. 상세 근거 링크는 신규 계약 10절에 있다.
+
+### 검증과 미검증
+
+32개 시나리오에 입력/초기 상태·실패 위치·각 Sink 기대 결과·재시도·ID/revision 검사를
+명시했다. 세 Sink 조합 실패, checkpoint 실패, 개별 ACK 직후 종료, 반복 batch/restart,
+역순 Current, 같은 ID 충돌, timeout 지연 평가, 무변화 freshness, 두 축 CAS를 포함한다.
+**전부 미실행 설계**이며 이번 작업의 신규 테스트 통과 수는 없다.
+
+문서 로컬 링크·anchor/표 열 수·schema/시나리오 필수 항목·변경 범위와
+`git diff --check`를 검사했다. 시작 시 추적 파일 147개 SHA-256 baseline을 저장해
+기존 코드·테스트·config 불변과 문서만 변경됨을 대조했다. 이번에 pytest를 재실행하지
+않았고 이전 560/1274 passed는 Health Registry commit의 기존 기록으로만 남긴다.
+
+미결정은 Ledger 저장소/원자성, History 물리 DDL/지원 쓰기, epoch 발급/fencing,
+Operational 영속 Codec/revision mapping, wire schema/소비자 migration, 운영 source/
+timeout·retry/retention이다. Sink·Outbox·Job 4·Scheduler·Alert·클라우드 실행은 없고
+실제 부분 실패 수렴/exactly-once/Phase 4 DoD 완료는 미검증이다.
+
+정확한 staging 대상은 위 4개 문서다. 권장 메시지:
+`docs(phase4): define state output contracts and recovery design`.
+Git add/commit/push/merge를 실행하지 않았으며 이번 논리 작업 완료 후 검토를 기다린다.
+
+## Autonomous State Output & Recovery Batch — 2026-10-22
+
+이번 요청은 Task A~E를 연속 수행하도록 승인한 로컬 구현 배치다. 앞 절의 “설계만”은
+해당 작업 시점 기록이며, 최신 로컬 구현·증거는
+[Phase 4 Local Recovery 보고서](phase-4-local-recovery.md)를 따른다.
+시작 HEAD a1effcb/branch feat/phase-4-twin-state와 직전 Health Registry commit을 확인했다.
+기존 미커밋 설계 문서 4개의 내용을 보존하고 output 계약/이 보고서에는 append만 했다.
+
+- A: 출력·Current-only 투영 계약과 SQLite 로컬 선택의 대안/운영 경계를 명시했다.
+- B: change_envelope.py에서 기존 native ID·typed lineage·UTC·canonical bytes를 보존한다.
+- C: publication_store.py에서 opaque Snapshot bytes·기록 명령/평가/판정·불변 출력·pending을
+  SQLite transaction/CAS로 함께 확정한다. 정확한 명령 재시도는 새 revision을 만들지 않는다.
+- D: sink_protocols.py/local_sinks.py/publication.py에서 독립 파일 Fake와 명시적 ACK·
+  attempt·UNKNOWN·충돌·최신성·동기 reconcile을 모델링했다. 외부 서비스 클라이언트는 없다.
+- E: 실제 subprocess exit 7 cases를 포함한 로컬 복구 18 cases를 실행했다. Snapshot-only
+  partial commit 방지와 ACK 직후 종료의 재시도, pending 재조회/최종 수렴을 확인했다.
+
+최종 신규 테스트는 76개(unit 58 + local integration 18)다. Phase 4는 618 passed in 1.03s,
+전체 로컬 회귀는 1350 passed, 10 deselected, 1 warning in 4.45s다. 별도 로컬 복구 실행은
+18 passed in 0.80s다. 명령·Task 경계 기록·요구 18개별 실제 결과·정확한 Task별 staging
+대상/메시지는 상세 보고서에 있다. 기존 Authlib deprecation 경고 1건이며 외부 integration
+10개는 실행하지 않았다. 신규 local recovery는 외부 서비스 marker를 붙이지 않아 로컬
+회귀에 포함된다. 이를 외부 E2E 통과로 표시하지 않는다.
+
+Snapshot/의도 원자성은 로컬 SQLite transaction에만 해당한다. Health typed 복원은 기존
+Codec을 재사용했고 Operational typed Codec/migration은 미구현이다. 기존 native Core,
+Registry, Codec, Timer, Phase 2/3·기존 테스트·config/checkpoint는 수정하지 않았다.
+시작 baseline 148개 중 output 계약/verification만 append로 변경했고 나머지 146개는
+SHA-256 대조로 유지됨을 확인했다. 새 Python 9개 AST/79열/whitespace, 문서 링크/표와
+`git diff --check`를 검사했다.
+
+실제 Kafka/DynamoDB/Iceberg·Avro wire·Job 4·Spark checkpoint 원자성·생산용 outbox/lease/
+세대 발급·운영 재시도/보존·State Rebuild·Alert·클라우드 실행은 미구현·미검증이다.
+실제 서비스를 SQLite/Fake로 대체한 검증이며 Phase 4 전체 DoD 완료는 아니다.
+Git add/commit/push/merge는 실행하지 않았고 승인 배치 완료 후 중단한다.
+
+## Autonomous Local Integration Readiness — 2026-10-23
+
+Task A~F 승인 배치를 수행했다. 시작 branch는 feat/phase-4-twin-state, HEAD는 a1effcb이며
+직전 Output/Recovery A~E의 코드·테스트·문서가 미커밋으로 존재했다. 이 내용과 원문을
+보존하고 새 모듈 중심으로 확장했다. 상세 경로·장애 결과·정확한 staging/commit 계획은
+[Local Application 보고서](phase-4-local-application.md)에 있다.
+
+A는 Operational Snapshot typed Codec(unit 30), B는 StateChangeEvent Avro 초안/로컬
+framing·offline compatibility(unit 21), C는 validated mapping→기존 Registry/Core→SQLite
+Application(unit 28), D는 기존 Timer→Application publication 연결(unit 10), E는 다중 장비/
+재시작 통합(local 19), F는 [Job 4 운영 통합 설계](../streaming/state-job4-integration-plan.md)다.
+총 새 테스트 108개가 통과했고 실제 process exit/reopen cases는 13개다.
+
+Fryer numeric은 Health만 계산하며 Operational cycle은 명시 synthetic 입력으로만
+검증했다. Hood 후보·Health는 독립 Snapshot이다. 기록된 명령/평가 시각을 재사용하고,
+중간 축 저장 후 종료 시 남은 축을 재개한다. atomic 보장은 축별 SQLite transaction이며
+Spark checkpoint/운영 Outbox/외부 Sink 원자성으로 확대하지 않는다. opaque Operational
+Snapshot 자동 migration, 새 domain policy/source 권한·timeout·미지원 장비 추론은 없다.
+
+최종 신규 108 passed in 3.66s, Phase 4 707 passed in 1.72s,
+전체 로컬 회귀 1458 passed, 10 deselected, 1 warning in 7.70s다. 별도 새 local application
+integration은 19 passed in 2.72s다. 경고는 기존 Authlib httpx deprecation 1건이고 외부
+integration 10개는 실행하지 않았다. 실행 명령·환경 버전은 상세 보고서 9절에 있다.
+
+새 Python 11개 AST/79열/whitespace, Avro schema, 문서 링크/표와 git diff --check를
+확인했다. 시작 baseline 158개 중 output/verification 문서만 append로 바뀌었고 나머지
+156개는 SHA-256 대조로 그대로다. 기존 Core/Registry/Health/Codec/Timer/이전 Envelope·
+Ledger·Fake·테스트·Phase 2/3·설정·checkpoint는 변경하지 않았다.
+
+실제 Schema Registry 등록, Kafka/DynamoDB/Iceberg 쓰기, Spark 설치/Job 4/운영 Scheduler,
+클라우드 실행과 Git add/commit/push/merge는 하지 않았다. 공식 API 문서는 조회했으나
+대상 runtime·운영 보장을 검증하지 않았다. Phase 4 전체 DoD는 미충족이며 이번 승인
+배치는 로컬 readiness 구현/검증 및 운영 설계까지 완료하고 중단한다.
+
+## Concurrency, Fencing & Recovery Hardening — 2026-10-23
+
+검토 HEAD/종료 HEAD `a1effcb`, branch `feat/phase-4-twin-state`.
+시작 시 이전 미커밋 28경로를 보존했다. 이번에는 신규 10경로와 이 문서/Job 4 계획의
+append 2경로만 변경했다. 기존 코드/테스트/Avro/config/Phase 2·3 파일은 변경하지 않았다.
+[전체 보고서·Task별 staging/증빙 명령](phase-4-concurrency-recovery.md),
+[동시성 계약](../streaming/state-concurrency-contracts.md),
+[Job 4 readiness 11절](../streaming/state-job4-integration-plan.md)을 따른다.
+
+### 실제 구현 경계
+
+- 새 임시 DB 전용 FencedPublicationStore(user_version=2). v1 자동 migration 없음.
+  로컬 authority epoch/조건부 UPDATE, 기존 root CAS·출력/ACK 저장 재사용, nested savepoint.
+- FencedStateApplication은 기존 Application/Health Timer를 조합한다. 장비별 명령을
+  ADMITTED/PARTIAL/COMPLETE로 기록해 미완료 축 추월과 완료 전 출력 claim을 차단한다.
+- ClaimedDispatcher는 명시 clock/양수 lease·output sequence로 기존 ACK coordinator를
+  사용한다. 늦은 ACK/옛 claim 거부, bounded scan의 BLOCKED 분리, Fake Kafka 중복 유지.
+- 기존 v1 entry point에 자동 적용하지 않는다. 새 경로를 명시 선택해야 한다. authority
+  epoch는 기존 generation/monitoring epoch/timer generation/native ID를 변경하지 않는다.
+
+### 신규 실행 증거
+
+| 범위 | 실제 명령 선택 | 결과 |
+|---|---|---|
+| 신규 Unit + Local Integration | test_writer_fencing / test_fenced_application / test_dispatch_claims / test_phase4_concurrency_recovery / test_phase4_fencing_recovery | **50 passed**, 5.56초 |
+| Phase 4 unit | tests/unit/phase4 | **740 passed**, 2.61초 |
+| Phase 4 및 기존·신규 Local Integration | 위 unit + test_phase4_local_recovery / test_phase4_local_application / 신규 integration 2파일 | **794 passed**, 11.59초 |
+| 전체 비외부 로컬 | pytest -m 'not integration' | **1508 passed, 10 deselected**, 14.34초 |
+
+명령 공통: `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider`.
+각 실행은 `/private/tmp/ktd-concurrency-final-{new,unit,phase4,all}`의 별도 basetemp다.
+외부 Kafka/Schema Registry integration marker 10개는 실행하지 않았다.
+모든 실행의 warning은 기존 Authlib httpx deprecation 1개다. 구문/79열·diff·문서 로컬
+링크·baseline 보존 검사를 수행했다. 새 Python 8파일 AST 통과, baseline 172파일 중
+공유 문서 2개만 append, 나머지 170파일 SHA-256 동일이다.
+
+신규 unit 33개는 writer 14/application 7/dispatch 12다. 신규 local integration 17개 중
+14개 crash 사례에서 실제 os._exit(81)를 총 17회 실행했고, 별도 stale writer 오류 종료,
+두 live writer·늦은 dispatcher ACK 경합을 검증했다. subprocess timeout과 finally kill/
+reap을 사용했다. 반복된 partial/ACK 유실 뒤 전체 Snapshot·Envelope/native ID를 연속 실행과
+대조하고 Current 최신성·pending 수렴을 확인했다. 두 시각 동률 입력 순서는 기록대로
+보존하며 서로 다른 순서의 이력이 같다고 하지 않는다.
+
+### 남은 게이트
+
+PySpark 미설치, 실제 Spark/DBR/Schema Registry/Kafka/History/DynamoDB·운영 authority/
+분산 clock·lease 연장·checkpoint/권위 로그 원자성·운영 Outbox·migration·전체 Phase 4 DoD는
+미검증이다. invalid admitted 명령의 관리 취소/skip 정책은 미결정이며 자동 복구하지 않는다.
+이번에 cloud/외부 쓰기/유료 실행·자동 Git add/commit/push/merge를 하지 않았다.
+
+## Git Reconciliation & Spark Job 4 Readiness Audit — 2026-10-23
+
+최신 누적 Git 계획·12개 최종 보고 항목은
+[Readiness 감사 보고서](phase-4-readiness-audit.md)를 따른다.
+branch `feat/phase-4-twin-state`, HEAD `a1effcbd13a62a98a19d98187b2680ddf6a8db8b` 유지.
+시작 미커밋 38경로를 보존하고 최종 누적 40경로를 중복 없는 6개 commit 그룹으로 나눴다.
+공유 문서는 마지막 그룹에 한 번만 stage하도록 이전 hunk 추출 계획을 대체했다.
+Git index/publication·외부 자원·체크포인트·운영 DB 변경 없음.
+
+### 결함·수정·신규 적대적 증거
+
+writer_fencing.py의 after_claim hook이 try 밖에 있어 ordinary Python 예외에서 claim이
+남았다. 새 회귀의 첫 실행 1 failed/8 passed로 재현했다. hook을 try/finally 안으로 옮겨
+일반 예외는 release, 실제 os._exit 종료는 lease까지 유지하도록 계약과 맞췄다.
+기존 FSM/Reducer/Codec/Registry/ID/schema/시간 정책은 수정하지 않았다.
+
+신규 test_readiness_adversarial.py **10개**는 위 결함, sequence 변조·옛 dispatcher complete,
+v1/v2 상호 거부·충돌 admission·영구 ADMITTED/CONFLICT·독립 DB authority 부재를 검증한다.
+기존 충분한 concurrent command/expected revision/epoch/PARTIAL/profile/lease/process/replay
+테스트는 재사용했다. pending=0만으로 전체 command 완료를 뜻하지 않으며 독립 DB의 동일
+장비 전역 fencing이 없음을 새 테스트로 명시했다. 관리 정책을 임의로 구현하지 않았다.
+
+### 실행 명령·환경·기대값·실측
+
+환경 Python 3.11.15 / SQLite 3.50.4 / pytest 9.1.1. 공통 실행 prefix:
+`PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider`.
+
+| 실행 인자 | 전용 basetemp | 기대 | 실제 |
+|---|---|---|---|
+| tests/unit/phase4/test_readiness_adversarial.py | /private/tmp/ktd-readiness-new | 새 10개 통과 | 10 passed, 0.36초 |
+| tests/unit/phase4 | /private/tmp/ktd-readiness-unit | 기존 740+새 10 통과 | 750 passed, 3.04초 |
+| test_phase4_local_recovery / local_application / concurrency_recovery / fencing_recovery (tests/integration/) | /private/tmp/ktd-readiness-local | 기존 54 통과 | 54 passed, 10.64초 |
+| -m 'not integration' | /private/tmp/ktd-readiness-all | 외부 Kafka/Registry 제외 전체 성공 | 1518 passed, 10 deselected, 16.89초 |
+
+Phase 4 합계는 별도 두 실행의 합 **804개**다. 새 process 테스트를 추가한 것은 아니다.
+Authlib httpx deprecation warning 1개는 기존과 동일하다. 상세 재현 명령은 감사 보고서에 있다.
+
+AST/구문 검사, 신규 Python 79열, 문서 링크, git diff --check, 40경로 commit 분리의
+집합 동등성/중복 0과 보호 baseline hash를 대조했다. baseline 182개 중
+writer_fencing.py와 문서 3개만 이번 변경, 나머지 178파일 동일이다. 신규는 test와 보고서다.
+
+### Runtime/DoD 결과
+
+PySpark/import spec·spark-submit·pandas·pyarrow가 없다. Java -version은 Java 24이며
+이번 확인한 Spark 3.5.6(Java 8/11/17), Spark 4.0.0(Java 17/21) 공식 목록 밖이다.
+Python 3.11은 문서 범위 안이지만 runtime 전체 호환 실증이 아니다. 실제 State Job 4
+entry point도 없다. 설치·Spark 실행·Workspace/Cloud/Registry 접근은 하지 않았다.
+
+Fryer/Hood 로컬 Handler/Health는 검증, Refrigerator/Freezer/Dishwasher Operational
+handler=None이며 Health Registry도 미지원이다. 설계나 numeric telemetry를 실행 지원으로
+표시하지 않았다. 운영 state authority·clock/timer·실패 명령 관리·checkpoint/Publication
+원자성·Avro Registry/wire pinning·실제 세 Sink·권한/비용/범위 승인이 E2E 선행 게이트다.
+Phase 4 전체 DoD 및 State Rebuild/FAULT/추가 장비 구현 완료를 주장하지 않는다.

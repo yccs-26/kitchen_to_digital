@@ -767,3 +767,22 @@ Health의 STALE이 Operational state를 변경하지 않으며 FAULT 추론/Aler
 계약 거부 시 Core 미호출, 직접 Core/Coordinator와 단계별 결과 대조, timer/복원,
 여러 장비 격리, Operational 결과 보존, replay ID를 확인한다. 상세 실행 결과는
 [검증 보고서](../reports/phase-4-verification.md)의 Health Registry Adapter 절을 따른다.
+
+
+## 14. Health 출력과 Current 복구 경계 — 설계 전용
+
+[출력·부분 실패 복구 계약](state-output-contracts.md) 3~9절에서 Health 변경 envelope,
+History/topic/current의 멱등성·최신성 및 durable 재시도 경계를 정의했다.
+health_change_id는 기존 알고리즘대로 별도 유지한다. timeout의 effective_at은 deadline,
+evaluation_time은 최초 확정한 명령의 reference_time이며 서로 다른 의미다. 같은 ID의
+지연 평가에서 payload를 새로 구성하지 않고 최초 durable envelope를 재사용해야 한다.
+
+health_revision은 변화 순서, snapshot_revision은 Current freshness 투영 순서다.
+HEALTHY 유지 관측은 deadline/last_seen이 바뀌어도 새 History/Kafka 변경을 생성하지
+않는다. 별도 Current-only projection 의도를 snapshot/명령과 함께 확정하는 안이다.
+변경 이력만으로 무변화 관측·dedup·timer·후보까지 복원할 수 있다고 주장하지 않는다.
+
+현재 Health Codec은 bytes 변환만 제공하고 durable 저장/CAS/Outbox를 구현하지 않는다.
+Snapshot+명령+출력 의도의 원자적 확정, 세대 발급/fencing, sink ACK 원장·보존과 실제
+Scheduler/Job 4는 후속 미구현이다. 32개 출력 장애 시나리오는 설계만 했으며 기존 Core/
+Timer/Codec 테스트 통과와 구별한다. 기존 snapshot/ID/API/FAULT 미지원 정책은 변경 없다.
