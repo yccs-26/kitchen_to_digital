@@ -1,0 +1,33 @@
+{
+  "environment": "databricks",
+  "workspace_host": null,
+  "gold": {"format": null, "catalog": null, "schema": null, "table": null},
+  "checkpoint": null,
+  "kafka": {
+    "bootstrap_servers": null,
+    "topic": "kitchen.sensor.validated",
+    "auth_mode": "service_credential",
+    "service_credential": null,
+    "starting_offsets": null,
+    "fail_on_data_loss": true
+  },
+  "registry": {
+    "provider": "confluent",
+    "url": null,
+    "auth_mode": "basic_secret_reference",
+    "credentials": {"scope": null, "key": null}
+  },
+  "streaming": {
+    "watermark": "10 minutes",
+    "windows": [
+      {"window_type": "1m_tumbling", "duration": "1 minute", "slide": "1 minute"},
+      {"window_type": "5m_sliding", "duration": "5 minutes", "slide": "1 minute"}
+    ],
+    "output_mode": "append",
+    "timezone": "UTC"
+  },
+  "writer": {"max_concurrent_runs": 1, "exclusive_target": null, "owner": null},
+  "runtime": {"dbr": null, "access_mode": null},
+  "limits": {"max_runtime_minutes": null, "max_cost_usd": null},
+  "gold_format_approved": false
+}

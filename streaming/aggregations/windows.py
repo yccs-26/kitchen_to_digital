@@ -99,3 +99,12 @@ def assign_metric_window(
         window.start, "1m_tumbling", store_id, equipment_id, metric_name,
     )
     return MetricWindowAssignment(key, window.end, unit)
+
+
+def spark_window_spec(window_type: str) -> tuple[str, str]:
+    """생산 Spark plan에 사용할 기존 Gold namespace의 길이/slide를 반환한다."""
+    if window_type == "1m_tumbling":
+        return "1 minute", "1 minute"
+    if window_type == "5m_sliding":
+        return "5 minutes", "1 minute"
+    raise ValueError("Unsupported Gold window_type")
