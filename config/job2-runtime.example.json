@@ -5,7 +5,7 @@
     "mechanism": "AWS_MSK_IAM",
     "region": "ap-northeast-2",
     "source_service_credential": "ktd-msk-consumer",
-    "producer_service_credential": "ktd-msk-job2-producer"
+    "producer_service_credential": "ktd-msk-job2-credential"
   },
   "registry": {
     "provider": "confluent",
@@ -23,7 +23,7 @@
   },
   "silver_table": "ktd.silver.sensor_validated",
   "checkpoint": "/Volumes/ktd/silver/checkpoints/job2/sensor-validation",
-  "processing_version": "git:a5b8f56",
+  "processing_version": "git:79163ad",
   "rules_path": "validation_rules.json",
   "starting_offsets": "earliest",
   "max_offsets_per_trigger": 1000

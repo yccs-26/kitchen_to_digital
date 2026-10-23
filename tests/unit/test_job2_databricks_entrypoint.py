@@ -111,17 +111,22 @@ def test_compiled_filename_precedes_wrapper_file(deployed_repo, monkeypatch):
 
 def test_example_routes_distinct_credentials(deployed_repo):
     _, config = deployed_repo
+    # 자격 증명 이름은 배포 설정이 정하고 테스트는 역할별 전달을 검증한다.
+    kafka = json.loads(config.read_text())["kafka"]
+    source_credential = kafka["source_service_credential"]
+    producer_credential = kafka["producer_service_credential"]
+    assert source_credential != producer_credential
     settings = runtime.load_runtime_config(config)
     source = settings.kafka.spark_options(settings.job.source)
-    assert source["databricks.serviceCredential"] == "ktd-msk-consumer"
+    assert source["databricks.serviceCredential"] == source_credential
     assert "kafka.security.protocol" not in source
     utility = Mock()
     utility.secrets.get.return_value = "fake-user:fake-secret"
     clients = settings.resolve_clients(utility)
     utility.credentials.getServiceCredentialsProvider.assert_called_once_with(
-        "ktd-msk-job2-producer",
+        producer_credential,
     )
-    assert clients.producer["ktd.msk.credential"] == "ktd-msk-job2-producer"
+    assert clients.producer["ktd.msk.credential"] == producer_credential
     assert clients.producer["ktd.msk.region"] == "ap-northeast-2"
     assert "oauth_cb" not in clients.producer
     assert "databricks.serviceCredential" not in clients.producer
