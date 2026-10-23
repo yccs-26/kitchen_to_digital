@@ -1,0 +1,72 @@
+{
+  "format_version": 1,
+  "status": "PREPARED_NOT_EXECUTED",
+  "source_observed_at": "2026-10-10T02:41:36.941344+00:00",
+  "source_export": "source-export.json",
+  "inventory": "docs/evidence/phase-2/p2-8a/schema-id-inventory.json",
+  "inventory_sha256": "fa9e85e78643cd86d08d773f89a69505814daa57e371b214de11a9ea21e629d1",
+  "destination_context": ".",
+  "destination_policy": "New empty default context; stop on any existing subject including deleted or occupied ID 1/2; never force/delete/overwrite",
+  "raw": [
+    {
+      "subject": "kitchen.sensor.raw-value",
+      "id": 1,
+      "version": 1,
+      "schema_type": "AVRO",
+      "references": [],
+      "schema_file": "raw-v1.avsc",
+      "request_file": "raw-v1.import.json",
+      "source_artifact": "schemas/avro/sensor_metric_event.avsc",
+      "source_text_sha256": "f1ee995b812fe2e1d7e78d0a001d545b0506330124a8e2e22ab7cf315d702938",
+      "json_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23",
+      "kafka_count_at_inventory": 1,
+      "bronze_count_at_inventory": 2
+    },
+    {
+      "subject": "kitchen.sensor.raw-value",
+      "id": 2,
+      "version": 2,
+      "schema_type": "AVRO",
+      "references": [],
+      "schema_file": "raw-v2.avsc",
+      "request_file": "raw-v2.import.json",
+      "source_artifact": "schemas/avro/compatibility/sensor_metric_event_v2_compatible.avsc",
+      "source_text_sha256": "648dbf02f037e3412d1b1780841716c5072877c3d3376f15bf34e1079459a521",
+      "json_structure_sha256": "f72553740ec65b958256575142e5a15d091601e7b5cfc8183b2d5f994159b4aa",
+      "kafka_count_at_inventory": 0,
+      "bronze_count_at_inventory": 0
+    }
+  ],
+  "validated": {
+    "subject": "kitchen.sensor.validated-value",
+    "schema_file": "validated-v1.avsc",
+    "request_file": "validated-v1.register.json",
+    "source_text_sha256": "f1ee995b812fe2e1d7e78d0a001d545b0506330124a8e2e22ab7cf315d702938",
+    "json_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23",
+    "schema_type": "AVRO",
+    "references": [],
+    "expected_version_on_empty_subject": 1,
+    "expected_id_after_raw_import": 1,
+    "actual_destination_id": null,
+    "actual_destination_version": null,
+    "note": "Same schema/default context should reuse ID 1; verify actual POST and GET responses. Registration body deliberately omits id/version."
+  },
+  "compatibility": "BACKWARD",
+  "hash_definition": "source_text_sha256 hashes exact UTF-8 Registry schema string; json_structure_sha256 hashes json.dumps(sort_keys=True,separators=(comma,colon),ensure_ascii=False); not Avro Parsing Canonical Form",
+  "execution_authorized_in_preparation_task": false,
+  "cloud_requests_performed": false,
+  "unknown_ids_in_inventory": [],
+  "retention_note": "Refresh live smoke after provisioning; missing expired Kafka sample is NOT_OBSERVED, never replaced silently by fixture",
+  "official_references": [
+    "https://docs.confluent.io/cloud/current/ccloud/update-mode/",
+    "https://docs.confluent.io/cloud/current/ccloud/register/",
+    "https://docs.confluent.io/platform/current/schema-registry/develop/api.html",
+    "https://docs.confluent.io/platform/current/schema-registry/installation/migrate.html"
+  ],
+  "smoke_fixture": {
+    "existing_local_path": "tmp/phase1/avro-fixture.json",
+    "value_sha256": "fac0c769ae4a4d1323ebf0a903ebce78a35ba1f52e499a6d413ac1c37263e427",
+    "schema_id": 1,
+    "payload_included_in_bundle": false
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "run_id": "5fc182dce0b84c3188750c98f711a51f",
+  "started_at": "2026-10-08T11:51:49.959158+00:00",
+  "head": "dc99afa2b5f1b75dd490e7c7f186fcd4498a92b7",
+  "table": "ktd.silver.sensor_validated",
+  "status": "PASS",
+  "stage": "canonical_preserved",
+  "spark_version": "4.0.0",
+  "runtime": {
+    "dbr_version": "17.3.x-photon-scala2.13",
+    "dbsql_version": null,
+    "u_build_hash": "7ea7cb98c965fff39a799a8511cb641f892901d9",
+    "r_build_hash": "f4af480d506a114d99536be6987911113e4854ed"
+  },
+  "schema_existed": true,
+  "table_existed": false,
+  "last_sql": "CREATE TABLE ktd.silver.sensor_validated (\n            event_id STRING NOT NULL,\n            event_time TIMESTAMP_LTZ NOT NULL,\n            store_id STRING NOT NULL,\n            equipment_id STRING NOT NULL,\n            equipment_type STRING NOT NULL,\n            metric_name STRING NOT NULL,\n            metric_value DOUBLE NOT NULL,\n            unit STRING NOT NULL,\n            schema_version STRING NOT NULL,\n            source STRING NOT NULL\n        ) USING DELTA",
+  "metadata": {
+    "Type": "MANAGED",
+    "Provider": "delta",
+    "Table Properties": "[delta.checkpointPolicy=v2,delta.enableDeletionVectors=true,delta.enableRowTracking=true,delta.feature.appendOnly=supported,delta.feature.deletionVectors=supported,delta.feature.domainMetadata=supported,delta.feature.invariants=supported,delta.feature.rowTracking=supported,delta.feature.v2Checkpoint=supported,delta.minReaderVersion=3,delta.minWriterVersion=7,delta.parquet.compression.codec=zstd,delta.rowTracking.materializedRowCommitVersionColumnName=_row-commit-version-col-90c84a27-ff6e-49f7-a6ea-c7bf5f15ae77,delta.rowTracking.materializedRowIdColumnName=_row-id-col-ddad928c-925d-43ea-bc56-c3ffa14bf238,io.unitycatalog.tableId=d9b5da51-1175-4f40-9877-a86d52d1c53d]"
+  },
+  "columns": {
+    "type": "struct",
+    "fields": [
+      {
+        "name": "event_id",
+        "type": "string",
+        "nullable": false,
+        "metadata": {}
+      },
+      {
+        "name": "event_time",
+        "type": "timestamp",
+        "nullable": false,
+        "metadata": {}
+      },
+      {
+        "name": "store_id",
+        "type": "string",
+        "nullable": false,
+        "metadata": {}
+      },
+      {
+        "name": "equipment_id",
+        "type": "string",
+        "nullable": false,
+        "metadata": {}
+      },
+      {
+        "name": "equipment_type",
+        "type": "string",
+        "nullable": false,
+        "metadata": {}
+      },
+      {
+        "name": "metric_name",
+        "type": "string",
+        "nullable": false,
+        "metadata": {}
+      },
+      {
+        "name": "metric_value",
+        "type": "double",
+        "nullable": false,
+        "metadata": {}
+      },
+      {
+        "name": "unit",
+        "type": "string",
+        "nullable": false,
+        "metadata": {}
+      },
+      {
+        "name": "schema_version",
+        "type": "string",
+        "nullable": false,
+        "metadata": {}
+      },
+      {
+        "name": "source",
+        "type": "string",
+        "nullable": false,
+        "metadata": {}
+      }
+    ]
+  },
+  "event": {
+    "event_id": "p2-8a-storage-5fc182dce0b84c3188750c98f711a51f",
+    "event_time": "2026-10-08 11:52:35.123456+00:00",
+    "store_id": "store-001",
+    "equipment_id": "fridge-001",
+    "equipment_type": "refrigerator",
+    "metric_name": "temperature_celsius",
+    "metric_value": 4.25,
+    "unit": "celsius",
+    "schema_version": "1.0.0",
+    "source": "simulator"
+  },
+  "initial_lookup": null,
+  "adapter_merge_sql": "MERGE INTO `ktd`.`silver`.`sensor_validated` AS t USING (SELECT :event_id AS `event_id`, :event_time AS `event_time`, :store_id AS `store_id`, :equipment_id AS `equipment_id`, :equipment_type AS `equipment_type`, :metric_name AS `metric_name`, :metric_value AS `metric_value`, :unit AS `unit`, :schema_version AS `schema_version`, :source AS `source`) AS s ON t.`event_id` = s.`event_id` WHEN NOT MATCHED THEN INSERT (`event_id`, `event_time`, `store_id`, `equipment_id`, `equipment_type`, `metric_name`, `metric_value`, `unit`, `schema_version`, `source`) VALUES (s.`event_id`, s.`event_time`, s.`store_id`, s.`equipment_id`, s.`equipment_type`, s.`metric_name`, s.`metric_value`, s.`unit`, s.`schema_version`, s.`source`)",
+  "first_insert": "INSERTED",
+  "stored": {
+    "event_id": "p2-8a-storage-5fc182dce0b84c3188750c98f711a51f",
+    "event_time": "2026-10-08 11:52:35.123456+00:00",
+    "store_id": "store-001",
+    "equipment_id": "fridge-001",
+    "equipment_type": "refrigerator",
+    "metric_name": "temperature_celsius",
+    "metric_value": 4.25,
+    "unit": "celsius",
+    "schema_version": "1.0.0",
+    "source": "simulator"
+  },
+  "timestamp_round_trip": true,
+  "metric_round_trip": true,
+  "duplicate": "DUPLICATE_NOOP",
+  "conflict": "CONFLICT",
+  "differing_fields": [
+    "metric_value"
+  ],
+  "canonical_preserved": true,
+  "row_count_for_event": 1,
+  "finished_at": "2026-10-08T11:53:05.282931+00:00",
+  "conflicting_metric_value": 9.5
+}

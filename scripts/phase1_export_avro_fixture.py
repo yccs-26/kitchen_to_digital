@@ -11,7 +11,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = Path("tmp/phase1/avro-fixture.json")
 
 
-def export_fixture(output: Path = DEFAULT_OUTPUT) -> Path:
+def export_fixture(output: Path = DEFAULT_OUTPUT, *, registry_client=None) -> Path:
     output = REPOSITORY_ROOT / output
     if output.exists():
         raise FileExistsError(f"Fixture already exists: {output}")
@@ -22,7 +22,9 @@ def export_fixture(output: Path = DEFAULT_OUTPUT) -> Path:
     event = generate_event(equipment)
     payload = event.to_dict()
     key = event.equipment_id
-    producer = KafkaEventProducer(serialization_only=True)
+    producer = KafkaEventProducer(
+        serialization_only=True, registry_client=registry_client,
+    )
     serialized_key, value = producer.serialize(key, payload)
     if serialized_key is None or value is None:
         raise ValueError("SensorMetricEvent fixture requires non-null key/value bytes")

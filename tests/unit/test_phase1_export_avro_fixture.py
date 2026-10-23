@@ -89,3 +89,22 @@ def test_registry_failure_does_not_write_fixture(tmp_path, registry):
     with pytest.raises(RuntimeError, match="Registry unavailable"):
         exporter.export_fixture(output)
     assert not output.exists()
+
+
+def test_injected_cloud_registry_reuses_serializer_without_kafka(
+    tmp_path, monkeypatch, registry,
+):
+    factory = Mock(side_effect=AssertionError('No default Registry client'))
+    kafka = Mock(side_effect=AssertionError('No Kafka transport'))
+    monkeypatch.setattr(producer_module, 'SchemaRegistryClient', factory)
+    monkeypatch.setattr(producer_module, 'Producer', kafka)
+    output = exporter.export_fixture(
+        tmp_path / 'cloud.json', registry_client=registry,
+    )
+    fixture = json.loads(output.read_text())
+    value = base64.b64decode(fixture['value_base64'])
+    assert value[:5] == b'\x00\x00\x00\x00\x01'
+    registry.lookup_schema.assert_called_once()
+    registry.register_schema_full_response.assert_not_called()
+    factory.assert_not_called()
+    kafka.assert_not_called()

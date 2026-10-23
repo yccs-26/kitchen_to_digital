@@ -1,0 +1,22 @@
+{
+  "started_at": "20261010T073037107700Z",
+  "observations": [
+    {
+      "method": "GET",
+      "path": "/mode",
+      "http_status": 200,
+      "mode": "READWRITE"
+    },
+    {
+      "method": "GET",
+      "path": "/subjects?deleted=true",
+      "http_status": 200,
+      "items": []
+    }
+  ],
+  "status": "STOPPED_DO_NOT_RERUN_BLINDLY",
+  "error_type": "ApiError",
+  "http_status": 403,
+  "registry_error_code": 40301,
+  "finished_at": "2026-10-10T07:30:37.539914+00:00"
+}

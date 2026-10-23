@@ -1,0 +1,21 @@
+{
+  "run_id": "07132640d2094e75819f06a5878c25d9",
+  "started_at": "2026-10-08T05:42:18.868578+00:00",
+  "head": "dc99afa2b5f1b75dd490e7c7f186fcd4498a92b7",
+  "table": "ktd.silver.sensor_validated",
+  "status": "FAIL",
+  "stage": "table_preflight",
+  "spark_version": "4.0.0",
+  "runtime": {
+    "dbr_version": "17.3.x-photon-scala2.13",
+    "dbsql_version": null,
+    "u_build_hash": "7ea7cb98c965fff39a799a8511cb641f892901d9",
+    "r_build_hash": "f4af480d506a114d99536be6987911113e4854ed"
+  },
+  "schema_existed": false,
+  "last_sql": "CREATE TABLE ktd.silver.sensor_validated (\n            event_id STRING NOT NULL,\n            event_time TIMESTAMP_LTZ NOT NULL,\n            store_id STRING NOT NULL,\n            equipment_id STRING NOT NULL,\n            equipment_type STRING NOT NULL,\n            metric_name STRING NOT NULL,\n            metric_value DOUBLE NOT NULL,\n            unit STRING NOT NULL,\n            schema_version STRING NOT NULL,\n            source STRING NOT NULL\n        ) USING DELTA",
+  "table_existed": false,
+  "error_type": "SparkConnectException",
+  "runtime_error": "[NO_ACTIVE_SESSION] No active Spark session found. Please create a new Spark session before running the code.",
+  "finished_at": "2026-10-08T05:47:54.636929+00:00"
+}

@@ -1,0 +1,8 @@
+{
+  "status": "ACKED",
+  "topic": "kitchen.sensor.raw",
+  "partition": 1,
+  "offset": 3,
+  "event_id": "30008ab5-8a00-43d9-bc4a-94493ceaaea7",
+  "equipment_id": "fridge-001"
+}

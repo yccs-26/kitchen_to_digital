@@ -1,0 +1,563 @@
+{
+  "audit_date_kst": "2026-10-09",
+  "completed_at_utc": "2026-10-08T17:24:13.743815+00:00",
+  "branch": "feat/phase2-validation-silver",
+  "head": "69caada6c3ca0a6545eff35f9836a8d3d68846b5",
+  "scope": "read-only management API, existing RUNNING compute batch read and DESCRIBE; no Job 2 query or writes",
+  "management": {
+    "observed_at": "2026-10-08T17:15:53.405395+00:00",
+    "mode": "management API read only",
+    "msk": [
+      {
+        "ClusterType": "SERVERLESS",
+        "ClusterArn": "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2",
+        "ClusterName": "ktd-msk-serverless",
+        "CreationTime": "2026-09-30T12:50:35.980000+00:00",
+        "CurrentVersion": "K2EUQ1WTGCTBG2",
+        "State": "ACTIVE",
+        "Tags": {},
+        "Serverless": {
+          "VpcConfigs": [
+            {
+              "SubnetIds": [
+                "subnet-0a6bbe845b6dddb52",
+                "subnet-0360a0dbe5263fca7"
+              ],
+              "SecurityGroupIds": [
+                "sg-0ce6cb2afcc2cc2ca"
+              ]
+            }
+          ],
+          "ClientAuthentication": {
+            "Sasl": {
+              "Iam": {
+                "Enabled": true
+              }
+            }
+          },
+          "ConnectivityInfo": {
+            "NetworkType": "IPV4"
+          }
+        }
+      }
+    ],
+    "brokers": {
+      "BootstrapBrokerStringSaslIam": "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098"
+    },
+    "cluster_policy": {
+      "status": "ERROR",
+      "error_class": "NotFound"
+    },
+    "glue_registries": [],
+    "glue_schemas": [],
+    "client_ec2": [
+      {
+        "id": "i-08e374efb0c31160d",
+        "state": "stopped",
+        "profile": {
+          "Arn": "arn:aws:iam::048715026902:instance-profile/ktd-msk-producer-role",
+          "Id": "AIPAQWV5EKHLH55F65F5I"
+        }
+      }
+    ],
+    "credentials": [
+      {
+        "name": "__databricks_managed_storage_credential",
+        "purpose": "STORAGE",
+        "read_only": false
+      },
+      {
+        "aws_iam_role": {
+          "role_arn": "arn:aws:iam::048715026902:role/databricks-uc-7474648508646287-ktd-managed-storage"
+        },
+        "name": "databricks-uc-7474648508646287-ktd-managed-storage",
+        "purpose": "STORAGE",
+        "read_only": false
+      },
+      {
+        "aws_iam_role": {
+          "role_arn": "arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role"
+        },
+        "name": "ktd-msk-consumer",
+        "purpose": "SERVICE"
+      },
+      {
+        "aws_iam_role": {
+          "role_arn": "arn:aws:iam::048715026902:role/databricks-storage-role-7474648508646287"
+        },
+        "name": "ktd_classic",
+        "purpose": "STORAGE",
+        "read_only": false
+      }
+    ],
+    "secret_scopes": [],
+    "silver_table": {
+      "full_name": "ktd.silver.sensor_validated",
+      "table_type": "MANAGED",
+      "data_source_format": "DELTA",
+      "columns": [
+        {
+          "name": "event_id",
+          "nullable": false,
+          "position": 0,
+          "type_json": "{\"name\":\"event_id\",\"type\":\"string\",\"nullable\":false,\"metadata\":{}}",
+          "type_name": "STRING",
+          "type_precision": 0,
+          "type_scale": 0,
+          "type_text": "string"
+        },
+        {
+          "name": "event_time",
+          "nullable": false,
+          "position": 1,
+          "type_json": "{\"name\":\"event_time\",\"type\":\"timestamp\",\"nullable\":false,\"metadata\":{}}",
+          "type_name": "TIMESTAMP",
+          "type_precision": 0,
+          "type_scale": 0,
+          "type_text": "timestamp"
+        },
+        {
+          "name": "store_id",
+          "nullable": false,
+          "position": 2,
+          "type_json": "{\"name\":\"store_id\",\"type\":\"string\",\"nullable\":false,\"metadata\":{}}",
+          "type_name": "STRING",
+          "type_precision": 0,
+          "type_scale": 0,
+          "type_text": "string"
+        },
+        {
+          "name": "equipment_id",
+          "nullable": false,
+          "position": 3,
+          "type_json": "{\"name\":\"equipment_id\",\"type\":\"string\",\"nullable\":false,\"metadata\":{}}",
+          "type_name": "STRING",
+          "type_precision": 0,
+          "type_scale": 0,
+          "type_text": "string"
+        },
+        {
+          "name": "equipment_type",
+          "nullable": false,
+          "position": 4,
+          "type_json": "{\"name\":\"equipment_type\",\"type\":\"string\",\"nullable\":false,\"metadata\":{}}",
+          "type_name": "STRING",
+          "type_precision": 0,
+          "type_scale": 0,
+          "type_text": "string"
+        },
+        {
+          "name": "metric_name",
+          "nullable": false,
+          "position": 5,
+          "type_json": "{\"name\":\"metric_name\",\"type\":\"string\",\"nullable\":false,\"metadata\":{}}",
+          "type_name": "STRING",
+          "type_precision": 0,
+          "type_scale": 0,
+          "type_text": "string"
+        },
+        {
+          "name": "metric_value",
+          "nullable": false,
+          "position": 6,
+          "type_json": "{\"name\":\"metric_value\",\"type\":\"double\",\"nullable\":false,\"metadata\":{}}",
+          "type_name": "DOUBLE",
+          "type_precision": 0,
+          "type_scale": 0,
+          "type_text": "double"
+        },
+        {
+          "name": "unit",
+          "nullable": false,
+          "position": 7,
+          "type_json": "{\"name\":\"unit\",\"type\":\"string\",\"nullable\":false,\"metadata\":{}}",
+          "type_name": "STRING",
+          "type_precision": 0,
+          "type_scale": 0,
+          "type_text": "string"
+        },
+        {
+          "name": "schema_version",
+          "nullable": false,
+          "position": 8,
+          "type_json": "{\"name\":\"schema_version\",\"type\":\"string\",\"nullable\":false,\"metadata\":{}}",
+          "type_name": "STRING",
+          "type_precision": 0,
+          "type_scale": 0,
+          "type_text": "string"
+        },
+        {
+          "name": "source",
+          "nullable": false,
+          "position": 9,
+          "type_json": "{\"name\":\"source\",\"type\":\"string\",\"nullable\":false,\"metadata\":{}}",
+          "type_name": "STRING",
+          "type_precision": 0,
+          "type_scale": 0,
+          "type_text": "string"
+        }
+      ]
+    },
+    "checkpoint_children": [
+      {
+        "name": "job1",
+        "is_directory": true,
+        "size": 0,
+        "last_modified": "1970-01-01T09:00:00+09:00"
+      },
+      {
+        "name": "job1-failure-test",
+        "is_directory": true,
+        "size": 0,
+        "last_modified": "1970-01-01T09:00:00+09:00"
+      },
+      {
+        "name": "job1-tests",
+        "is_directory": true,
+        "size": 0,
+        "last_modified": "1970-01-01T09:00:00+09:00"
+      }
+    ],
+    "ktd-databricks-msk-consumer-role_role": {
+      "RoleName": "ktd-databricks-msk-consumer-role",
+      "Arn": "arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role",
+      "PermissionsBoundary": null,
+      "trust_principals": [
+        {
+          "AWS": [
+            "arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role",
+            "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL"
+          ]
+        }
+      ]
+    },
+    "ktd-databricks-msk-consumer-role_inline": [
+      "ktd-msk-consumer-policy"
+    ],
+    "ktd-databricks-msk-consumer-role_ktd-msk-consumer-policy": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "ConnectToKtdMsk",
+          "Effect": "Allow",
+          "Action": [
+            "kafka-cluster:Connect"
+          ],
+          "Resource": [
+            "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+          ]
+        },
+        {
+          "Sid": "ReadKitchenSensorRaw",
+          "Effect": "Allow",
+          "Action": [
+            "kafka-cluster:DescribeTopic",
+            "kafka-cluster:ReadData"
+          ],
+          "Resource": [
+            "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.raw"
+          ]
+        },
+        {
+          "Sid": "UseConsumerGroups",
+          "Effect": "Allow",
+          "Action": [
+            "kafka-cluster:DescribeGroup",
+            "kafka-cluster:AlterGroup"
+          ],
+          "Resource": [
+            "arn:aws:kafka:ap-northeast-2:048715026902:group/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/*"
+          ]
+        },
+        {
+          "Sid": "AllowSelfAssumeRole",
+          "Effect": "Allow",
+          "Action": "sts:AssumeRole",
+          "Resource": "arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role"
+        }
+      ]
+    },
+    "ktd-databricks-msk-consumer-role_attached": [],
+    "ktd-msk-producer-role_role": {
+      "RoleName": "ktd-msk-producer-role",
+      "Arn": "arn:aws:iam::048715026902:role/ktd-msk-producer-role",
+      "PermissionsBoundary": null,
+      "trust_principals": [
+        {
+          "Service": "ec2.amazonaws.com"
+        }
+      ]
+    },
+    "ktd-msk-producer-role_inline": [
+      "ktd-msk-producer-policy"
+    ],
+    "ktd-msk-producer-role_ktd-msk-producer-policy": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "ConnectToKtdMsk",
+          "Effect": "Allow",
+          "Action": [
+            "kafka-cluster:Connect"
+          ],
+          "Resource": [
+            "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+          ]
+        },
+        {
+          "Sid": "CreateAndWriteSensorTopic",
+          "Effect": "Allow",
+          "Action": [
+            "kafka-cluster:CreateTopic",
+            "kafka-cluster:DescribeTopic",
+            "kafka-cluster:WriteData"
+          ],
+          "Resource": [
+            "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.raw"
+          ]
+        }
+      ]
+    },
+    "ktd-msk-producer-role_attached": [
+      {
+        "PolicyName": "AmazonSSMManagedInstanceCore",
+        "PolicyArn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      }
+    ],
+    "ktd-msk-producer-role_AmazonSSMManagedInstanceCore_meta": "v2",
+    "ktd-msk-producer-role_AmazonSSMManagedInstanceCore_document": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "ssm:DescribeAssociation",
+            "ssm:GetDeployablePatchSnapshotForInstance",
+            "ssm:GetDocument",
+            "ssm:DescribeDocument",
+            "ssm:GetManifest",
+            "ssm:GetParameter",
+            "ssm:GetParameters",
+            "ssm:ListAssociations",
+            "ssm:ListInstanceAssociations",
+            "ssm:PutInventory",
+            "ssm:PutComplianceItems",
+            "ssm:PutConfigurePackageResult",
+            "ssm:UpdateAssociationStatus",
+            "ssm:UpdateInstanceAssociationStatus",
+            "ssm:UpdateInstanceInformation"
+          ],
+          "Resource": "*"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "ssmmessages:CreateControlChannel",
+            "ssmmessages:CreateDataChannel",
+            "ssmmessages:OpenControlChannel",
+            "ssmmessages:OpenDataChannel"
+          ],
+          "Resource": "*"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "ec2messages:AcknowledgeMessage",
+            "ec2messages:DeleteMessage",
+            "ec2messages:FailMessage",
+            "ec2messages:GetEndpoint",
+            "ec2messages:GetMessages",
+            "ec2messages:SendReply"
+          ],
+          "Resource": "*"
+        }
+      ]
+    }
+  },
+  "topic_management": {
+    "observed_at": "2026-10-08T17:16:58.865592+00:00",
+    "kitchen.sensor.raw": {
+      "error": "aws: [ERROR]: An error occurred (ServerlessUnsupportedException) when calling the DescribeTopic operation: Topic APIs are not supported on serverless clusters."
+    },
+    "kitchen.sensor.validated": {
+      "error": "aws: [ERROR]: An error occurred (ServerlessUnsupportedException) when calling the DescribeTopic operation: Topic APIs are not supported on serverless clusters."
+    },
+    "kitchen.sensor.quarantine": {
+      "error": "aws: [ERROR]: An error occurred (ServerlessUnsupportedException) when calling the DescribeTopic operation: Topic APIs are not supported on serverless clusters."
+    }
+  },
+  "runtime_config_equivalent_read": {
+    "observed_at": "2026-10-08T17:18:12.926843+00:00",
+    "cluster_state": "RUNNING",
+    "topics": {
+      "kitchen.sensor.raw": {
+        "status": "READ_FAILED",
+        "error_type": "UnknownException",
+        "error_class": "OTHER_ERROR"
+      },
+      "kitchen.sensor.validated": {
+        "status": "READ_FAILED",
+        "error_type": "UnknownException",
+        "error_class": "OTHER_ERROR"
+      },
+      "kitchen.sensor.quarantine": {
+        "status": "READ_FAILED",
+        "error_type": "UnknownException",
+        "error_class": "OTHER_ERROR"
+      }
+    },
+    "spark_version": "4.0.0",
+    "silver_metadata": {
+      "Type": "MANAGED",
+      "Provider": "delta"
+    }
+  },
+  "raw_option_conflict_diagnostic": {
+    "observed_at": "2026-10-08T17:19:01.876489+00:00",
+    "cluster_state": "RUNNING",
+    "topics": {
+      "kitchen.sensor.raw": {
+        "status": "READ_FAILED",
+        "error_summary": "(org.apache.spark.sql.kafka010.KafkaIllegalStateException) SASL parameters kafka.security.protocol are not allowed in source options when using a service credential. Please remove either the SASL configs or remove databricks.serviceCredential config.",
+        "error_type": "UnknownException",
+        "error_class": "OTHER_ERROR"
+      }
+    },
+    "spark_version": "4.0.0",
+    "silver_metadata": {
+      "Type": "MANAGED",
+      "Provider": "delta"
+    }
+  },
+  "job1_style_read": {
+    "observed_at": "2026-10-08T17:19:41.296606+00:00",
+    "cluster_state": "RUNNING",
+    "topics": {
+      "kitchen.sensor.raw": {
+        "status": "READ_OK",
+        "sample_lineage": [
+          {
+            "topic": "kitchen.sensor.raw",
+            "partition": 1,
+            "offset": 0
+          }
+        ]
+      },
+      "kitchen.sensor.validated": {
+        "status": "READ_FAILED",
+        "error_summary": "(java.util.concurrent.ExecutionException) kafkashaded.org.apache.kafka.common.errors.TopicAuthorizationException: Topic authorization failed.",
+        "error_type": "UnknownException",
+        "error_class": "TopicAuthorizationException"
+      },
+      "kitchen.sensor.quarantine": {
+        "status": "READ_FAILED",
+        "error_summary": "(java.util.concurrent.ExecutionException) kafkashaded.org.apache.kafka.common.errors.TopicAuthorizationException: Topic authorization failed.",
+        "error_type": "UnknownException",
+        "error_class": "TopicAuthorizationException"
+      }
+    },
+    "spark_version": "4.0.0",
+    "silver_metadata": {
+      "Type": "MANAGED",
+      "Provider": "delta"
+    }
+  },
+  "offline_audit": {
+    "old_adapter_references": [],
+    "json_configs_valid": true,
+    "phase2_regression": {
+      "passed": 507,
+      "failed": 0,
+      "warnings": 1,
+      "seconds": 0.66,
+      "command": ".venv/bin/python -m pytest -q tests/unit/test_validation_input.py tests/unit/test_validation_domain.py tests/unit/test_quarantine_record.py tests/unit/test_quarantine_publisher.py tests/unit/test_event_identity.py tests/unit/test_event_time_policy.py tests/unit/test_silver_sink.py tests/unit/test_delta_silver_adapter.py tests/unit/test_validated_publisher.py tests/unit/test_sensor_validation_job.py tests/unit/test_runtime_config.py"
+    },
+    "secret_scan": {
+      "scope": "tracked text files <= 1 MB; value output suppressed",
+      "aws_access_key": 0,
+      "private_key": 0,
+      "databricks_token": 0,
+      "literal_sensitive_assignment": 0
+    }
+  },
+  "local_connect_environment": {
+    "databricks-connect": "17.3.14",
+    "databricks-sdk": "0.143.0",
+    "confluent-kafka": "2.15.1",
+    "job2_import": "PASS",
+    "runtime_config_import": "PASS",
+    "aws_msk_iam_sasl_signer_import": "ModuleNotFoundError",
+    "botocore_import": "ModuleNotFoundError",
+    "remote_callback_environment": "NOT_VERIFIED"
+  },
+  "probe_options": {
+    "format": "kafka",
+    "databricks.serviceCredential": "ktd-msk-consumer",
+    "kafka.allow.auto.create.topics": "false",
+    "startingOffsets": "earliest",
+    "endingOffsets": "latest",
+    "kafka.request.timeout.ms": "10000",
+    "kafka.default.api.timeout.ms": "15000",
+    "runtime_config_equivalent_extra": {
+      "kafka.security.protocol": "SASL_SSL"
+    },
+    "job1_style_extra": {},
+    "action": "select(topic, partition, offset).limit(1).collect()",
+    "silver_sql": "DESCRIBE TABLE EXTENDED ktd.silver.sensor_validated",
+    "cluster_id": "0929-113111-cgu7k91c",
+    "cluster_start": "NOT_PERFORMED; checked RUNNING first"
+  },
+  "limitations": [
+    "Partition totals not verified; MSK Serverless DescribeTopic unsupported",
+    "Authorization failure does not establish topic absence",
+    "Glue empty only for current AWS account and ap-northeast-2",
+    "No cloud Registry lookup, publish, IAM simulation, Job 2 query or restart",
+    "Delta MERGE results rely on preserved prior runtime evidence; not rerun",
+    "No remote callback import or signer verification",
+    "No secret values read"
+  ],
+  "baseline_sha256": {
+    "docs/reports/phase-2-verification.md": "3db4930e076ee9384076de7fab7811519c8cce08d1e0efa884832c3740cb2b39",
+    "docs/evidence/phase-2/p2-8a/delta-storage-smoke-07132640d2094e75819f06a5878c25d9.json": "7fdccec2927e7118dc36da193d3559c0fc19e95eab9a6bf1a583a43db05ef8c3",
+    "docs/evidence/phase-2/p2-8a/delta-storage-smoke-5fc182dce0b84c3188750c98f711a51f.json": "336780ffd4574aa3ccfb2118ec49a7aa1acde775e32470d79148cc879c2cb666",
+    "docs/evidence/phase-2/p2-8a/kafka-read-preflight.json": "f76c4620d7ab08dc7aab34285fecd52f91dcd27f21317242b099054e6caadcf6"
+  },
+  "command_templates": {
+    "aws_common": [
+      "--region",
+      "ap-northeast-2",
+      "--output",
+      "json"
+    ],
+    "databricks_common": [
+      "--profile",
+      "ktd",
+      "--output",
+      "json"
+    ],
+    "aws": [
+      "kafka list-clusters-v2",
+      "kafka get-bootstrap-brokers --cluster-arn <management.msk[0].ClusterArn>",
+      "kafka get-cluster-policy --cluster-arn <management.msk[0].ClusterArn>",
+      "kafka describe-topic --cluster-arn <management.msk[0].ClusterArn> --topic-name <each of the three topics>",
+      "glue list-registries",
+      "glue list-schemas",
+      "sts get-caller-identity (identity omitted from evidence)",
+      "ec2 describe-instances --filters Name=tag:Name,Values=ktd-kafka-client",
+      "iam get-role --role-name <consumer or producer role>",
+      "iam list-role-policies --role-name <role>",
+      "iam get-role-policy --role-name <role> --policy-name <returned inline policy name>",
+      "iam list-attached-role-policies --role-name <role>",
+      "iam get-policy --policy-arn <returned attached ARN>",
+      "iam get-policy-version --policy-arn <returned attached ARN> --version-id <DefaultVersionId>"
+    ],
+    "databricks": [
+      "clusters list",
+      "credentials list-credentials",
+      "secrets list-scopes",
+      "tables get ktd.silver.sensor_validated",
+      "fs ls dbfs:/Volumes/ktd/bronze/checkpoints"
+    ],
+    "spark": "DatabricksSession.builder.profile(\"ktd\").clusterId(\"0929-113111-cgu7k91c\").getOrCreate(); read options/actions recorded in probe_options; cluster state checked RUNNING first"
+  }
+}

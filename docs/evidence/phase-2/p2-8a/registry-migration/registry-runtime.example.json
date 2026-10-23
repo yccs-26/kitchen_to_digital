@@ -1,0 +1,11 @@
+{
+  "registry": {
+    "provider": "confluent",
+    "url": "",
+    "auth_mode": "basic",
+    "credentials": {
+      "scope": "ktd-job2",
+      "key": "schema-registry-basic-auth"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "status": "PREPARED_VALID_ON_TIME",
+  "prepared_at": "2026-10-11T17:43:22.405211+00:00",
+  "topic": "kitchen.sensor.raw",
+  "event_id": "30008ab5-8a00-43d9-bc4a-94493ceaaea7",
+  "equipment_id": "fridge-001",
+  "schema_version": "1.0.0",
+  "schema_id": 1,
+  "key_base64_present": true,
+  "value_base64_present": true,
+  "payload": {
+    "event_id": "30008ab5-8a00-43d9-bc4a-94493ceaaea7",
+    "event_time": "2026-10-11T17:43:22.307907+00:00",
+    "store_id": "store-001",
+    "equipment_id": "fridge-001",
+    "equipment_type": "refrigerator",
+    "metric_name": "temperature_celsius",
+    "metric_value": 5.09,
+    "unit": "celsius",
+    "schema_version": "1.0.0",
+    "source": "simulator"
+  },
+  "raw_publish": {
+    "status": "ACKED",
+    "topic": "kitchen.sensor.raw",
+    "partition": 1,
+    "offset": 3,
+    "event_id": "30008ab5-8a00-43d9-bc4a-94493ceaaea7",
+    "equipment_id": "fridge-001"
+  }
+}

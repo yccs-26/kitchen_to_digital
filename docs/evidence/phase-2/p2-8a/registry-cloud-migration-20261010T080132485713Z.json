@@ -1,0 +1,516 @@
+{
+  "started_at": "20261010T080132485713Z",
+  "observations": [
+    {
+      "method": "GET",
+      "path": "/mode",
+      "http_status": 200,
+      "mode": "READWRITE"
+    },
+    {
+      "method": "GET",
+      "path": "/subjects?deleted=true",
+      "http_status": 200,
+      "items": []
+    },
+    {
+      "method": "PUT",
+      "path": "/mode/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "mode": "IMPORT"
+    },
+    {
+      "method": "GET",
+      "path": "/mode/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "mode": "IMPORT"
+    },
+    {
+      "method": "GET",
+      "path": "/mode/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "mode": "IMPORT"
+    },
+    {
+      "method": "POST",
+      "path": "/subjects/kitchen.sensor.raw-value/versions",
+      "http_status": 200,
+      "id": 1
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions/1",
+      "http_status": 200,
+      "id": 1,
+      "version": 1,
+      "subject": "kitchen.sensor.raw-value",
+      "schema_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/1",
+      "http_status": 200,
+      "schema_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/1/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        {
+          "subject": "kitchen.sensor.raw-value",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/subjects/kitchen.sensor.raw-value/versions",
+      "http_status": 200,
+      "id": 2
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions/2",
+      "http_status": 200,
+      "id": 2,
+      "version": 2,
+      "subject": "kitchen.sensor.raw-value",
+      "schema_structure_sha256": "f72553740ec65b958256575142e5a15d091601e7b5cfc8183b2d5f994159b4aa"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/2",
+      "http_status": 200,
+      "schema_structure_sha256": "f72553740ec65b958256575142e5a15d091601e7b5cfc8183b2d5f994159b4aa"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/2/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        {
+          "subject": "kitchen.sensor.raw-value",
+          "version": 2
+        }
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/mode/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "mode": "READWRITE"
+    },
+    {
+      "method": "GET",
+      "path": "/mode/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "mode": "READWRITE"
+    },
+    {
+      "method": "PUT",
+      "path": "/config/kitchen.sensor.raw-value",
+      "http_status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/config/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "compatibilityLevel": "BACKWARD"
+    },
+    {
+      "method": "GET",
+      "path": "/subjects",
+      "http_status": 200,
+      "items": [
+        "kitchen.sensor.raw-value"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions",
+      "http_status": 200,
+      "items": [
+        1,
+        2
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        1,
+        2
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions/1",
+      "http_status": 200,
+      "id": 1,
+      "version": 1,
+      "subject": "kitchen.sensor.raw-value",
+      "schema_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/1",
+      "http_status": 200,
+      "schema_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/1/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        {
+          "subject": "kitchen.sensor.raw-value",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions/2",
+      "http_status": 200,
+      "id": 2,
+      "version": 2,
+      "subject": "kitchen.sensor.raw-value",
+      "schema_structure_sha256": "f72553740ec65b958256575142e5a15d091601e7b5cfc8183b2d5f994159b4aa"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/2",
+      "http_status": 200,
+      "schema_structure_sha256": "f72553740ec65b958256575142e5a15d091601e7b5cfc8183b2d5f994159b4aa"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/2/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        {
+          "subject": "kitchen.sensor.raw-value",
+          "version": 2
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/mode/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "mode": "READWRITE"
+    },
+    {
+      "method": "GET",
+      "path": "/config/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "compatibilityLevel": "BACKWARD"
+    },
+    {
+      "method": "GET",
+      "path": "/subjects",
+      "http_status": 200,
+      "items": [
+        "kitchen.sensor.raw-value"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions",
+      "http_status": 200,
+      "items": [
+        1,
+        2
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        1,
+        2
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions/1",
+      "http_status": 200,
+      "id": 1,
+      "version": 1,
+      "subject": "kitchen.sensor.raw-value",
+      "schema_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/1",
+      "http_status": 200,
+      "schema_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/1/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        {
+          "subject": "kitchen.sensor.raw-value",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions/2",
+      "http_status": 200,
+      "id": 2,
+      "version": 2,
+      "subject": "kitchen.sensor.raw-value",
+      "schema_structure_sha256": "f72553740ec65b958256575142e5a15d091601e7b5cfc8183b2d5f994159b4aa"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/2",
+      "http_status": 200,
+      "schema_structure_sha256": "f72553740ec65b958256575142e5a15d091601e7b5cfc8183b2d5f994159b4aa"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/2/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        {
+          "subject": "kitchen.sensor.raw-value",
+          "version": 2
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/mode/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "mode": "READWRITE"
+    },
+    {
+      "method": "GET",
+      "path": "/config/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "compatibilityLevel": "BACKWARD"
+    },
+    {
+      "method": "GET",
+      "path": "/mode",
+      "http_status": 200,
+      "mode": "READWRITE"
+    },
+    {
+      "method": "GET",
+      "path": "/mode/kitchen.sensor.validated-value?defaultToGlobal=true",
+      "http_status": 200,
+      "mode": "READWRITE"
+    },
+    {
+      "method": "PUT",
+      "path": "/config/kitchen.sensor.validated-value",
+      "http_status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/config/kitchen.sensor.validated-value",
+      "http_status": 200,
+      "compatibilityLevel": "BACKWARD"
+    },
+    {
+      "method": "POST",
+      "path": "/subjects/kitchen.sensor.validated-value/versions",
+      "http_status": 200,
+      "id": 1
+    },
+    {
+      "method": "GET",
+      "path": "/subjects",
+      "http_status": 200,
+      "items": [
+        "kitchen.sensor.validated-value",
+        "kitchen.sensor.raw-value"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions",
+      "http_status": 200,
+      "items": [
+        1,
+        2
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        1,
+        2
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions/1",
+      "http_status": 200,
+      "id": 1,
+      "version": 1,
+      "subject": "kitchen.sensor.raw-value",
+      "schema_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/1",
+      "http_status": 200,
+      "schema_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/1/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        {
+          "subject": "kitchen.sensor.raw-value",
+          "version": 1
+        },
+        {
+          "subject": "kitchen.sensor.validated-value",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.raw-value/versions/2",
+      "http_status": 200,
+      "id": 2,
+      "version": 2,
+      "subject": "kitchen.sensor.raw-value",
+      "schema_structure_sha256": "f72553740ec65b958256575142e5a15d091601e7b5cfc8183b2d5f994159b4aa"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/2",
+      "http_status": 200,
+      "schema_structure_sha256": "f72553740ec65b958256575142e5a15d091601e7b5cfc8183b2d5f994159b4aa"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/2/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        {
+          "subject": "kitchen.sensor.raw-value",
+          "version": 2
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/mode/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "mode": "READWRITE"
+    },
+    {
+      "method": "GET",
+      "path": "/config/kitchen.sensor.raw-value",
+      "http_status": 200,
+      "compatibilityLevel": "BACKWARD"
+    },
+    {
+      "method": "GET",
+      "path": "/subjects",
+      "http_status": 200,
+      "items": [
+        "kitchen.sensor.validated-value",
+        "kitchen.sensor.raw-value"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.validated-value/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        1
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.validated-value/versions/1",
+      "http_status": 200,
+      "id": 1,
+      "version": 1,
+      "subject": "kitchen.sensor.validated-value",
+      "schema_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23"
+    },
+    {
+      "method": "GET",
+      "path": "/subjects/kitchen.sensor.validated-value/versions/1",
+      "http_status": 200,
+      "id": 1,
+      "version": 1,
+      "subject": "kitchen.sensor.validated-value",
+      "schema_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/1",
+      "http_status": 200,
+      "schema_structure_sha256": "c2e95837b8270885b3dc76eef90508a789c76075309fbf2aa3e868e45fd17b23"
+    },
+    {
+      "method": "GET",
+      "path": "/schemas/ids/1/versions?deleted=true",
+      "http_status": 200,
+      "items": [
+        {
+          "subject": "kitchen.sensor.raw-value",
+          "version": 1
+        },
+        {
+          "subject": "kitchen.sensor.validated-value",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/mode/kitchen.sensor.validated-value?defaultToGlobal=true",
+      "http_status": 200,
+      "mode": "READWRITE"
+    },
+    {
+      "method": "GET",
+      "path": "/config/kitchen.sensor.validated-value",
+      "http_status": 200,
+      "compatibilityLevel": "BACKWARD"
+    }
+  ],
+  "raw": {
+    "status": "RAW_VERIFIED",
+    "ids": [
+      1,
+      2
+    ],
+    "versions": [
+      1,
+      2
+    ]
+  },
+  "final": {
+    "status": "ALL_VERIFIED",
+    "raw_ids": [
+      1,
+      2
+    ],
+    "validated_actual_id": 1,
+    "validated_actual_version": 1
+  },
+  "status": "ALL_VERIFIED",
+  "finished_at": "2026-10-10T08:01:36.445776+00:00"
+}

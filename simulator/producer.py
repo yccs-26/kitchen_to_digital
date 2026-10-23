@@ -18,7 +18,7 @@ load_dotenv()
 
 
 class KafkaEventProducer:
-    def __init__(self, *, serialization_only: bool = False):
+    def __init__(self, *, serialization_only: bool = False, registry_client=None):
         self.bootstrap_servers = os.getenv(
             "KAFKA_BOOTSTRAP_SERVERS",
             "localhost:9092",
@@ -39,12 +39,15 @@ class KafkaEventProducer:
                 }
             )
         )
-        self.registry = SchemaRegistryClient(
-            {
-                "url": os.getenv("SCHEMA_REGISTRY_URL", "http://localhost:8081"),
-                "timeout": 10,
-            }
-        )
+        if registry_client is not None:
+            self.registry = registry_client
+        else:
+            self.registry = SchemaRegistryClient(
+                {
+                    "url": os.getenv("SCHEMA_REGISTRY_URL", "http://localhost:8081"),
+                    "timeout": 10,
+                }
+            )
         schema_path = (
             Path(__file__).resolve().parents[1]
             / "schemas/avro/sensor_metric_event.avsc"

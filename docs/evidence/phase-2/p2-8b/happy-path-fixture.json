@@ -1,0 +1,8 @@
+{
+  "topic": "kitchen.sensor.raw",
+  "equipment_id": "fridge-001",
+  "key_base64": "ZnJpZGdlLTAwMQ==",
+  "value_base64": "AAAAAAFIMzAwMDhhYjUtOGEwMC00M2Q5LWJjNGEtOTQ0OTNjZWFhZWE3QDIwMjYtMTAtMTFUMTc6NDM6MjIuMzA3OTA3KzAwOjAwEnN0b3JlLTAwMRRmcmlkZ2UtMDAxGHJlZnJpZ2VyYXRvciZ0ZW1wZXJhdHVyZV9jZWxzaXVzXI/C9ShcFEAOY2Vsc2l1cwoxLjAuMBJzaW11bGF0b3I=",
+  "event_id": "30008ab5-8a00-43d9-bc4a-94493ceaaea7",
+  "schema_version": "1.0.0"
+}
