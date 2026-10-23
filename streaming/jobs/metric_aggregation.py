@@ -44,36 +44,17 @@ def read_validated_kafka(
         raise ValueError("Kafka bootstrap servers must be supplied explicitly")
     if "assign" in options or "subscribePattern" in options:
         raise ValueError("Only the validated topic subscription is supported")
-    from pyspark.sql import functions as functions
-
-    registry = None
-
-    def decode(value, key):
-        nonlocal registry
-        if registry is None:
-            registry = registry_factory()
-        return decode_validated_record(value, key, registry)
+    from streaming.sources.validated_kafka import transform_kafka_records
 
     source = spark.readStream.format("kafka").options(**dict(options)).load()
-    decode_udf = functions.udf(decode, validated_schema())
-    return source.select(decode_udf("value", "key").alias("event")).select(
-        "event.*"
-    )
+    return transform_kafka_records(source, registry_factory)
 
 
 def decode_validated_record(value, key, registry) -> dict[str, object]:
     """기존 Confluent/Avro decoder를 재사용하며 wire 계약을 바꾸지 않는다."""
-    from streaming.validation.avro_decoder import decode_sensor_event
+    from streaming.sources.validated_kafka import decode_record
 
-    decoded = decode_sensor_event(
-        bytes(value) if value is not None else None, registry,
-    )
-    if bytes(key or b"") != decoded["equipment_id"].encode("utf-8"):
-        raise ValueError("Validated Kafka key must match equipment_id")
-    return {
-        name: decoded[name].isoformat() if name == "event_time"
-        else decoded[name] for name in VALIDATED_FIELDS
-    }
+    return decode_record(value, key, registry)
 
 
 def build_metric_aggregation(
@@ -192,11 +173,13 @@ def gold_batch_callback(sink):
     return consume_injected
 
 
-def start_metric_query(plan, sink, checkpoint: str, *, available_now=False):
+def start_metric_query(
+    plan, sink, checkpoint: str, *, available_now=False, callback=None,
+):
     """기존 checkpoint를 삭제하지 않고 단일 Append-final query를 시작한다."""
     writer = (
         plan.writeStream.outputMode("append")
-        .foreachBatch(gold_batch_callback(sink))
+        .foreachBatch(callback or gold_batch_callback(sink))
         .option("checkpointLocation", checkpoint)
     )
     if available_now:
@@ -232,24 +215,91 @@ def prepare_metric_deployment(config_path, *, adapter: str):
 
 
 def start_configured_metric_aggregation(
-    spark, config_path, *, adapter: str, registry_factory: Callable,
-    available_now: bool = False,
+    spark, config_path, *, adapter: str,
+    registry_factory: Callable | None = None,
+    available_now: bool = False, approval=None, registry_credential_env=None,
+    failure_probe=None,
 ):
-    """배포 연결 지점. 현재 live launcher gate는 항상 닫혀 있다.
+    """명시적 범위 승인과 설정이 일치할 때만 단일 query를 시작한다.
 
-    승인 flag만으로 gate를 해제하지 않는다. 별도 승인·UC 수용 후 launcher를
-    검토할 때도 아래 명시적 target/checkpoint와 단일 query 연결을 유지한다.
+    승인 flag만으로 gate를 해제하지 않는다. 별도 승인 기록·UC 수용과
+    명시적 target/checkpoint를 확인한 후 기존 단일 query를 연결한다.
     """
     from streaming.sinks.gold_uc_delta import GoldUCDeltaSink
 
     settings, _ = prepare_metric_deployment(config_path, adapter=adapter)
-    settings.require_deployment_ready()
+    settings.require_deployment_ready(approval)
+    if registry_factory is None:
+        from streaming.sources.validated_kafka import ExecutorRegistryFactory
+
+        if (not registry_credential_env
+                or registry_credential_env
+                != approval.registry_credential_env):
+            raise ValueError("Approved executor credential ref required")
+        registry_factory = ExecutorRegistryFactory(
+            settings.registry_url, registry_credential_env,
+        )
     sink = GoldUCDeltaSink(
         spark, ".".join((settings.target.catalog, settings.target.schema,
                          settings.target.table)), single_writer=True,
     )
-    return start_metric_aggregation(
-        spark, sink, settings.checkpoint,
-        kafka_options=settings.kafka_options(),
-        registry_factory=registry_factory, available_now=available_now,
+    callback = gold_batch_callback(sink)
+    if failure_probe is not None:
+        callback = failure_probe.wrap(callback, settings, approval)
+    validated = read_validated_kafka(
+        spark, settings.kafka_options(), registry_factory,
     )
+    plan = build_metric_aggregation(validated)
+    return start_metric_query(
+        plan, sink, settings.checkpoint, available_now=available_now,
+        callback=callback,
+    )
+
+
+def main(argv=None, *, spark=None):
+    """승인된 기존 DBR 세션에서만 실행하는 bounded Job3 entrypoint."""
+    import argparse
+    import os
+    from streaming.config.phase3_authorization import load_execution_approval
+    from streaming.tools.phase3_failure_probe import (
+        FailureProbe, await_bounded_query,
+    )
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", required=True)
+    parser.add_argument("--approval", required=True)
+    parser.add_argument("--adapter", required=True,
+                        choices=("uc_managed_delta",))
+    parser.add_argument("--registry-credential-env", required=True)
+    parser.add_argument("--available-now", action="store_true")
+    parser.add_argument("--probe-stage",
+                        choices=("before_merge", "after_merge"))
+    parser.add_argument("--probe-batch-id", type=int)
+    args = parser.parse_args(argv)
+    settings, _ = prepare_metric_deployment(args.config, adapter=args.adapter)
+    approval = load_execution_approval(args.approval)
+    settings.require_deployment_ready(approval)
+    probe = None
+    if args.probe_stage is not None or args.probe_batch_id is not None:
+        probe = FailureProbe(approval.job_tag, settings.checkpoint,
+                             args.probe_stage, args.probe_batch_id)
+        probe.wrap(lambda batch, n: None, settings, approval)
+    if not os.environ.get("DATABRICKS_RUNTIME_VERSION"):
+        raise RuntimeError("Live entrypoint requires an approved existing DBR")
+    if spark is None:
+        from pyspark.sql import SparkSession
+
+        spark = SparkSession.getActiveSession()
+    if spark is None:
+        raise RuntimeError("Existing approved Spark session required")
+    query = start_configured_metric_aggregation(
+        spark, args.config, adapter=args.adapter, approval=approval,
+        registry_credential_env=args.registry_credential_env,
+        available_now=args.available_now, failure_probe=probe,
+    )
+    completed = await_bounded_query(query, settings.max_runtime_minutes * 60)
+    return 0 if completed else 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

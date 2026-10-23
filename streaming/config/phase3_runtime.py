@@ -75,14 +75,16 @@ class Phase3Runtime:
             "kafka.allow.auto.create.topics": "false",
         }
 
-    def require_deployment_ready(self) -> None:
+    def require_deployment_ready(self, approval=None) -> None:
         """설정 flag만으로 구현·수용 검증 게이트를 해제하지 않는다."""
-        # 기존 소비자용 차단 코드는 유지한다. 후보 구현과 live 승인은 별개다.
-        raise Phase3DeploymentBlocked(
-            "UC_GOLD_WRITER_NOT_IMPLEMENTED: live deployment launcher remains "
-            "blocked; candidate adapter requires separate UC acceptance and "
-            "human authorization (LIVE_E2E_NOT_AUTHORIZED)"
-        )
+        from streaming.config.phase3_authorization import ExecutionApproval
+
+        if not isinstance(approval, ExecutionApproval):
+            raise Phase3DeploymentBlocked(
+                "UC_GOLD_WRITER_NOT_IMPLEMENTED: approved launch context "
+                "missing (LIVE_E2E_NOT_AUTHORIZED)"
+            )
+        approval.require(self, "launch")
 
     def candidate_writer_target(self, *, adapter: str) -> str:
         """명시적 후보 선택만 검증한다. 연결·승인·writer lock은 제공하지 않는다."""

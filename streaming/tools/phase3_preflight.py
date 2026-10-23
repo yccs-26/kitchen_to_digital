@@ -42,9 +42,10 @@ def run_preflight(path: str | Path) -> dict[str, object]:
             "adapter": "uc_managed_delta",
             "implementation": "LOCAL_CANDIDATE_IMPLEMENTED",
             "live_acceptance": "REQUIRES_LIVE_CHECK",
+            "launch_code": "SCOPED_EXECUTION_APPROVAL_REQUIRED",
             "legacy_blocker_note": (
                 "UC_GOLD_WRITER_NOT_IMPLEMENTED retained for compatibility; "
-                "approved live deployment launcher is not implemented"
+                "scoped approval and actual live acceptance are still required"
             ),
         },
         "live_checks": [
