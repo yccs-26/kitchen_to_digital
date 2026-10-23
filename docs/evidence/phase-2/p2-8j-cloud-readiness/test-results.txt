@@ -1,0 +1,166 @@
+SOURCE: /tmp/ktd-8j-baseline.log
+........................................................................ [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 27%]
+........................................................................ [ 36%]
+........................................................................ [ 45%]
+........................................................................ [ 54%]
+........................................................................ [ 63%]
+........................................................................ [ 72%]
+........................................................................ [ 81%]
+........................................................................ [ 90%]
+...............................ssss....................................s [ 99%]
+ssssss                                                                   [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+787 passed, 11 skipped, 1 warning in 2.99s
+
+SOURCE: /tmp/ktd-8j-red.log
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_________________ test_production_silver_cannot_be_e2e_target __________________
+
+    def test_production_silver_cannot_be_e2e_target():
+>       with pytest.raises(tools.PreflightError, match="isolat"):
+E       Failed: DID NOT RAISE PreflightError
+
+tests/integration/test_job2_cloud_e2e_tools.py:537: Failed
+______________ test_tampered_checkpoint_rejected_before_spark_io _______________
+
+manifest = {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...}
+
+    def test_tampered_checkpoint_rejected_before_spark_io(manifest):
+        manifest = deepcopy(manifest)
+        manifest["contract"]["checkpoint"] = (
+            manifest["contract"]["production_checkpoint"] + "/accidental-child"
+        )
+        before = {**tools.identity(manifest), "bounds": {}}
+>       with pytest.raises(tools.PreflightError, match="checkpoint"):
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'checkpoint'
+E         Actual message: 'shared_session_has_active_queries'
+
+tests/integration/test_job2_cloud_e2e_tools.py:548: AssertionError
+________ test_execute_without_cost_writer_readiness_creates_no_clients _________
+
+manifest = {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...}
+tmp_path = PosixPath('/private/tmp/ktd-8j-red/test_execute_without_cost_writ0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109b98390>
+
+    def test_execute_without_cost_writer_readiness_creates_no_clients(
+        manifest, tmp_path, monkeypatch,
+    ):
+        path = tmp_path / "manifest.json"
+        tools.write_json(path, manifest)
+        client = Mock(side_effect=RuntimeError("must not create session"))
+        monkeypatch.setattr(tools, "runtime_spark", client)
+        assert tools.main([
+            "snapshot", "--manifest", str(path), "--runtime-config", str(CONFIG),
+            "--execute", "--approve-run-id", RUN_ID,
+            "--verification-credential", "reader", "--output", str(tmp_path/"out"),
+        ]) == 1
+>       client.assert_not_called()
+
+tests/integration/test_job2_cloud_e2e_tools.py:564:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Mock id='4456060816'>
+
+    def assert_not_called(self):
+        """assert that the mock was never called.
+        """
+        if self.call_count != 0:
+            msg = ("Expected '%s' to not have been called. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'mock' to not have been called. Called 1 times.
+E           Calls: [call()].
+
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:900: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"status": "BLOCKED", "error_type": "RuntimeError"}
+_________ test_restart_missing_checkpoint_or_run_identity_is_not_pass __________
+
+    def test_restart_missing_checkpoint_or_run_identity_is_not_pass():
+        first = dict(run_id=RUN_ID, manifest_sha256="sha", query_id="query")
+        second = {**first, "run_id_spark": "second",
+                  "status": "QUERY_COMPLETED_REQUIRES_RECONCILE"}
+>       assert tools.check_query_restart(first, second)["status"] == "FAIL"
+E       AssertionError: assert 'PASS' == 'FAIL'
+E
+E         - FAIL
+E         + PASS
+
+tests/integration/test_job2_cloud_e2e_tools.py:571: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_job2_cloud_e2e_tools.py::test_production_silver_cannot_be_e2e_target
+FAILED tests/integration/test_job2_cloud_e2e_tools.py::test_tampered_checkpoint_rejected_before_spark_io
+FAILED tests/integration/test_job2_cloud_e2e_tools.py::test_execute_without_cost_writer_readiness_creates_no_clients
+FAILED tests/integration/test_job2_cloud_e2e_tools.py::test_restart_missing_checkpoint_or_run_identity_is_not_pass
+4 failed, 36 deselected, 1 warning in 0.37s
+
+SOURCE: /tmp/ktd-8j-green.log
+....                                                                     [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 passed, 36 deselected, 1 warning in 0.30s
+
+SOURCE: /tmp/ktd-8j-final.log
+........................................................................ [  8%]
+........................................................................ [ 17%]
+........................................................................ [ 26%]
+........................................................................ [ 35%]
+........................................................................ [ 43%]
+........................................................................ [ 52%]
+........................................................................ [ 61%]
+........................................................................ [ 70%]
+........................................................................ [ 78%]
+........................................................................ [ 87%]
+...............................ssss..................................... [ 96%]
+.......................sssssss                                           [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+811 passed, 11 skipped, 1 warning in 3.03s
+
+SOURCE: /tmp/ktd-8j-local-delta.log
+.                                                                        [100%]
+1 passed in 48.32s
+
+SOURCE: /tmp/ktd-8j-prepare.log
+/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+  from ._compat import httpx2
+{"run_id": "p2i-22222222222222222222222222222222", "manifest_sha256": "bfcfd0909995b80c48b6dda1f3dcf7b1e740e83252b118b4503458b2ade0a657", "action": "prepare", "dry_run": true, "cloud_access": false, "input_records": 10, "canonical_ids": 4, "expected_validated": 5, "expected_quarantine": 5}
+
+SOURCE: /tmp/ktd-8j-dryrun.log
+/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+  from ._compat import httpx2
+{"run_id": "p2i-22222222222222222222222222222222", "manifest_sha256": "bfcfd0909995b80c48b6dda1f3dcf7b1e740e83252b118b4503458b2ade0a657", "action": "publish", "dry_run": true, "cloud_access": false, "input_records": 10, "canonical_ids": 4, "expected_validated": 5, "expected_quarantine": 5}
+
+FINAL LOCAL SAFETY AUDIT (no cloud data access)
+Snapshot 184 existing files: only 4 intended changes; remaining 180 unchanged.
+8 evidence files: JSON parse, source hashes, scoped policy with no wildcard, known credential/private-key patterns PASS.
+Final manifest rebuild matches current config/schema/code/HEAD.
+Current readiness rejected: readiness_not_ready.
+Job request without readiness rejected before submission.
+Python syntax/79 columns PASS. git diff --check PASS. No staged files.
+Read-only ps check: no matching local recovery worker/JVM remains (rg exit 1 means no matches).

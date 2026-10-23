@@ -1,0 +1,768 @@
+{
+  "scope": "read-only management API preflight; no broker/SQL/Compute execution",
+  "captured_at": "2026-10-23T01:34:26.218067+00:00",
+  "calls": [
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "sts",
+        "get-caller-identity",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "kafka",
+        "describe-cluster-v2",
+        "--cluster-arn",
+        "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "kafka",
+        "get-bootstrap-brokers",
+        "--cluster-arn",
+        "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "ec2",
+        "describe-instances",
+        "--instance-ids",
+        "i-08e374efb0c31160d",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "get-role",
+        "--role-name",
+        "ktd-msk-producer-role",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "list-role-policies",
+        "--role-name",
+        "ktd-msk-producer-role",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "get-role-policy",
+        "--role-name",
+        "ktd-msk-producer-role",
+        "--policy-name",
+        "ktd-msk-producer-policy",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "list-attached-role-policies",
+        "--role-name",
+        "ktd-msk-producer-role",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "get-policy",
+        "--policy-arn",
+        "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "get-policy-version",
+        "--policy-arn",
+        "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+        "--version-id",
+        "v2",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "get-role",
+        "--role-name",
+        "ktd-msk-job2-producer-role",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "list-role-policies",
+        "--role-name",
+        "ktd-msk-job2-producer-role",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "get-role-policy",
+        "--role-name",
+        "ktd-msk-job2-producer-role",
+        "--policy-name",
+        "ktd-msk-job2-producer-policy",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "list-attached-role-policies",
+        "--role-name",
+        "ktd-msk-job2-producer-role",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "get-role",
+        "--role-name",
+        "ktd-databricks-msk-consumer-role",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "list-role-policies",
+        "--role-name",
+        "ktd-databricks-msk-consumer-role",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "get-role-policy",
+        "--role-name",
+        "ktd-databricks-msk-consumer-role",
+        "--policy-name",
+        "ktd-msk-consumer-policy",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "list-attached-role-policies",
+        "--role-name",
+        "ktd-databricks-msk-consumer-role",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "get-user",
+        "--user-name",
+        "chan",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "list-user-policies",
+        "--user-name",
+        "chan",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "list-attached-user-policies",
+        "--user-name",
+        "chan",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "list-groups-for-user",
+        "--user-name",
+        "chan",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/opt/homebrew/bin/databricks",
+        "current-user",
+        "me",
+        "--profile",
+        "ktd",
+        "--output",
+        "json"
+      ],
+      "success": false,
+      "reason": "command_failed_redacted"
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "iam",
+        "get-instance-profile",
+        "--instance-profile-name",
+        "ktd-msk-producer-role",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": true
+    },
+    {
+      "command": [
+        "/usr/local/bin/aws",
+        "kafka",
+        "get-cluster-policy",
+        "--cluster-arn",
+        "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2",
+        "--region",
+        "ap-northeast-2",
+        "--output",
+        "json",
+        "--no-cli-pager",
+        "--cli-connect-timeout",
+        "5",
+        "--cli-read-timeout",
+        "15"
+      ],
+      "success": false,
+      "reason": "NotFoundException"
+    }
+  ],
+  "aws": {
+    "principal": {
+      "UserId": "AIDAQWV5EKHLJZPC5Q4OK",
+      "Account": "048715026902",
+      "Arn": "arn:aws:iam::048715026902:user/chan"
+    },
+    "cluster": {
+      "ClusterArn": "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2",
+      "ClusterName": "ktd-msk-serverless",
+      "State": "ACTIVE",
+      "ClusterType": "SERVERLESS",
+      "Serverless": {
+        "VpcConfigs": [
+          {
+            "SubnetIds": [
+              "subnet-0a6bbe845b6dddb52",
+              "subnet-0360a0dbe5263fca7"
+            ],
+            "SecurityGroupIds": [
+              "sg-0ce6cb2afcc2cc2ca"
+            ]
+          }
+        ],
+        "ClientAuthentication": {
+          "Sasl": {
+            "Iam": {
+              "Enabled": true
+            }
+          }
+        },
+        "ConnectivityInfo": {
+          "NetworkType": "IPV4"
+        }
+      }
+    },
+    "bootstrap": {
+      "BootstrapBrokerStringSaslIam": "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098"
+    },
+    "ec2": {
+      "InstanceId": "i-08e374efb0c31160d",
+      "State": {
+        "Code": 80,
+        "Name": "stopped"
+      },
+      "InstanceType": "t3.micro",
+      "IamInstanceProfile": {
+        "Arn": "arn:aws:iam::048715026902:instance-profile/ktd-msk-producer-role",
+        "Id": "AIPAQWV5EKHLH55F65F5I"
+      },
+      "VpcId": "vpc-0e0dc19b3825259f0",
+      "SubnetId": "subnet-094cde0457fcc97e7"
+    },
+    "roles": {
+      "ktd-msk-producer-role": {
+        "RoleName": "ktd-msk-producer-role",
+        "Arn": "arn:aws:iam::048715026902:role/ktd-msk-producer-role",
+        "trust_statements": [
+          {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Principal": {
+              "Service": "ec2.amazonaws.com"
+            }
+          }
+        ],
+        "inline_policies": {
+          "ktd-msk-producer-policy": [
+            {
+              "Sid": "ConnectToKtdMsk",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:Connect"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+              ]
+            },
+            {
+              "Sid": "CreateAndWriteSensorTopic",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:CreateTopic",
+                "kafka-cluster:DescribeTopic",
+                "kafka-cluster:WriteData"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.raw"
+              ]
+            }
+          ]
+        },
+        "managed_policies": {
+          "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ssm:DescribeAssociation",
+                "ssm:GetDeployablePatchSnapshotForInstance",
+                "ssm:GetDocument",
+                "ssm:DescribeDocument",
+                "ssm:GetManifest",
+                "ssm:GetParameter",
+                "ssm:GetParameters",
+                "ssm:ListAssociations",
+                "ssm:ListInstanceAssociations",
+                "ssm:PutInventory",
+                "ssm:PutComplianceItems",
+                "ssm:PutConfigurePackageResult",
+                "ssm:UpdateAssociationStatus",
+                "ssm:UpdateInstanceAssociationStatus",
+                "ssm:UpdateInstanceInformation"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ssmmessages:CreateControlChannel",
+                "ssmmessages:CreateDataChannel",
+                "ssmmessages:OpenControlChannel",
+                "ssmmessages:OpenDataChannel"
+              ],
+              "Resource": "*"
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ec2messages:AcknowledgeMessage",
+                "ec2messages:DeleteMessage",
+                "ec2messages:FailMessage",
+                "ec2messages:GetEndpoint",
+                "ec2messages:GetMessages",
+                "ec2messages:SendReply"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "ktd-msk-job2-producer-role": {
+        "RoleName": "ktd-msk-job2-producer-role",
+        "Arn": "arn:aws:iam::048715026902:role/ktd-msk-job2-producer-role",
+        "trust_statements": [
+          {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Principal": {
+              "AWS": "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL"
+            }
+          },
+          {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Principal": {
+              "AWS": "arn:aws:iam::048715026902:role/ktd-msk-job2-producer-role"
+            }
+          }
+        ],
+        "inline_policies": {
+          "ktd-msk-job2-producer-policy": [
+            {
+              "Sid": "ConnectToKtdMsk",
+              "Effect": "Allow",
+              "Action": "kafka-cluster:Connect",
+              "Resource": "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+            },
+            {
+              "Sid": "WriteJob2OutputTopics",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:DescribeTopic",
+                "kafka-cluster:WriteData"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+                "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine"
+              ]
+            }
+          ]
+        },
+        "managed_policies": {}
+      },
+      "ktd-databricks-msk-consumer-role": {
+        "RoleName": "ktd-databricks-msk-consumer-role",
+        "Arn": "arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role",
+        "trust_statements": [
+          {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Principal": {
+              "AWS": [
+                "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL",
+                "arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role"
+              ]
+            }
+          }
+        ],
+        "inline_policies": {
+          "ktd-msk-consumer-policy": [
+            {
+              "Sid": "ConnectToKtdMsk",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:Connect"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+              ]
+            },
+            {
+              "Sid": "ReadKitchenSensorRaw",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:DescribeTopic",
+                "kafka-cluster:ReadData"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.raw"
+              ]
+            },
+            {
+              "Sid": "UseConsumerGroups",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:DescribeGroup",
+                "kafka-cluster:AlterGroup"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:group/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/*"
+              ]
+            },
+            {
+              "Sid": "AllowSelfAssumeRole",
+              "Effect": "Allow",
+              "Action": "sts:AssumeRole",
+              "Resource": "arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role"
+            }
+          ]
+        },
+        "managed_policies": {}
+      }
+    },
+    "user": {
+      "UserName": "chan",
+      "Arn": "arn:aws:iam::048715026902:user/chan"
+    },
+    "user_inline": {
+      "PolicyNames": []
+    },
+    "user_attached": {
+      "AttachedPolicies": [
+        {
+          "PolicyName": "AdministratorAccess",
+          "PolicyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
+        },
+        {
+          "PolicyName": "IAMUserChangePassword",
+          "PolicyArn": "arn:aws:iam::aws:policy/IAMUserChangePassword"
+        },
+        {
+          "PolicyName": "AmazonS3FullAccess",
+          "PolicyArn": "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        }
+      ]
+    },
+    "user_groups": {
+      "Groups": []
+    },
+    "instance_profile": {
+      "Arn": "arn:aws:iam::048715026902:instance-profile/ktd-msk-producer-role",
+      "roles": [
+        {
+          "RoleName": "ktd-msk-producer-role",
+          "Arn": "arn:aws:iam::048715026902:role/ktd-msk-producer-role"
+        }
+      ]
+    },
+    "cluster_policy": {
+      "status": "NOT_CONFIGURED",
+      "reason": "NotFoundException"
+    }
+  },
+  "databricks": {
+    "configured_host": "https://dbc-1c3b2d11-7408.cloud.databricks.com",
+    "configured_host_evidence": "local ktd profile host only; live principal lookup failed"
+  }
+}

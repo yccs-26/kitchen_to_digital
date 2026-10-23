@@ -1,0 +1,106 @@
+{
+  "scope": "REAL OSS Spark/Delta/file-source checkpoint; Kafka/Registry simulated",
+  "canonical": [
+    {
+      "event_id": "local-recovery-1",
+      "event_time": "2016-10-08 12:00:00.123456+00:00",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "equipment_type": "refrigerator",
+      "metric_name": "temperature_celsius",
+      "metric_value": 4.2,
+      "unit": "celsius",
+      "schema_version": "1.0.0",
+      "source": "simulator"
+    },
+    {
+      "event_id": "local-recovery-2",
+      "event_time": "2016-10-08 12:00:00.123456+00:00",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "equipment_type": "refrigerator",
+      "metric_name": "temperature_celsius",
+      "metric_value": 4.2,
+      "unit": "celsius",
+      "schema_version": "1.0.0",
+      "source": "simulator"
+    }
+  ],
+  "batches": [
+    {
+      "batch_id": 0,
+      "received": 5,
+      "validated": 3,
+      "quarantine": 2,
+      "conflict": 1,
+      "duplicate": 2,
+      "late": 3
+    },
+    {
+      "batch_id": 0,
+      "received": 5,
+      "validated": 3,
+      "quarantine": 2,
+      "conflict": 1,
+      "duplicate": 3,
+      "late": 3
+    },
+    {
+      "batch_id": 1,
+      "received": 1,
+      "validated": 1,
+      "quarantine": 0,
+      "conflict": 0,
+      "duplicate": 1,
+      "late": 1
+    },
+    {
+      "batch_id": 0,
+      "received": 6,
+      "validated": 4,
+      "quarantine": 2,
+      "conflict": 1,
+      "duplicate": 4,
+      "late": 4
+    }
+  ],
+  "queries": [
+    {
+      "id": "a69c9a88-efae-4b21-ab50-30f996db3bdf",
+      "run_id": "e30f495c-a4ed-4d0c-ad24-6d52cff78789",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "a69c9a88-efae-4b21-ab50-30f996db3bdf",
+      "run_id": "b19a145b-1845-4143-912b-303827f9f099",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "a69c9a88-efae-4b21-ab50-30f996db3bdf",
+      "run_id": "00a6cc00-605c-4a70-8c70-985558ea4e9f",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "a69c9a88-efae-4b21-ab50-30f996db3bdf",
+      "run_id": "a12d636e-c066-4657-85de-a08229ee9607",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "44b0b98a-6bf4-47b3-8039-3a46ffed76bb",
+      "run_id": "0c446bce-1a03-4d45-b371-c49259254b11",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "fresh_checkpoint"
+    }
+  ],
+  "ack_journal_count": 17,
+  "delta_versions": [
+    "00000000000000000000.json",
+    "00000000000000000001.json",
+    "00000000000000000002.json"
+  ],
+  "result": "1 passed in 45.28s"
+}

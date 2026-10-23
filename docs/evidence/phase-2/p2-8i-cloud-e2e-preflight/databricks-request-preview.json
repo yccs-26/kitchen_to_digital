@@ -1,0 +1,30 @@
+{
+  "run_name": "p2i-00000000000000000000000000000000-snapshot",
+  "idempotency_token": "84a8940b5a920dea0fade4f736137a34a5b40d83aae81b1307e1c0c11fbea866",
+  "timeout_seconds": 600,
+  "tasks": [
+    {
+      "task_key": "snapshot",
+      "existing_cluster_id": "0929-113111-cgu7k91c",
+      "timeout_seconds": 600,
+      "max_retries": 0,
+      "spark_python_task": {
+        "python_file": "/Workspace/APPROVAL_REQUIRED/scripts/phase2/cloud_e2e.py",
+        "parameters": [
+          "snapshot",
+          "--runtime-config",
+          "/Workspace/APPROVAL_REQUIRED/config/job2-runtime.json",
+          "--manifest",
+          "/Volumes/ktd/silver/checkpoints/job2/e2e/APPROVAL_REQUIRED/manifest.json",
+          "--output",
+          "/Volumes/ktd/silver/checkpoints/job2/e2e/APPROVAL_REQUIRED/before.json",
+          "--verification-credential",
+          "APPROVAL_REQUIRED_OUTPUT_READER",
+          "--execute",
+          "--approve-run-id",
+          "p2i-00000000000000000000000000000000"
+        ]
+      }
+    }
+  ]
+}

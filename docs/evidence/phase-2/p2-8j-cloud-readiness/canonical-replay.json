@@ -1,0 +1,544 @@
+{
+  "scope": "real Job 2 / SQLite test storage / fake Kafka ACK",
+  "first": {
+    "run_id": "p2i-11111111111111111111111111111111",
+    "manifest_sha256": "ebf03d34631c6708b8ae93f02b13cee33f30573dc10ade978b052467b3e93238",
+    "status": "PASS",
+    "issues": [],
+    "extra_deliveries": 0,
+    "validated_by_event": {
+      "p2i-11111111111111111111111111111111/normal": 2,
+      "p2i-11111111111111111111111111111111/business_anomaly": 1,
+      "p2i-11111111111111111111111111111111/late_within": 1,
+      "p2i-11111111111111111111111111111111/late_outside": 1
+    },
+    "quarantine_by_case": {
+      "domain_invalid": 1,
+      "bad_frame": 1,
+      "unknown_schema": 1,
+      "conflict": 1,
+      "future": 1
+    },
+    "canonical": [
+      {
+        "event_id": "p2i-11111111111111111111111111111111/business_anomaly",
+        "event_time": "2026-10-23T00:00:00.000000+00:00",
+        "store_id": "store-001",
+        "equipment_id": "fridge-001",
+        "equipment_type": "refrigerator",
+        "metric_name": "temperature_celsius",
+        "metric_value": 30.0,
+        "unit": "celsius",
+        "schema_version": "1.0.0",
+        "source": "e2e:p2i-11111111111111111111111111111111"
+      },
+      {
+        "event_id": "p2i-11111111111111111111111111111111/late_outside",
+        "event_time": "2026-10-22T23:40:00.000000+00:00",
+        "store_id": "store-001",
+        "equipment_id": "fridge-001",
+        "equipment_type": "refrigerator",
+        "metric_name": "temperature_celsius",
+        "metric_value": 4.2,
+        "unit": "celsius",
+        "schema_version": "1.0.0",
+        "source": "e2e:p2i-11111111111111111111111111111111"
+      },
+      {
+        "event_id": "p2i-11111111111111111111111111111111/late_within",
+        "event_time": "2026-10-22T23:59:00.000000+00:00",
+        "store_id": "store-001",
+        "equipment_id": "fridge-001",
+        "equipment_type": "refrigerator",
+        "metric_name": "temperature_celsius",
+        "metric_value": 4.2,
+        "unit": "celsius",
+        "schema_version": "1.0.0",
+        "source": "e2e:p2i-11111111111111111111111111111111"
+      },
+      {
+        "event_id": "p2i-11111111111111111111111111111111/normal",
+        "event_time": "2026-10-23T00:00:00.000000+00:00",
+        "store_id": "store-001",
+        "equipment_id": "fridge-001",
+        "equipment_type": "refrigerator",
+        "metric_name": "temperature_celsius",
+        "metric_value": 4.2,
+        "unit": "celsius",
+        "schema_version": "1.0.0",
+        "source": "e2e:p2i-11111111111111111111111111111111"
+      }
+    ],
+    "raw_acknowledgements": [
+      {
+        "case": "normal",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 100
+      },
+      {
+        "case": "business_anomaly",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 101
+      },
+      {
+        "case": "domain_invalid",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 102
+      },
+      {
+        "case": "bad_frame",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 103
+      },
+      {
+        "case": "unknown_schema",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 104
+      },
+      {
+        "case": "duplicate",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 105
+      },
+      {
+        "case": "conflict",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 106
+      },
+      {
+        "case": "late_within",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 107
+      },
+      {
+        "case": "late_outside",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 108
+      },
+      {
+        "case": "future",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 109
+      }
+    ],
+    "canonical_fingerprints": {
+      "p2i-11111111111111111111111111111111/normal": "d65cd7837bc2c959aa1d29aa3e1752f72878e03372e96a093726e29cb97a4e28",
+      "p2i-11111111111111111111111111111111/business_anomaly": "3b703aeef5126b8fda764f2f7c76da20ee4a5994c0949ac98f906f7bcc0730ec",
+      "p2i-11111111111111111111111111111111/late_within": "2b3d4d0a59c040d3bbfd6e1dcc03bb1c1a76a407e5992dc7ca94b5a9e174fb3a",
+      "p2i-11111111111111111111111111111111/late_outside": "a0631538aa7148997048a220eebb08b73931bc1ad96789940e8134fabdd25dc9"
+    },
+    "validated_lineage_by_event": {
+      "p2i-11111111111111111111111111111111/normal": [
+        [
+          "kitchen.sensor.validated",
+          0,
+          0
+        ],
+        [
+          "kitchen.sensor.validated",
+          0,
+          5
+        ]
+      ],
+      "p2i-11111111111111111111111111111111/business_anomaly": [
+        [
+          "kitchen.sensor.validated",
+          0,
+          1
+        ]
+      ],
+      "p2i-11111111111111111111111111111111/late_within": [
+        [
+          "kitchen.sensor.validated",
+          0,
+          7
+        ]
+      ],
+      "p2i-11111111111111111111111111111111/late_outside": [
+        [
+          "kitchen.sensor.validated",
+          0,
+          8
+        ]
+      ]
+    },
+    "quarantine_lineage_by_case": {
+      "domain_invalid": [
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          2
+        ]
+      ],
+      "bad_frame": [
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          3
+        ]
+      ],
+      "unknown_schema": [
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          4
+        ]
+      ],
+      "conflict": [
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          6
+        ]
+      ],
+      "future": [
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          9
+        ]
+      ]
+    },
+    "failure_reasons_by_case": {
+      "domain_invalid": [
+        [
+          "UNIT_MISMATCH",
+          "unit"
+        ]
+      ],
+      "bad_frame": [
+        [
+          "INVALID_CONFLUENT_FRAME",
+          "raw_value"
+        ]
+      ],
+      "unknown_schema": [
+        [
+          "UNKNOWN_SCHEMA_ID",
+          "schema_id"
+        ]
+      ],
+      "conflict": [
+        [
+          "EVENT_ID_CONFLICT",
+          "metric_value"
+        ]
+      ],
+      "future": [
+        [
+          "FUTURE_EVENT_TIME",
+          "event_time"
+        ]
+      ]
+    }
+  },
+  "restart": {
+    "run_id": "p2i-11111111111111111111111111111111",
+    "manifest_sha256": "ebf03d34631c6708b8ae93f02b13cee33f30573dc10ade978b052467b3e93238",
+    "status": "PASS",
+    "issues": [],
+    "extra_deliveries": 10,
+    "validated_by_event": {
+      "p2i-11111111111111111111111111111111/normal": 4,
+      "p2i-11111111111111111111111111111111/business_anomaly": 2,
+      "p2i-11111111111111111111111111111111/late_within": 2,
+      "p2i-11111111111111111111111111111111/late_outside": 2
+    },
+    "quarantine_by_case": {
+      "domain_invalid": 2,
+      "bad_frame": 2,
+      "unknown_schema": 2,
+      "conflict": 2,
+      "future": 2
+    },
+    "canonical": [
+      {
+        "event_id": "p2i-11111111111111111111111111111111/business_anomaly",
+        "event_time": "2026-10-23T00:00:00.000000+00:00",
+        "store_id": "store-001",
+        "equipment_id": "fridge-001",
+        "equipment_type": "refrigerator",
+        "metric_name": "temperature_celsius",
+        "metric_value": 30.0,
+        "unit": "celsius",
+        "schema_version": "1.0.0",
+        "source": "e2e:p2i-11111111111111111111111111111111"
+      },
+      {
+        "event_id": "p2i-11111111111111111111111111111111/late_outside",
+        "event_time": "2026-10-22T23:40:00.000000+00:00",
+        "store_id": "store-001",
+        "equipment_id": "fridge-001",
+        "equipment_type": "refrigerator",
+        "metric_name": "temperature_celsius",
+        "metric_value": 4.2,
+        "unit": "celsius",
+        "schema_version": "1.0.0",
+        "source": "e2e:p2i-11111111111111111111111111111111"
+      },
+      {
+        "event_id": "p2i-11111111111111111111111111111111/late_within",
+        "event_time": "2026-10-22T23:59:00.000000+00:00",
+        "store_id": "store-001",
+        "equipment_id": "fridge-001",
+        "equipment_type": "refrigerator",
+        "metric_name": "temperature_celsius",
+        "metric_value": 4.2,
+        "unit": "celsius",
+        "schema_version": "1.0.0",
+        "source": "e2e:p2i-11111111111111111111111111111111"
+      },
+      {
+        "event_id": "p2i-11111111111111111111111111111111/normal",
+        "event_time": "2026-10-23T00:00:00.000000+00:00",
+        "store_id": "store-001",
+        "equipment_id": "fridge-001",
+        "equipment_type": "refrigerator",
+        "metric_name": "temperature_celsius",
+        "metric_value": 4.2,
+        "unit": "celsius",
+        "schema_version": "1.0.0",
+        "source": "e2e:p2i-11111111111111111111111111111111"
+      }
+    ],
+    "raw_acknowledgements": [
+      {
+        "case": "normal",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 100
+      },
+      {
+        "case": "business_anomaly",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 101
+      },
+      {
+        "case": "domain_invalid",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 102
+      },
+      {
+        "case": "bad_frame",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 103
+      },
+      {
+        "case": "unknown_schema",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 104
+      },
+      {
+        "case": "duplicate",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 105
+      },
+      {
+        "case": "conflict",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 106
+      },
+      {
+        "case": "late_within",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 107
+      },
+      {
+        "case": "late_outside",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 108
+      },
+      {
+        "case": "future",
+        "topic": "kitchen.sensor.raw",
+        "partition": 1,
+        "offset": 109
+      }
+    ],
+    "canonical_fingerprints": {
+      "p2i-11111111111111111111111111111111/normal": "d65cd7837bc2c959aa1d29aa3e1752f72878e03372e96a093726e29cb97a4e28",
+      "p2i-11111111111111111111111111111111/business_anomaly": "3b703aeef5126b8fda764f2f7c76da20ee4a5994c0949ac98f906f7bcc0730ec",
+      "p2i-11111111111111111111111111111111/late_within": "2b3d4d0a59c040d3bbfd6e1dcc03bb1c1a76a407e5992dc7ca94b5a9e174fb3a",
+      "p2i-11111111111111111111111111111111/late_outside": "a0631538aa7148997048a220eebb08b73931bc1ad96789940e8134fabdd25dc9"
+    },
+    "validated_lineage_by_event": {
+      "p2i-11111111111111111111111111111111/normal": [
+        [
+          "kitchen.sensor.validated",
+          0,
+          0
+        ],
+        [
+          "kitchen.sensor.validated",
+          0,
+          5
+        ],
+        [
+          "kitchen.sensor.validated",
+          0,
+          10
+        ],
+        [
+          "kitchen.sensor.validated",
+          0,
+          15
+        ]
+      ],
+      "p2i-11111111111111111111111111111111/business_anomaly": [
+        [
+          "kitchen.sensor.validated",
+          0,
+          1
+        ],
+        [
+          "kitchen.sensor.validated",
+          0,
+          11
+        ]
+      ],
+      "p2i-11111111111111111111111111111111/late_within": [
+        [
+          "kitchen.sensor.validated",
+          0,
+          7
+        ],
+        [
+          "kitchen.sensor.validated",
+          0,
+          17
+        ]
+      ],
+      "p2i-11111111111111111111111111111111/late_outside": [
+        [
+          "kitchen.sensor.validated",
+          0,
+          8
+        ],
+        [
+          "kitchen.sensor.validated",
+          0,
+          18
+        ]
+      ]
+    },
+    "quarantine_lineage_by_case": {
+      "domain_invalid": [
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          2
+        ],
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          12
+        ]
+      ],
+      "bad_frame": [
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          3
+        ],
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          13
+        ]
+      ],
+      "unknown_schema": [
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          4
+        ],
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          14
+        ]
+      ],
+      "conflict": [
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          6
+        ],
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          16
+        ]
+      ],
+      "future": [
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          9
+        ],
+        [
+          "kitchen.sensor.quarantine",
+          0,
+          19
+        ]
+      ]
+    },
+    "failure_reasons_by_case": {
+      "domain_invalid": [
+        [
+          "UNIT_MISMATCH",
+          "unit"
+        ]
+      ],
+      "bad_frame": [
+        [
+          "INVALID_CONFLUENT_FRAME",
+          "raw_value"
+        ]
+      ],
+      "unknown_schema": [
+        [
+          "UNKNOWN_SCHEMA_ID",
+          "schema_id"
+        ]
+      ],
+      "conflict": [
+        [
+          "EVENT_ID_CONFLICT",
+          "metric_value"
+        ]
+      ],
+      "future": [
+        [
+          "FUTURE_EVENT_TIME",
+          "event_time"
+        ]
+      ]
+    }
+  },
+  "comparison": {
+    "run_id": "p2i-11111111111111111111111111111111",
+    "status": "PASS",
+    "canonical_unchanged": true,
+    "extra_before": 0,
+    "extra_after": 10
+  }
+}

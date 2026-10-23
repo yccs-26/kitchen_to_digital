@@ -1,0 +1,93 @@
+{
+  "scope": "P2-8j management preflight and local verification only; CLOUD EXECUTION BLOCKED",
+  "recorded_at": "2026-10-23T02:03:16.708848+00:00",
+  "branch": "feat/phase2-validation-silver",
+  "head": "e266a545e084c7da6213f39aa4cfb3ddf0b58da6",
+  "cloud_mutations": false,
+  "compute_started": false,
+  "kafka_accessed": false,
+  "management_calls": 25,
+  "successful_management_calls": 23,
+  "tests": {
+    "baseline_passed": 787,
+    "red_failed": 4,
+    "green_passed": 4,
+    "tools_passed": 60,
+    "unit_passed": 751,
+    "combined_passed": 811,
+    "skipped": 11,
+    "warnings": 1,
+    "real_local_delta_passed": 1,
+    "real_local_delta_seconds": 48.32
+  },
+  "current_readiness_result": {
+    "state": "BLOCKED",
+    "reason": "readiness_not_ready"
+  },
+  "matrix": [
+    {
+      "item": "local dry-run, isolation and reviewed execution gates",
+      "state": "READY",
+      "scope": "local tests only"
+    },
+    {
+      "item": "AWS management principal and cluster metadata",
+      "state": "READY",
+      "evidence": "management-preflight.json"
+    },
+    {
+      "item": "existing EC2 instance profile association",
+      "state": "READY",
+      "evidence": "management-preflight.json"
+    },
+    {
+      "item": "complete Cloud E2E execution",
+      "state": "BLOCKED",
+      "reason": "required IAM/UC, deployment, writer, budget and explicit approval are incomplete"
+    },
+    {
+      "item": "output verification consumer",
+      "state": "BLOCKED",
+      "reason": "principal not selected; existing consumer role lacks output ReadData"
+    },
+    {
+      "item": "EC2 Kafka client execution",
+      "state": "BLOCKED",
+      "reason": "existing EC2 stopped; no start approval"
+    },
+    {
+      "item": "Databricks live principal/Compute/UC grants/credential bindings",
+      "state": "UNVERIFIED",
+      "reason": "principal lookup failed; subsequent queries stopped"
+    },
+    {
+      "item": "isolated Managed Delta table existence",
+      "state": "UNVERIFIED",
+      "planned_table": "ktd.silver.sensor_validated_e2e_22222222222222222222222222222222"
+    },
+    {
+      "item": "other writer absence and quiet shared-topic window",
+      "state": "UNVERIFIED"
+    },
+    {
+      "item": "DBU/AWS rates, credits and cash spent",
+      "state": "UNVERIFIED"
+    },
+    {
+      "item": "deployed commit and matching artifact",
+      "state": "BLOCKED",
+      "reason": "local tools remain uncommitted; remote deployment not queried"
+    },
+    {
+      "item": "broker metadata/ACK, Kafka checkpoint restart, SCP/session constraints",
+      "state": "UNVERIFIED"
+    }
+  ],
+  "source_sha256": {
+    "scripts/phase2/cloud_e2e.py": "31d2ad914d059bb956df6cdf01d22db52d4f1c1b31505e55b82d05db55709348",
+    "tests/integration/test_job2_cloud_e2e_tools.py": "ec560e8407bf3611d7606c3a0195c29b189cf367d8aa04bc728bd2b2f59bd35e"
+  },
+  "management_outcomes": "AWS 23 successful + 1 cluster policy NOT_CONFIGURED; Databricks 1 failed principal lookup",
+  "bootstrap_matches_runtime": true,
+  "cluster_resource_policy": "NOT_CONFIGURED"
+}

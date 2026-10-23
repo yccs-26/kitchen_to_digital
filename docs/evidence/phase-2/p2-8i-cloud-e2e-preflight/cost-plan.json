@@ -1,0 +1,16 @@
+{
+  "cloud_executed": false,
+  "project_databricks_cash_target_usd": 10,
+  "project_databricks_cash_spent_usd": null,
+  "remaining_cash_usd": null,
+  "dbu_rate": null,
+  "aws_infrastructure_rate": null,
+  "aws_credit_coverage": null,
+  "databricks_credit_balance": null,
+  "estimated_run_cost_usd": null,
+  "execution_blocked_until_budget_confirmed": true,
+  "run_query_wait_seconds": 180,
+  "task_timeout_seconds": 600,
+  "task_max_retries": 0,
+  "compute_auto_termination_minutes": null
+}

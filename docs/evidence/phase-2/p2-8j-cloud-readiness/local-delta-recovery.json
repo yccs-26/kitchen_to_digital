@@ -1,0 +1,101 @@
+{
+  "scope": "local verification: real OSS Spark/Delta/file checkpoint, simulated Kafka/Registry",
+  "result": "1 passed in 48.32s",
+  "canonical": [
+    {
+      "event_id": "local-recovery-1",
+      "event_time": "2016-10-08 12:00:00.123456+00:00",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "equipment_type": "refrigerator",
+      "metric_name": "temperature_celsius",
+      "metric_value": 4.2,
+      "unit": "celsius",
+      "schema_version": "1.0.0",
+      "source": "simulator"
+    },
+    {
+      "event_id": "local-recovery-2",
+      "event_time": "2016-10-08 12:00:00.123456+00:00",
+      "store_id": "store-001",
+      "equipment_id": "fridge-001",
+      "equipment_type": "refrigerator",
+      "metric_name": "temperature_celsius",
+      "metric_value": 4.2,
+      "unit": "celsius",
+      "schema_version": "1.0.0",
+      "source": "simulator"
+    }
+  ],
+  "batches": [
+    {
+      "batch_id": 0,
+      "received": 5,
+      "validated": 3,
+      "quarantine": 2,
+      "conflict": 1,
+      "duplicate": 2,
+      "late": 3
+    },
+    {
+      "batch_id": 0,
+      "received": 5,
+      "validated": 3,
+      "quarantine": 2,
+      "conflict": 1,
+      "duplicate": 3,
+      "late": 3
+    },
+    {
+      "batch_id": 1,
+      "received": 1,
+      "validated": 1,
+      "quarantine": 0,
+      "conflict": 0,
+      "duplicate": 1,
+      "late": 1
+    },
+    {
+      "batch_id": 0,
+      "received": 6,
+      "validated": 4,
+      "quarantine": 2,
+      "conflict": 1,
+      "duplicate": 4,
+      "late": 4
+    }
+  ],
+  "queries": [
+    {
+      "id": "2494d61e-796b-4cbc-95a8-6fc716219c00",
+      "run_id": "fc92d53b-9b37-4e6f-aa52-cbd37e8d46a5",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "2494d61e-796b-4cbc-95a8-6fc716219c00",
+      "run_id": "e10a7876-4a67-450a-8dec-f8c59336fef9",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "2494d61e-796b-4cbc-95a8-6fc716219c00",
+      "run_id": "7d4c3fda-25b5-4c8f-99bc-009e11364749",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "2494d61e-796b-4cbc-95a8-6fc716219c00",
+      "run_id": "4197b4d7-e2a7-4bbd-b171-040aff362e9b",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "checkpoint"
+    },
+    {
+      "id": "1f128e8e-40b8-4dfc-88f4-7baa31b69350",
+      "run_id": "a717f32e-3f77-4787-9fb3-ac2e15b31471",
+      "name": "ktd_p2_8h_local_only",
+      "checkpoint": "fresh_checkpoint"
+    }
+  ],
+  "ack_journal_count": 17
+}

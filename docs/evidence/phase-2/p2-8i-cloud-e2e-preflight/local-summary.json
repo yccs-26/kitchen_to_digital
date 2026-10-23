@@ -1,0 +1,47 @@
+{
+  "recorded_at": "2026-10-22T17:32:27.188693+00:00",
+  "branch": "feat/phase2-validation-silver",
+  "head": "e266a545e084c7da6213f39aa4cfb3ddf0b58da6",
+  "scope": "P2-8i LOCAL PREPARED / CLOUD NOT EXECUTED",
+  "python": "3.11.15",
+  "tests": {
+    "baseline_unit": 751,
+    "final_unit_passed": 751,
+    "tools_passed": 36,
+    "integration_passed": 36,
+    "external_opt_in_skipped": 11,
+    "real_local_spark_delta_passed": 1,
+    "warning": "existing Authlib deprecation",
+    "combined_passed": 787
+  },
+  "plan": {
+    "run_id": "p2i-00000000000000000000000000000000",
+    "manifest_sha256": "6b5bdc8f4c3a69a62cb4721fca3b7249d154f9a7e2cc78cfe23fe61a253c62a5",
+    "action": "publish",
+    "dry_run": true,
+    "cloud_access": false,
+    "input_records": 10,
+    "canonical_ids": 4,
+    "expected_validated": 5,
+    "expected_quarantine": 5
+  },
+  "cloud_changes": false,
+  "cloud_reads": false,
+  "cloud_publish": false,
+  "producer_ack_test": "local fake callback; not MSK broker evidence",
+  "restart_test": "SQLite tool replay + existing REAL OSS Spark/Delta fresh-process regression",
+  "remaining_blockers": [
+    "output verification IAM/UC credential",
+    "remote Python dependencies",
+    "UC isolated table/grants and artifacts Volume",
+    "deployed package SHA/files",
+    "VPC/remote runtime health",
+    "compute budget/credits/termination",
+    "quiet workload window",
+    "explicit cloud execution approval"
+  ],
+  "source_sha256": {
+    "scripts/phase2/cloud_e2e.py": "b6056a4a11a4603d8d89dec961e2b946803f95e378916cd0294ef684d34b2814",
+    "tests/integration/test_job2_cloud_e2e_tools.py": "b066b12279c416bf395794a6205b9ca66f48bc47c567a39791413558c8488026"
+  }
+}

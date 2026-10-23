@@ -1,0 +1,49 @@
+{
+  "run_id": "p2i-22222222222222222222222222222222",
+  "manifest_sha256": "bfcfd0909995b80c48b6dda1f3dcf7b1e740e83252b118b4503458b2ade0a657",
+  "scope": "local readiness template; not approval",
+  "status": "BLOCKED",
+  "checked_at": null,
+  "expires_at": null,
+  "bootstrap": "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+  "silver_table": "ktd.silver.sensor_validated_e2e_22222222222222222222222222222222",
+  "checkpoint": "/Volumes/ktd/silver/checkpoints/job2/e2e/p2i-22222222222222222222222222222222",
+  "verification_credential": null,
+  "principals": {
+    "raw_producer": "arn:aws:iam::048715026902:role/ktd-msk-producer-role",
+    "job2_consumer": "arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role",
+    "job2_producer": "arn:aws:iam::048715026902:role/ktd-msk-job2-producer-role",
+    "output_reader": null,
+    "databricks_run_as": null,
+    "uc_reader": null
+  },
+  "checks": {
+    "iam_uc_permissions": "BLOCKED",
+    "deployed_artifact": "UNVERIFIED",
+    "dependencies": "UNVERIFIED",
+    "network_review": "UNVERIFIED",
+    "cleanup_plan": "UNVERIFIED"
+  },
+  "writers": {
+    "status": "UNVERIFIED",
+    "checked_at": null,
+    "evidence_ref": null
+  },
+  "compute": {
+    "cluster_id": null,
+    "auto_termination_minutes": null,
+    "manual_stop_confirmed": false,
+    "candidate_cluster_id": "0929-113111-cgu7k91c"
+  },
+  "budget": {
+    "project_cash_spent_usd": null,
+    "approved_databricks_cash_usd": null,
+    "approved_aws_usd": null,
+    "hourly_databricks_cash_usd": null,
+    "hourly_aws_cash_usd": null,
+    "max_minutes": null,
+    "rates_and_credits_verified": false,
+    "evidence_ref": null
+  },
+  "evidence_ref": "management-preflight.json; Databricks principal lookup failed"
+}
