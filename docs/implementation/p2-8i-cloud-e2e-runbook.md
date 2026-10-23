@@ -108,7 +108,7 @@ HEAD SHA만으로 해당 artifact를 재현할 수 없으므로 source hash 증�
 
 ## 4. 실행 전 gate — 현재 차단 요소
 
-아래 조건의 현재 조회 결과는 마지막 P2-8j 절을 따른다. 미충족 상태에서는
+아래 조건의 현재 조회 결과는 마지막 P2-8k 절을 따른다. 미충족 상태에서는
 cloud 명령을 실행하지 않는다. `--execute`/run 승인만으로는 부족하며 검토된
 `--readiness`가 추가로 필요하다. prepare가 만드는 기본 양식은 BLOCKED다.
 
@@ -477,8 +477,9 @@ SQL, Kafka metadata/consume/produce, SSM 명령, 역할 변경, Compute 시작·
 | DBR Compute / UC / credential | 현재 상태·run-as·grants·credential binding·writer 목록은 후속 조회를 중단해 UNVERIFIED. 과거 cluster 0929-113111-cgu7k91c / DBR17.3 자료는 후보일 뿐 |
 | 비용 | AWS t3.micro 유형만 현재 확인. DBU/VM 단가·누적 현금·크레딧·자동 종료는 UNVERIFIED. Cost Explorer 유료 조회와 billing SQL도 실행하지 않음 |
 
-Databricks CLI의 service credential 명령은 이 설치에서 `credentials get`이며
-`service-credentials get`은 존재하지 않는다. 현재 auth 조회 실패 뒤 해당 metadata
+P2-8j 당시 `credentials get`으로 기록했으나 P2-8k에서 하위 명령 help를
+확인하여 `credentials get-credential NAME`으로 정정했다. `credentials get --help`는
+그룹 help를 보여주므로 개별 명령 확인 증거로 충분하지 않았다. 현재 auth 조회 실패 뒤 해당 metadata
 API를 호출하지 않았다. 이후 인증 복구는 사용자가 정상 경로로 수행해야 하며,
 이번 세션에서 토큰을 만들거나 비밀값을 가져오지 않았다.
 
@@ -610,6 +611,236 @@ Spark/Delta 1 passed(48.32초)이며 기존 Authlib warning 1개다. READY는 �
   다른 writer 부재, 실제 broker metadata/ACK/source checkpoint 복구/SCP.
 
 새 증빙은 preflight/local verification임을 명시한다. 기존 P2-8i 증빙은 덮어쓰지 않았다.
-현재 tool/test/runbook은 P2-8i부터 미커밋이므로 Git add 시 P2-8i와 P2-8j 변경을 함께
-검토해야 한다. 기존 unrelated 6개 파일을 섞지 않는다. 권장 메시지는
+P2-8j 작업 종료 당시 tool/test/runbook은 미커밋이었다. P2-8k 시작 시
+사용자가 이 변경을 42dd5c9로 commit한 것을 확인했다. 기존 unrelated 6개 파일을 섞지 않는다. 권장 메시지는
 `fix: enforce isolated and reviewed Phase 2 E2E deployment`다.
+
+
+## 11. P2-8k — Blocker Resolution & Final Execution Readiness (2026-10-23 KST)
+
+이 절이 최신 실행 판단이다. **전체 Cloud E2E: BLOCKED.** 새 CLI는 만들지 않았다.
+실제 변경 없이 원인을 좁히고 기존 도구의 raw offset 경계 결함만 수정했다.
+증빙은 `docs/evidence/phase-2/p2-8k-cloud-unblock/`의 관리 preflight/local verification이다.
+
+### 11.1 Databricks 장애 원인과 정상 복구 경로
+
+- 실제 시작 HEAD는 `42dd5c9edf92402f10de37540e3dbdf1e0b910fa`다.
+- CLI v1.18.0, profile `ktd`, auth_type `databricks-cli`; credential storage는 OS keyring.
+  DATABRICKS/AWS 환경변수 override 없음. 현재 `.venv`에 databricks-sdk는 미설치다.
+  remote Runtime의 SDK 버전은 조회하지 못했다. 설치하지 않았다.
+- host는 Workspace URL `https://dbc-1c3b2d11-7408.cloud.databricks.com`이며
+  account console endpoint가 아니다. account_id/workspace_id 필드 존재를 확인했다.
+  이 필드만으로 실제 workspace membership이나 권한을 입증하지 않는다.
+- `auth describe` text가 **refresh token is invalid**로 새 access token 취득 실패를
+  명시한다. `current-user me`도 갱신 단계에서 exit1. Workspace SCIM Me 요청 의도는
+  `GET /api/2.0/preview/scim/v2/Me`이며 실제 Workspace HTTP 응답 코드는 관측되지 않았다.
+  401/403이나 계정 정지·Compute credit 부족으로 단정하지 않는다.
+- Workspace DNS/TLS1.3 및 인증서 검증은 성공했다. 이 시점 host 접속 장애보다
+  OAuth refresh 실패가 직접 차단 원인이다. broker/VPC 경로 검증은 아니다.
+- JSON auth describe는 exit0/status=error/error={}를 반환했다. exit0만으로 인증 READY로
+  판단하면 안 된다. text 기본 출력으로 원인을 확인했고 debug/--sensitive는 쓰지 않았다.
+
+사용자가 직접 정상 재인증할 명령은 아래와 같다. **이번 작업에서는 실행하지 않았다.**
+토큰 값 전달·복사나 다른 profile로 우회하지 않는다.
+
+```sh
+databricks auth login --profile ktd
+```
+
+사용자가 정상 재인증 완료를 알려준 후, 다음 read-only 조회부터 다시 시작한다.
+실패하면 원인을 기록하고 해당 경로를 중단한다. raw JSON 전체에는 사용자 정의
+설정 값이 있을 수 있으므로 role/owner/state/권한/경로만 선택해 비밀값 없이 저장한다.
+
+```sh
+databricks current-user me -p ktd -o json
+databricks catalogs get ktd -p ktd -o json
+databricks schemas get ktd.silver -p ktd -o json
+databricks volumes read ktd.silver.checkpoints -p ktd -o json
+databricks grants get-effective catalog ktd -p ktd -o json
+databricks grants get-effective schema ktd.silver -p ktd -o json
+databricks grants get-effective volume ktd.silver.checkpoints -p ktd -o json
+databricks credentials get-credential ktd-msk-consumer -p ktd -o json
+databricks credentials get-credential ktd-msk-job2-credential -p ktd -o json
+databricks clusters get 0929-113111-cgu7k91c -p ktd -o json
+databricks jobs list --expand-tasks -p ktd -o json
+databricks jobs list-runs --active-only -p ktd -o json
+databricks repos list -p ktd -o json
+```
+
+`get-effective`는 상속 권한도 포함한다. principal의 실제 group membership도 함께
+대조하고 next_page_token이 있으면 모두 조회한다. repos list는 권한상 보이는 repo만
+반환하고 Git CLI repos를 누락할 수 있다. 빈 jobs/runs/repo 목록은 Writer 부재 증거가
+아니다. Notebook/다른 Compute/외부 실행을 포함한 운영자 확인과 독점 시간 예약이 필요하다.
+SQL, credential validate/temporary credential 발급, Compute start는 위 조회에 없다.
+
+### 11.2 Output 검증 Consumer 주체와 최소 추가 정책 확정안
+
+선정 후보는 기존 `arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role`,
+기존 UC credential `ktd-msk-consumer`다. actual credential binding/ACCESS는 재인증 후
+확인해야 하므로 실행 principal 검증 완료로 표시하지 않는다.
+
+| 역할 | 주체 / 이번 판단 |
+|---|---|
+| AWS 관리 | user chan. management와 simulation만 실행. raw 발행 주체로 사용하지 않음 |
+| Raw fixture | 기존 EC2 role ktd-msk-producer-role. raw WriteData 존재. stopped 유지 |
+| Job2 source | ktd-databricks-msk-consumer-role / ktd-msk-consumer. 기존 raw 읽기 및 group 권한 유지 |
+| Job2 output producer | ktd-msk-job2-producer-role / ktd-msk-job2-credential. 두 output 쓰기 유지 |
+| Output 검증 | 위 기존 source consumer role/credential 재사용 후보 선정. 임시 추가 읽기 정책만 필요 |
+
+EC2 관리 client role은 현재 raw WriteData 중심이며 ReadData가 없다. snapshot/verify는
+raw bytes도 읽으므로 이를 재사용하면 raw+output 읽기 권한이 필요하고 현재 UC/DBR
+실행 경로에도 맞지 않는다. source consumer 재사용은 신규 role/credential 없이 추가
+데이터 권한을 output 두 곳에 한정한다. 운영 source 역할 자체가 더 넓게 읽게 되므로
+적용 시간과 정책 이름을 기록하고 후속 정상 검증 종료 시 이번 추가 정책만 회수한다.
+
+정책: `p2-8k-cloud-unblock/output-reader-policy-delta.json`.
+cluster ARN은 `arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2`.
+추가 topic ARN은 같은 cluster descriptor의 topic 리소스 두 개
+`kitchen.sensor.validated`, `kitchen.sensor.quarantine`뿐이다.
+추가 Action은 DescribeTopic/ReadData뿐이며 Connect/raw/group은 기존 허용을 재사용한다.
+기존 wildcard group 권한을 이 delta가 축소한다고 주장하지 않는다.
+
+read_window는 manual assign/position/poll만 쓰고 subscribe/join/commit을 호출하지 않는다.
+enable.auto.commit/enable.auto.offset.store도 false다. 다만 AWS MSK IAM 문서의
+ReadData dependent actions에는 Connect/DescribeTopic/AlterGroup, AlterGroup에는
+DescribeGroup이 있으므로 group 권한을 불필요하다고 제거하지 않는다.
+검증 group은 `ktd-p2e2e-<UUID>`이며 standalone 정책이라면 그 정확한 ARN에만
+DescribeGroup/AlterGroup을 넣는다. 기존 role에는 이미 group /*가 있으므로 신규
+임시 정책에 중복 group grant를 넣지 않는다.
+[MSK Action 의존 관계](https://docs.aws.amazon.com/msk/latest/developerguide/kafka-actions.html)
+
+실제 IAM 시뮬레이션: 현재 Connect1+Group2 allowed, output2×Action2 implicitDeny.
+미적용 delta를 추가한 평가에서는 7/7 allowed. baseline/proposal 총14개 실제 ARN
+평가를 증빙에 보존했다. 다중 topic 요약의 placeholder ARN은 개별 ARN으로 재평가했다.
+정책을 적용하지 않았으며 simulation은 SCP/session/trust/UC/네트워크/broker 성공 증명이 아니다.
+
+### 11.3 UC 격리 리소스·Grant 계약
+
+인증 실패로 현재 catalog/schema/Volume 존재·owner·실효 grants를 조회하지 못했다.
+403/404가 나오더라도 권한 때문에 보이지 않는 경우와 실제 부재를 구별한다.
+없으면 자동 생성하지 않는다. 다음 값은 **계획이며 생성된 리소스가 아니다.**
+
+- table `ktd.silver.sensor_validated_e2e_<32hex UUID>`.
+- checkpoint `/Volumes/ktd/silver/checkpoints/job2/e2e/p2i-<32hex UUID>`.
+- Volume 객체는 `ktd.silver.checkpoints`다. job2/e2e는 Volume 내부 디렉터리다.
+- Table creator/owner, writer run-as, verifier user/SP는 현재 UNVERIFIED.
+  table 생성 주체가 초기 owner가 되며 실제 ownership은 생성 후 조회로 확인해야 한다.
+
+| 주체 | 승인 후 필요한 최소 권한 / 대상 |
+|---|---|
+| 별도 table 생성 주체 | USE CATALOG on ktd, USE SCHEMA + CREATE TABLE on ktd.silver. 승인한 10필드 Managed Delta만 생성. 장기 writer에 schema-wide CREATE TABLE을 새로 주지 않음 |
+| Job2 writer | ktd/ktd.silver 사용, 정확한 run table SELECT+MODIFY(lookup/MERGE), ktd.silver.checkpoints READ VOLUME+WRITE VOLUME, 두 service credential ACCESS, 기존 Registry secret scope READ |
+| verifier | ktd/ktd.silver 사용, 정확한 run table SELECT, 검증 credential ACCESS, Registry secret scope READ. table MODIFY 불필요 |
+| artifact 배포/수집 | 실제 artifact 위치가 Volume이면 해당 Volume READ/WRITE, Workspace 파일이면 해당 경로 권한. verifier라는 이유만으로 checkpoint WRITE를 추가하지 않음 |
+
+UC Volume grants는 디렉터리별이 아니라 Volume 객체에 적용된다. checkpoint 경로 분리는
+데이터 격리 규칙이며 권한 격리 자체가 아니다. checkpoints Volume WRITE가 운영
+checkpoint 접근도 허용할 수 있음을 승인 시 명시하고 기존 권한을 확인해 필요한
+경우에만 추가한다. 더 강한 경계가 필요하면 별도 Volume은 새로운 승인/범위다.
+[Volume 권한](https://docs.databricks.com/aws/en/volumes/privileges),
+[UC 권한](https://docs.databricks.com/aws/en/data-governance/unity-catalog/access-control/privileges-reference).
+
+### 11.4 Raw 시작 offset·checkpoint 실행 계약과 로컬 수정
+
+생산 source는 runtime의 earliest/latest를 사용한다. E2E harness는 이 값을 덮어쓰고
+snapshot의 각 partition high(next offset)를 JSON startingOffsets로 설정한다.
+assign은 raw의 [0,1,2], failOnDataLoss=true, 별도 run checkpoint, availableNow다.
+기존 Raw의 모든 데이터가 fixture라고 가정하지 않는다. 세 partition에서 source를
+읽지만 handler에는 ACK의 정확한 partition/offset 10개만 전달한다. source 로그는
+다른 raw 위치까지 진행할 수 있으며 운영 group offset과는 별개다.
+
+| 상황 | 적용 계약 / 실행 판단 |
+|---|---|
+| A fixture 전 Job2 시작 | 금지. availableNow는 시작 시점의 범위로 끝나 fixture를 놓칠 수 있고 도구는 ACK 파일이 필요함 |
+| B fixture 후 Job2 시작 | 유일한 정상 순서. before snapshot → raw10 ACK → 즉시 availableNow → 누적 대사 |
+| C 신규 checkpoint | snapshot high JSON 적용. 예시 p0=50,p1=100,p2=75를 로컬 검사. 실제 값은 승인 후 실측하며 지금 추정하지 않음 |
+| D 동일 checkpoint 재시작 | Spark가 checkpoint offset/commit을 사용. 미완료 batch만 replay; 완료된 fixture가 반드시 재발행된다고 기대하지 않음 |
+| E checkpoint 존재 | startingOffsets로 rewind할 수 없음. 첫 실행은 새 run 경로 부재를 확인하고 재시작은 같은 manifest/ACK/before를 유지 |
+| F 세 partition | 정확히 0/1/2 및 low/high non-bool int>=0. partition/retention 변경은 중단 |
+
+Spark는 재개 시 startingOffsets보다 checkpoint를 사용한다.
+[Spark Kafka 계약](https://spark.apache.org/docs/latest/structured-streaming-kafka-integration.html).
+로컬 실제 Delta/file-source 재시작은 이를 보완하지만 MSK source 증거는 아니다.
+
+확정 결함: snapshot READY/세 partition/경계 형식/ACK>=snapshot.high를 검사하지 않고
+Spark IO로 진행했다. 먼저 7 failed를 재현하고 validate_input_window 최소 검사를
+publish 전/각 ACK 후/run_job의 Spark IO 전에 추가했다. raw ACK가 다른 partition 또는
+시작 하한 이전이면 partial UNCONFIRMED journal/lock을 보존하고 다음 건을 보내지 않는다.
+운영 Job2/launcher/sink/publisher 코드는 수정하지 않았다.
+
+정상 범위는 `[before.high, after.high)`다. 검증 시 collect_bounds와 validate_bounds가
+retention gap/partition 변경을 거부하고 raw ACK bytes/10건을 대사한다. ACK 이후
+retention 유실이나 checkpoint가 이미 ACK를 지나간 경우를 성공으로 보고하지 않는다.
+첫 정상 실행의 checkpoint 부재·writer 독점 시간·입력 상한은 실제 승인 실행 전 확인한다.
+
+### 11.5 배포·비용·단일 정상 E2E 승인 패키지
+
+현재 HEAD 42dd5c9는 P2-8j commit이다. 이번 로컬 offset 수정은 아직 미커밋이므로
+HEAD만 배포 artifact라고 주장하지 않는다. manifest는 streaming 전체/도구/fixture
+producer source SHA256, config/rules/schema hash를 포함하고 load_manifest가 재계산한다.
+.git이 있으면 HEAD도 확인한다. commit/source 불일치 거부 테스트를 추가했다.
+사용자 commit 후 같은 SHA와 실제 파일 hash로 manifest를 새로 만들고 원격에서도 검증한다.
+Jobs git_source.git_commit 또는 repo HEAD/실제 source hash를 대조한다. branch 이름이나
+로컬 HEAD만으로 원격 배포를 확인하지 않는다. 현재 원격 Job/Repo/Writer는 UNVERIFIED.
+
+최소 시나리오는 **정상10건 E2E 1회**다. fault=none, 재발행/장애 주입/재시작은 제외한다.
+현재 2분 fixture 유효기간 때문에 Compute/권한/배포가 준비된 뒤 manifest와 snapshot을
+새로 만들고 2분 내 발행한다. 미확인 상태를 readiness READY로 채우지 않는다.
+
+실행 전 (현재 실행 금지):
+
+1. 사용자의 정상 재인증 후 위 read-only 항목, UC owner/grants/credential binding,
+   current Compute node/DBU/자동 종료/종료 권한, notebook 포함 다른 Writer를 확인한다.
+2. IAM delta·격리 table 생성·필요 UC grants·배포 및 실행/정리 범위와 예산을 승인받는다.
+   IAM 적용 전 기존 정책/이름 충돌을 기록하고 기존 정책은 덮어쓰지 않는다.
+3. 승인한 Compute 준비 후 새 UUID와 실제 SHA의 manifest/readiness를 만든다.
+   새 table은 §5.1의 10필드 DDL로 승인 후 생성하며 기존 table 재사용/replace 금지.
+   checkpoint가 이미 있으면 정상 최초 실행을 중단한다. 원본 경로는 조회/변경하지 않는다.
+4. Cloud snapshot이 세 topic bounds와 빈 run table을 확인한다. 실측 raw high, manifest,
+   readiness와 artifact를 배포해 같은 내용을 사용한다. bootstrap/topic metadata 실패,
+   registry 불일치/unknown schema가 존재하면 raw를 보내지 않는다.
+
+실행 중 (별도 승인 후 §5.2의 기존 명령 사용):
+
+5. 승인한 기존 EC2에서 STS raw role 확인 → publish10 → ACK/journal 저장 및 즉시 검토.
+   부분/불확실 ACK는 자동 재전송하지 않는다. 기존 EC2 패키지 누락 시 설치하지 않고 중단.
+6. ACK 이후 DBR run-job, fault=none, Query<=180초, Task600초/retry0.
+   실제 options/StreamingQueryProgress의 offset 범위를 기록한다.
+7. verify에서 raw bytes/ACK10, canonical4 fingerprint, validated최소5/Quarantine5 및
+   lineage/reasons를 검사한다. ACK만으로 PASS하지 않고 부족/불일치면 중단한다.
+8. query report/checkpoint commit·progress 증거를 수집한다. 정상 최초 실행에서는
+   checkpoint를 변경하거나 완료 fixture replay를 유도하지 않는다.
+
+실행 후 (성공·실패 공통):
+
+9. Consumer finally close, 해당 query inactive/stop, Task terminal 상태를 확인한다.
+10. 이번 승인 Compute만 종료 후 TERMINATED 확인, 시작한 EC2만 stopped 확인,
+    이번 IAM delta/임시 UC grant만 회수 후 조회한다. 원래 정책·권한은 유지한다.
+11. run table/checkpoint/artifact는 증빙으로 보존하고 자동 삭제하지 않는다. 실험 리소스
+    목록/잔여 비용/시작·종료 시각·credit/현금 사용을 기록한다. 정리 실패면 완료로 보고하지 않는다.
+
+비용 최신 관리 inventory는 EC2 3대 stopped, gp3 3개 총46GiB, EIP2개,
+NAT Gateway2개 available, MSK1개 ACTIVE다. ap-northeast-2/현재 AWS account 범위일
+뿐 다른 region/Databricks 관리 계정 자원이나 SQL warehouse 전체를 조사한 것은 아니다.
+NAT/기타 자원이 이 실험 전용인지 미확인이라 변경·삭제하지 않았다.
+
+| 비용 종류 | 실제 확인 / 추정 / 한계 |
+|---|---|
+| Databricks | 현재 Compute 후보0929-113111-cgu7k91c는 과거 자료. live node/DBU SKU/rate·credit·기지출 미확인. 금액 산출 BLOCKED |
+| AWS 지속 | 기존 MSK cluster/partition-hour·저장/traffic, NAT hour/data, EBS, 공인IPv4가 잔여 과금 후보. EC2 stopped가 전체 AWS 비용0을 뜻하지 않음 |
+| 단가 기반 일부 추정 | AWS 공인IPv4 list price $0.005/IP-hour. 조회된 EIP2개만 유지 시 $0.01/h, 30일720h $7.20 gross. 할인/credits/세금 및 다른IP 제외. E2E 신규 증가액이 아닌 기존 자원 추정 |
+| 최소 E2E | 새 topic/role/Compute 생성 없이 기존 EC2+DBR 사용. startup/snapshot/대기/검증/종료 포함 최대30분을 승인할 계획이나 실제 단가가 없어 전체 승인액은 미정 |
+| 프로젝트 목표 | Databricks 현금 누적+승인액 <=약$10. AWS/Confluent 비용은 별도다. AWS credit이 Databricks 계약 청구에 적용된다고 가정하지 않음 |
+
+[Databricks pricing](https://www.databricks.com/product/pricing),
+[MSK pricing](https://aws.amazon.com/msk/pricing/),
+[EBS pricing](https://aws.amazon.com/ebs/pricing/),
+[IPv4/NAT pricing](https://aws.amazon.com/vpc/pricing/).
+Seoul 단가로 확인하지 못한 MSK/NAT에 US East 예시 요금을 대입하지 않았다.
+계정 Billing/Credits 화면에서 credit eligibility/만료/잔액 및 실지출을 사용자가 확인해야 한다.
+요금과 Compute 정보를 확보한 뒤 `(DBU/h×net $/DBU + VM/h)×총시간`에 기존 AWS
+지속비용·traffic/storage를 별도 더하고 readiness 양식에 반영한다. 시간 제한은 현금 상한이 아니다.
+
+현재 요청할 수 있는 다음 단계는 **사용자의 ktd 정상 재인증**이다. 그 뒤 read-only
+관리 조회로 나머지 UC/배포/Writer/비용 조건을 채우고 위 정상1회 실행을 별도 승인한다.
+이번 작업은 IAM 적용/로그인/테이블 생성/Compute·EC2 시작/발행 없이 여기서 멈춘다.

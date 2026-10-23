@@ -1,0 +1,78 @@
+{
+  "scope": "P2-8k read-only resource inventory; not billing, cost or credit verification",
+  "captured_at": "2026-10-23T03:01:08.299792+00:00",
+  "region": "ap-northeast-2",
+  "calls": [
+    {
+      "operation": "ec2 describe-volumes",
+      "success": true
+    },
+    {
+      "operation": "ec2 describe-addresses",
+      "success": true
+    },
+    {
+      "operation": "ec2 describe-nat-gateways",
+      "success": true
+    },
+    {
+      "operation": "kafka list-clusters-v2",
+      "success": true
+    }
+  ],
+  "ebs": [
+    {
+      "VolumeId": "vol-0d41422e9517841ec",
+      "VolumeType": "gp3",
+      "Size": 30,
+      "State": "in-use",
+      "Encrypted": false
+    },
+    {
+      "VolumeId": "vol-011c4cad381879456",
+      "VolumeType": "gp3",
+      "Size": 8,
+      "State": "in-use",
+      "Encrypted": false
+    },
+    {
+      "VolumeId": "vol-07bfdb021de1900f2",
+      "VolumeType": "gp3",
+      "Size": 8,
+      "State": "in-use",
+      "Encrypted": false
+    }
+  ],
+  "eips": [
+    {
+      "AllocationId": "eipalloc-02c2bbfa08f1f20da",
+      "AssociationId": "eipassoc-0fdb7ee474988f516",
+      "Domain": "vpc"
+    },
+    {
+      "AllocationId": "eipalloc-0c8326e202cac064d",
+      "AssociationId": "eipassoc-0a9a477830aa457b1",
+      "Domain": "vpc"
+    }
+  ],
+  "nat": [
+    {
+      "NatGatewayId": "nat-04acfddc496fd144e",
+      "State": "available",
+      "VpcId": "vpc-097807d9351692806"
+    },
+    {
+      "NatGatewayId": "nat-04a269200987189f1",
+      "State": "available",
+      "VpcId": "vpc-0d04681c8530be6fe"
+    }
+  ],
+  "msk": [
+    {
+      "ClusterName": "ktd-msk-serverless",
+      "ClusterArn": "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2",
+      "State": "ACTIVE",
+      "ClusterType": "SERVERLESS"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "scope": "P2-8k LOCAL contract verification only; no live Kafka offsets",
+  "new_query": {
+    "assign": {
+      "kitchen.sensor.raw": [
+        0,
+        1,
+        2
+      ]
+    },
+    "startingOffsets_test_only": {
+      "kitchen.sensor.raw": {
+        "0": 50,
+        "1": 100,
+        "2": 75
+      }
+    },
+    "checkpoint": "/Volumes/ktd/silver/checkpoints/job2/e2e/p2i-33333333333333333333333333333333",
+    "failOnDataLoss": true,
+    "trigger": "availableNow",
+    "handler_input": "exact raw ACK partition/offset set only"
+  },
+  "order": [
+    "snapshot all topic bounds",
+    "publish all 10 fixtures and validate each ACK",
+    "run-job with fresh checkpoint",
+    "verify raw bytes/Delta/outputs"
+  ],
+  "same_checkpoint_restart": "Spark resumes committed/uncommitted source offsets; startingOffsets does not rewind it",
+  "current_live_offsets": null,
+  "first_checkpoint_absence_verified": false,
+  "negative_cases": [
+    "partition missing",
+    "ACK below snapshot high",
+    "ACK in unknown partition",
+    "boolean offset",
+    "low missing",
+    "snapshot not READY",
+    "topic missing"
+  ],
+  "query_before_publish": "BLOCKED; no ACK and availableNow may complete before fixture exists"
+}

@@ -422,6 +422,34 @@ def collect_bounds(consumer, topics):
     return result
 
 
+def validate_input_window(manifest, before, acks=None):
+    """세 partition snapshot과 ACK 하한을 Spark/발행 전에 검사한다."""
+    check_evidence(manifest, before)
+    if before.get("status") != "READY":
+        raise PreflightError("snapshot_not_ready")
+    bounds = before.get("bounds")
+    topics = set(manifest["contract"]["topics"].values())
+    if not isinstance(bounds, dict) or set(bounds) != topics:
+        raise PreflightError("snapshot_topic_set_mismatch")
+    for partitions in bounds.values():
+        if (not isinstance(partitions, dict)
+                or set(partitions) != {"0", "1", "2"}):
+            raise PreflightError("snapshot_partition_set_mismatch")
+        for row in partitions.values():
+            if not isinstance(row, dict) or set(row) != {"low", "high"}:
+                raise PreflightError("snapshot_bounds_incomplete")
+    validate_bounds(bounds, bounds)
+    raw = bounds[manifest["contract"]["topics"]["raw"]]
+    if acks is not None:
+        validate_acks(manifest, acks)
+        for ack in acks:
+            partition = str(ack["partition"])
+            if (partition not in raw
+                    or ack["offset"] < raw[partition]["high"]):
+                raise PreflightError("raw_ack_outside_start_window")
+    return raw
+
+
 def read_window(consumer, before, after, timeout=60, limit=10000):
     """수동 assign과 명시 offset만 사용한다. commit/subscribe 호출은 없다."""
     from confluent_kafka import KafkaError, TopicPartition
@@ -726,9 +754,7 @@ def check_raw_principal(expected_role, region, client=None):
 def publish(manifest, before, output, produce=None, attempt_path=None,
             caller_principal=None):
     """시도 파일을 먼저 저장하고 불명확한 전달은 자동 재전송하지 않는다."""
-    check_evidence(manifest, before)
-    if before.get("status") != "READY":
-        raise PreflightError("snapshot_not_ready")
+    raw = validate_input_window(manifest, before)
     age = datetime.now(timezone.utc) - timestamp(manifest["reference_time"])
     if not timedelta(0) <= age <= timedelta(minutes=2):
         raise PreflightError("fixture_expired_regenerate_with_new_run_id")
@@ -762,6 +788,9 @@ def publish(manifest, before, output, produce=None, attempt_path=None,
             # 부분 ACK도 즉시 타입·순서를 검사하고 불명확한 결과는 중단한다.
             prefix = {**manifest, "cases": manifest["cases"][:len(acks)]}
             validate_acks(prefix, acks)
+            if (str(ack.partition) not in raw
+                    or ack.offset < raw[str(ack.partition)]["high"]):
+                raise PreflightError("raw_ack_outside_start_window")
             append_json(output.with_suffix(".journal.jsonl"), dict(
                 state="ACKED", **acks[-1],
             ))
@@ -794,6 +823,7 @@ def run_job(manifest, acks, before, config_path, spark, fault="none",
         raise PreflightError("query_timeout_must_not_exceed_180")
     if spark.streams.active:
         raise PreflightError("shared_session_has_active_queries")
+    raw_bounds = validate_input_window(manifest, before, acks)
     contract = manifest["contract"]
     # table/Volume 생성은 하지 않는다. grants/schema는 기존 adapter가 검사한다.
     read_silver(spark, manifest)
@@ -848,7 +878,6 @@ def run_job(manifest, acks, before, config_path, spark, fault="none",
     options = settings.kafka.spark_options(config.source)
     options.pop("subscribe", None)
     raw_topic = contract["topics"]["raw"]
-    raw_bounds = before["bounds"][raw_topic]
     options["assign"] = json.dumps({raw_topic: [int(p) for p in raw_bounds]})
     options["startingOffsets"] = json.dumps({raw_topic: {
         partition: bounds["high"] for partition, bounds in raw_bounds.items()

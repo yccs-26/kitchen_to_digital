@@ -211,7 +211,7 @@ def test_partial_publish_is_journaled_and_not_retried(tmp_path):
     manifest = tools.make_manifest(
         CONFIG, RUN_ID, datetime.now(timezone.utc).isoformat(), 1,
     )
-    before = {**tools.identity(manifest), "status": "READY"}
+    before = snapshot_for(manifest)
     output = tmp_path / "acks.json"
     produce = Mock(side_effect=[SimpleNamespace(
         topic=manifest["contract"]["topics"]["raw"], partition=1, offset=100,
@@ -380,11 +380,7 @@ def test_job_harness_reuses_handler_and_stops_query(
                         ))
     handler = Mock(return_value={"received": 10})
     monkeypatch.setattr(job, "make_batch_handler", Mock(return_value=handler))
-    before = {**tools.identity(manifest), "bounds": {
-        manifest["contract"]["topics"]["raw"]: {
-            "1": {"low": 0, "high": 100},
-        },
-    }}
+    before = snapshot_for(manifest)
     result = tools.run_job(manifest, acks_for(manifest), before,
                            CONFIG, spark, timeout=1)
     assert result["status"] == (
@@ -394,6 +390,16 @@ def test_job_harness_reuses_handler_and_stops_query(
         "checkpointLocation", manifest["contract"]["checkpoint"],
     )
     query.stop.assert_called_once()
+    source_options = spark.readStream.format.return_value.options.call_args
+    options = source_options.kwargs
+    raw = manifest["contract"]["topics"]["raw"]
+    assert json.loads(options["assign"]) == {raw: [0, 1, 2]}
+    assert json.loads(options["startingOffsets"]) == {
+        raw: {"0": 50, "1": 100, "2": 75},
+    }
+    assert options["failOnDataLoss"] == "true"
+    assert "subscribe" not in options and "kafka.group.id" not in options
+    writer.trigger.assert_called_once_with(availableNow=True)
     batch = MagicMock()
     batch.where.return_value.isEmpty.return_value = False
     writer.foreachBatch.call_args.args[0](batch, 0)
@@ -468,11 +474,7 @@ def test_isolated_faults_fail_and_restore_patches(mode, monkeypatch):
         CONFIG, RUN_ID, NOW, 1,
         silver_table="ktd.silver.sensor_validated_e2e_" + RUN_ID[4:],
     )
-    before = {**tools.identity(manifest), "bounds": {
-        manifest["contract"]["topics"]["raw"]: {
-            "1": {"low": 0, "high": 100},
-        },
-    }}
+    before = snapshot_for(manifest)
     spark = MagicMock()
     spark.streams.active = []
     query = MagicMock()
@@ -761,3 +763,92 @@ def test_job_request_credential_typo_rejected(manifest, readiness):
             "/Workspace/example/scripts/phase2/cloud_e2e.py",
             parameters, readiness,
         )
+
+
+def snapshot_for(manifest):
+    return dict(
+        **tools.identity(manifest), status="READY",
+        bounds={topic: {
+            str(p): dict(low=0, high=high)
+            for p, high in enumerate((50, 100, 75))
+        } for topic in manifest["contract"]["topics"].values()},
+    )
+
+
+@pytest.mark.parametrize("problem", [
+    "missing_partition", "ack_before_start", "ack_wrong_partition",
+    "boolean_offset", "missing_low", "snapshot_not_ready", "missing_topic",
+])
+def test_invalid_raw_window_rejected_before_spark(
+    manifest, monkeypatch, problem,
+):
+    from unittest.mock import MagicMock
+    before, acks = snapshot_for(manifest), acks_for(manifest)
+    raw = manifest["contract"]["topics"]["raw"]
+    if problem == "missing_partition":
+        del before["bounds"][raw]["2"]
+    elif problem == "ack_before_start":
+        for ack in acks:
+            ack["offset"] -= 1
+    elif problem == "ack_wrong_partition":
+        for ack in acks:
+            ack["partition"] = 3
+    elif problem == "boolean_offset":
+        before["bounds"][raw]["0"]["low"] = False
+    elif problem == "missing_low":
+        del before["bounds"][raw]["0"]["low"]
+    elif problem == "snapshot_not_ready":
+        before["status"] = "FAILED"
+    else:
+        del before["bounds"][manifest["contract"]["topics"]["validated"]]
+    spark = MagicMock()
+    spark.streams.active = []
+    read = Mock(side_effect=AssertionError("must reject before Spark IO"))
+    monkeypatch.setattr(tools, "read_silver", read)
+    with pytest.raises(tools.PreflightError):
+        tools.run_job(manifest, acks, before, CONFIG, spark)
+    read.assert_not_called()
+    spark.readStream.format.assert_not_called()
+
+
+def test_publish_invalid_snapshot_never_attempts(manifest, tmp_path):
+    producer = Mock()
+    before = snapshot_for(manifest)
+    del before["bounds"][manifest["contract"]["topics"]["raw"]]["2"]
+    with pytest.raises(tools.PreflightError, match="partition_set"):
+        tools.publish(manifest, before, tmp_path / "acks.json", producer)
+    producer.assert_not_called()
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("partition,offset", [(3, 100), (1, 99)])
+def test_publish_invalid_ack_window_stops_after_one_attempt(
+    tmp_path, partition, offset,
+):
+    manifest = tools.make_manifest(
+        CONFIG, RUN_ID, datetime.now(timezone.utc).isoformat(), 1,
+    )
+    producer = Mock(return_value=SimpleNamespace(
+        topic=manifest["contract"]["topics"]["raw"],
+        partition=partition, offset=offset,
+    ))
+    output = tmp_path / "acks.json"
+    with pytest.raises(tools.PreflightError, match="no_resend"):
+        tools.publish(manifest, snapshot_for(manifest), output, producer)
+    producer.assert_called_once()
+    assert json.loads(output.read_text())["status"] == "UNCONFIRMED"
+    assert (tmp_path / (RUN_ID + ".publish.lock")).exists()
+
+
+@pytest.mark.parametrize("mismatch", ["commit", "source"])
+def test_deployed_commit_or_artifact_mismatch_blocks_load(
+    manifest, tmp_path, mismatch,
+):
+    if mismatch == "commit":
+        manifest["deployment_sha"] = "0" * 40
+    else:
+        manifest["source_sha256"]["scripts/phase2/cloud_e2e.py"] = "0" * 64
+    path = tmp_path / "manifest.json"
+    tools.write_json(path, manifest)
+    with pytest.raises(tools.PreflightError, match="mismatch"):
+        tools.load_manifest(path, CONFIG)

@@ -1,0 +1,404 @@
+{
+  "scope": "P2-8k read-only AWS management and identity-policy simulation; not broker proof",
+  "captured_at": "2026-10-23T02:57:00.905832+00:00",
+  "calls": [
+    {
+      "operation": "sts get-caller-identity",
+      "success": true
+    },
+    {
+      "operation": "kafka describe-cluster-v2",
+      "success": true
+    },
+    {
+      "operation": "ec2 describe-instances",
+      "success": true
+    },
+    {
+      "operation": "iam get-role",
+      "success": true
+    },
+    {
+      "operation": "iam list-role-policies",
+      "success": true
+    },
+    {
+      "operation": "iam get-role-policy",
+      "success": true
+    },
+    {
+      "operation": "iam list-attached-role-policies",
+      "success": true
+    },
+    {
+      "operation": "iam get-role",
+      "success": true
+    },
+    {
+      "operation": "iam list-role-policies",
+      "success": true
+    },
+    {
+      "operation": "iam get-role-policy",
+      "success": true
+    },
+    {
+      "operation": "iam list-attached-role-policies",
+      "success": true
+    },
+    {
+      "operation": "iam get-role",
+      "success": true
+    },
+    {
+      "operation": "iam list-role-policies",
+      "success": true
+    },
+    {
+      "operation": "iam get-role-policy",
+      "success": true
+    },
+    {
+      "operation": "iam list-attached-role-policies",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy single resource",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy single resource",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy single resource",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy single resource",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy single resource",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy single resource",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy single resource",
+      "success": true
+    },
+    {
+      "operation": "iam simulate-principal-policy single resource",
+      "success": true
+    }
+  ],
+  "roles": {
+    "ktd-msk-producer-role": {
+      "Arn": "arn:aws:iam::048715026902:role/ktd-msk-producer-role",
+      "PermissionsBoundary": null,
+      "trust_principals": [
+        {
+          "Service": "ec2.amazonaws.com"
+        }
+      ],
+      "policies": {
+        "ktd-msk-producer-policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "ConnectToKtdMsk",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:Connect"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+              ]
+            },
+            {
+              "Sid": "CreateAndWriteSensorTopic",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:CreateTopic",
+                "kafka-cluster:DescribeTopic",
+                "kafka-cluster:WriteData"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.raw"
+              ]
+            }
+          ]
+        }
+      },
+      "attached_policy_arns": [
+        "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      ]
+    },
+    "ktd-msk-job2-producer-role": {
+      "Arn": "arn:aws:iam::048715026902:role/ktd-msk-job2-producer-role",
+      "PermissionsBoundary": null,
+      "trust_principals": [
+        {
+          "AWS": "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL"
+        },
+        {
+          "AWS": "arn:aws:iam::048715026902:role/ktd-msk-job2-producer-role"
+        }
+      ],
+      "policies": {
+        "ktd-msk-job2-producer-policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "ConnectToKtdMsk",
+              "Effect": "Allow",
+              "Action": "kafka-cluster:Connect",
+              "Resource": "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+            },
+            {
+              "Sid": "WriteJob2OutputTopics",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:DescribeTopic",
+                "kafka-cluster:WriteData"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+                "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine"
+              ]
+            }
+          ]
+        }
+      },
+      "attached_policy_arns": []
+    },
+    "ktd-databricks-msk-consumer-role": {
+      "Arn": "arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role",
+      "PermissionsBoundary": null,
+      "trust_principals": [
+        {
+          "AWS": [
+            "arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role",
+            "arn:aws:iam::414351767826:role/unity-catalog-prod-UCMasterRole-14S5ZJVKOTYTL"
+          ]
+        }
+      ],
+      "policies": {
+        "ktd-msk-consumer-policy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "ConnectToKtdMsk",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:Connect"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+              ]
+            },
+            {
+              "Sid": "ReadKitchenSensorRaw",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:DescribeTopic",
+                "kafka-cluster:ReadData"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.raw"
+              ]
+            },
+            {
+              "Sid": "UseConsumerGroups",
+              "Effect": "Allow",
+              "Action": [
+                "kafka-cluster:DescribeGroup",
+                "kafka-cluster:AlterGroup"
+              ],
+              "Resource": [
+                "arn:aws:kafka:ap-northeast-2:048715026902:group/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/*"
+              ]
+            },
+            {
+              "Sid": "AllowSelfAssumeRole",
+              "Effect": "Allow",
+              "Action": "sts:AssumeRole",
+              "Resource": "arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role"
+            }
+          ]
+        }
+      },
+      "attached_policy_arns": []
+    }
+  },
+  "simulations": [
+    {
+      "stage": "current",
+      "action": "kafka-cluster:Connect",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2",
+      "decision": "allowed",
+      "missing_context": []
+    },
+    {
+      "stage": "current",
+      "action": "kafka-cluster:DescribeGroup",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:group/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/ktd-p2e2e-33333333333333333333333333333333",
+      "decision": "allowed",
+      "missing_context": []
+    },
+    {
+      "stage": "current",
+      "action": "kafka-cluster:AlterGroup",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:group/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/ktd-p2e2e-33333333333333333333333333333333",
+      "decision": "allowed",
+      "missing_context": []
+    },
+    {
+      "stage": "with_proposed_delta",
+      "action": "kafka-cluster:Connect",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2",
+      "decision": "allowed",
+      "missing_context": []
+    },
+    {
+      "stage": "with_proposed_delta",
+      "action": "kafka-cluster:DescribeGroup",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:group/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/ktd-p2e2e-33333333333333333333333333333333",
+      "decision": "allowed",
+      "missing_context": []
+    },
+    {
+      "stage": "with_proposed_delta",
+      "action": "kafka-cluster:AlterGroup",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:group/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/ktd-p2e2e-33333333333333333333333333333333",
+      "decision": "allowed",
+      "missing_context": []
+    },
+    {
+      "stage": "current",
+      "action": "kafka-cluster:DescribeTopic",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+      "decision": "implicitDeny",
+      "missing_context": []
+    },
+    {
+      "stage": "current",
+      "action": "kafka-cluster:ReadData",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+      "decision": "implicitDeny",
+      "missing_context": []
+    },
+    {
+      "stage": "current",
+      "action": "kafka-cluster:DescribeTopic",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine",
+      "decision": "implicitDeny",
+      "missing_context": []
+    },
+    {
+      "stage": "current",
+      "action": "kafka-cluster:ReadData",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine",
+      "decision": "implicitDeny",
+      "missing_context": []
+    },
+    {
+      "stage": "with_proposed_delta",
+      "action": "kafka-cluster:DescribeTopic",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+      "decision": "allowed",
+      "missing_context": []
+    },
+    {
+      "stage": "with_proposed_delta",
+      "action": "kafka-cluster:ReadData",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+      "decision": "allowed",
+      "missing_context": []
+    },
+    {
+      "stage": "with_proposed_delta",
+      "action": "kafka-cluster:DescribeTopic",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine",
+      "decision": "allowed",
+      "missing_context": []
+    },
+    {
+      "stage": "with_proposed_delta",
+      "action": "kafka-cluster:ReadData",
+      "resource": "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine",
+      "decision": "allowed",
+      "missing_context": []
+    }
+  ],
+  "proposed_reader_role": "ktd-databricks-msk-consumer-role",
+  "proposed_reader_credential": "ktd-msk-consumer",
+  "example_group_arn": "arn:aws:kafka:ap-northeast-2:048715026902:group/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/ktd-p2e2e-33333333333333333333333333333333",
+  "principal": {
+    "Arn": "arn:aws:iam::048715026902:user/chan",
+    "Account": "048715026902"
+  },
+  "cluster": {
+    "ClusterArn": "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2",
+    "State": "ACTIVE",
+    "ClusterType": "SERVERLESS"
+  },
+  "instances": [
+    {
+      "InstanceId": "i-015756b1f9e82c805",
+      "InstanceType": "t3.micro",
+      "State": {
+        "Code": 80,
+        "Name": "stopped"
+      }
+    },
+    {
+      "InstanceId": "i-0fefefd78477ce144",
+      "InstanceType": "t3.micro",
+      "State": {
+        "Code": 80,
+        "Name": "stopped"
+      }
+    },
+    {
+      "InstanceId": "i-08e374efb0c31160d",
+      "InstanceType": "t3.micro",
+      "State": {
+        "Code": 80,
+        "Name": "stopped"
+      },
+      "IamInstanceProfile": {
+        "Arn": "arn:aws:iam::048715026902:instance-profile/ktd-msk-producer-role",
+        "Id": "AIPAQWV5EKHLH55F65F5I"
+      }
+    }
+  ],
+  "simulation_note": "Topic simulations repeated one resource per call; aggregated placeholder summaries discarded. Identity-policy results are not broker proof."
+}

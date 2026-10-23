@@ -1,0 +1,64 @@
+{
+  "scope": "P2-8k read-only authentication diagnosis; no token creation or replacement",
+  "captured_at": "2026-10-23T02:55:09.523932+00:00",
+  "profile": "ktd",
+  "host": "https://dbc-1c3b2d11-7408.cloud.databricks.com",
+  "cli_version": "1.18.0",
+  "workspace_api": "GET /api/2.0/preview/scim/v2/Me",
+  "calls": [
+    {
+      "command": [
+        "databricks",
+        "auth",
+        "describe",
+        "--profile",
+        "ktd",
+        "--output",
+        "json"
+      ],
+      "returncode": 0,
+      "configuration_fields": [
+        "details",
+        "error",
+        "status",
+        "token_storage"
+      ]
+    },
+    {
+      "command": [
+        "databricks",
+        "current-user",
+        "me",
+        "--profile",
+        "ktd",
+        "--output",
+        "json"
+      ],
+      "returncode": 1,
+      "error_indicators": {
+        "refresh": true
+      },
+      "http_status_codes": [],
+      "safe_diagnostics": []
+    }
+  ],
+  "dns": {
+    "success": true
+  },
+  "tls": {
+    "success": true,
+    "version": "TLSv1.3",
+    "certificate_verified": true
+  },
+  "auth_describe_non_sensitive": {
+    "status": "error",
+    "error": "{}",
+    "token_storage": "{'mode': 'secure', 'location': 'OS keyring (service: databricks-cli)', 'source': 'auth_storage in [__settings__] section of /Users/uchan/.databrickscfg'}",
+    "detail_field_names": [
+      "auth_type",
+      "configuration",
+      "host"
+    ]
+  },
+  "auth_describe_safe_text": "Unable to authenticate: A new access token could not be retrieved because the refresh token is invalid. To reauthenticate, run the following command:\n  $ databricks auth login --profile ktd\nToken storage: secure, OS keyring (service: databricks-cli) (from auth_storage in [__settings__] section of /Users/uchan/.databrickscfg)\n-----\nCurrent configuration:\n  \u2713 host: https://dbc-1c3b2d11-7408.cloud.databricks.com (from /Users/uchan/.databrickscfg config file)\n  \u2713 account_id: 3e3b7cdb-6766-4a83-81fb-3e0b2eeb8449 (from /Users/uchan/.databrickscfg config file)\n  \u2713 workspace_id: 7474648508646287 (from /Users/uchan/.databrickscfg config file)\n  \u2713 profile: ktd (from --profile flag)\n  \u2713 auth_type: databricks-cli (from /Users/uchan/.databrickscfg config file)\n  \u2713 cloud: AWS\n  \u2713 audience: https://dbc-1c3b2d11-7408.cloud.databricks.com/oidc/v1/token\n  \u2713 discovery_url: https://dbc-1c3b2d11-7408.cloud.databricks.com/oidc/.well-known/oauth-authorization-server\n\n"
+}

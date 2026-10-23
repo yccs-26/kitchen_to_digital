@@ -1,0 +1,565 @@
+P2-8k LOCAL verification logs; no Cloud data access.
+
+LOG baseline
+........................................................................ [  8%]
+........................................................................ [ 17%]
+........................................................................ [ 26%]
+........................................................................ [ 35%]
+........................................................................ [ 43%]
+........................................................................ [ 52%]
+........................................................................ [ 61%]
+........................................................................ [ 70%]
+........................................................................ [ 78%]
+........................................................................ [ 87%]
+...............................ssss..................................... [ 96%]
+.......................sssssss                                           [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+811 passed, 11 skipped, 1 warning in 2.97s
+
+LOG red
+FFFFFFF                                                                  [100%]
+=================================== FAILURES ===================================
+_______ test_invalid_raw_window_rejected_before_spark[missing_partition] _______
+
+manifest = {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bab3490>
+problem = 'missing_partition'
+
+    @pytest.mark.parametrize("problem", [
+        "missing_partition", "ack_before_start", "ack_wrong_partition",
+        "boolean_offset", "missing_low", "snapshot_not_ready", "missing_topic",
+    ])
+    def test_invalid_raw_window_rejected_before_spark(
+        manifest, monkeypatch, problem,
+    ):
+        from unittest.mock import MagicMock
+        before, acks = snapshot_for(manifest), acks_for(manifest)
+        raw = manifest["contract"]["topics"]["raw"]
+        if problem == "missing_partition":
+            del before["bounds"][raw]["2"]
+        elif problem == "ack_before_start":
+            for ack in acks:
+                ack["offset"] -= 1
+        elif problem == "ack_wrong_partition":
+            for ack in acks:
+                ack["partition"] = 3
+        elif problem == "boolean_offset":
+            before["bounds"][raw]["0"]["low"] = False
+        elif problem == "missing_low":
+            del before["bounds"][raw]["0"]["low"]
+        elif problem == "snapshot_not_ready":
+            before["status"] = "FAILED"
+        else:
+            del before["bounds"][manifest["contract"]["topics"]["validated"]]
+        spark = MagicMock()
+        spark.streams.active = []
+        read = Mock(side_effect=AssertionError("must reject before Spark IO"))
+        monkeypatch.setattr(tools, "read_silver", read)
+        with pytest.raises(tools.PreflightError):
+>           tools.run_job(manifest, acks, before, CONFIG, spark)
+
+tests/integration/test_job2_cloud_e2e_tools.py:807:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts/phase2/cloud_e2e.py:799: in run_job
+    read_silver(spark, manifest)
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1124: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1128: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Mock id='4482969680'>
+args = (<MagicMock id='4494261968'>, {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...})
+kwargs = {}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               AssertionError: must reject before Spark IO
+
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1183: AssertionError
+_______ test_invalid_raw_window_rejected_before_spark[ack_before_start] ________
+
+manifest = {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bd73290>
+problem = 'ack_before_start'
+
+    @pytest.mark.parametrize("problem", [
+        "missing_partition", "ack_before_start", "ack_wrong_partition",
+        "boolean_offset", "missing_low", "snapshot_not_ready", "missing_topic",
+    ])
+    def test_invalid_raw_window_rejected_before_spark(
+        manifest, monkeypatch, problem,
+    ):
+        from unittest.mock import MagicMock
+        before, acks = snapshot_for(manifest), acks_for(manifest)
+        raw = manifest["contract"]["topics"]["raw"]
+        if problem == "missing_partition":
+            del before["bounds"][raw]["2"]
+        elif problem == "ack_before_start":
+            for ack in acks:
+                ack["offset"] -= 1
+        elif problem == "ack_wrong_partition":
+            for ack in acks:
+                ack["partition"] = 3
+        elif problem == "boolean_offset":
+            before["bounds"][raw]["0"]["low"] = False
+        elif problem == "missing_low":
+            del before["bounds"][raw]["0"]["low"]
+        elif problem == "snapshot_not_ready":
+            before["status"] = "FAILED"
+        else:
+            del before["bounds"][manifest["contract"]["topics"]["validated"]]
+        spark = MagicMock()
+        spark.streams.active = []
+        read = Mock(side_effect=AssertionError("must reject before Spark IO"))
+        monkeypatch.setattr(tools, "read_silver", read)
+        with pytest.raises(tools.PreflightError):
+>           tools.run_job(manifest, acks, before, CONFIG, spark)
+
+tests/integration/test_job2_cloud_e2e_tools.py:807:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts/phase2/cloud_e2e.py:799: in run_job
+    read_silver(spark, manifest)
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1124: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1128: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Mock id='4493761104'>
+args = (<MagicMock id='4495218448'>, {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...})
+kwargs = {}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               AssertionError: must reject before Spark IO
+
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1183: AssertionError
+______ test_invalid_raw_window_rejected_before_spark[ack_wrong_partition] ______
+
+manifest = {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cb5cad0>
+problem = 'ack_wrong_partition'
+
+    @pytest.mark.parametrize("problem", [
+        "missing_partition", "ack_before_start", "ack_wrong_partition",
+        "boolean_offset", "missing_low", "snapshot_not_ready", "missing_topic",
+    ])
+    def test_invalid_raw_window_rejected_before_spark(
+        manifest, monkeypatch, problem,
+    ):
+        from unittest.mock import MagicMock
+        before, acks = snapshot_for(manifest), acks_for(manifest)
+        raw = manifest["contract"]["topics"]["raw"]
+        if problem == "missing_partition":
+            del before["bounds"][raw]["2"]
+        elif problem == "ack_before_start":
+            for ack in acks:
+                ack["offset"] -= 1
+        elif problem == "ack_wrong_partition":
+            for ack in acks:
+                ack["partition"] = 3
+        elif problem == "boolean_offset":
+            before["bounds"][raw]["0"]["low"] = False
+        elif problem == "missing_low":
+            del before["bounds"][raw]["0"]["low"]
+        elif problem == "snapshot_not_ready":
+            before["status"] = "FAILED"
+        else:
+            del before["bounds"][manifest["contract"]["topics"]["validated"]]
+        spark = MagicMock()
+        spark.streams.active = []
+        read = Mock(side_effect=AssertionError("must reject before Spark IO"))
+        monkeypatch.setattr(tools, "read_silver", read)
+        with pytest.raises(tools.PreflightError):
+>           tools.run_job(manifest, acks, before, CONFIG, spark)
+
+tests/integration/test_job2_cloud_e2e_tools.py:807:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts/phase2/cloud_e2e.py:799: in run_job
+    read_silver(spark, manifest)
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1124: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1128: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Mock id='4508212496'>
+args = (<MagicMock id='4508212944'>, {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...})
+kwargs = {}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               AssertionError: must reject before Spark IO
+
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1183: AssertionError
+________ test_invalid_raw_window_rejected_before_spark[boolean_offset] _________
+
+manifest = {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cc16750>
+problem = 'boolean_offset'
+
+    @pytest.mark.parametrize("problem", [
+        "missing_partition", "ack_before_start", "ack_wrong_partition",
+        "boolean_offset", "missing_low", "snapshot_not_ready", "missing_topic",
+    ])
+    def test_invalid_raw_window_rejected_before_spark(
+        manifest, monkeypatch, problem,
+    ):
+        from unittest.mock import MagicMock
+        before, acks = snapshot_for(manifest), acks_for(manifest)
+        raw = manifest["contract"]["topics"]["raw"]
+        if problem == "missing_partition":
+            del before["bounds"][raw]["2"]
+        elif problem == "ack_before_start":
+            for ack in acks:
+                ack["offset"] -= 1
+        elif problem == "ack_wrong_partition":
+            for ack in acks:
+                ack["partition"] = 3
+        elif problem == "boolean_offset":
+            before["bounds"][raw]["0"]["low"] = False
+        elif problem == "missing_low":
+            del before["bounds"][raw]["0"]["low"]
+        elif problem == "snapshot_not_ready":
+            before["status"] = "FAILED"
+        else:
+            del before["bounds"][manifest["contract"]["topics"]["validated"]]
+        spark = MagicMock()
+        spark.streams.active = []
+        read = Mock(side_effect=AssertionError("must reject before Spark IO"))
+        monkeypatch.setattr(tools, "read_silver", read)
+        with pytest.raises(tools.PreflightError):
+>           tools.run_job(manifest, acks, before, CONFIG, spark)
+
+tests/integration/test_job2_cloud_e2e_tools.py:807:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts/phase2/cloud_e2e.py:799: in run_job
+    read_silver(spark, manifest)
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1124: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1128: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Mock id='4508974672'>
+args = (<MagicMock id='4508974736'>, {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...})
+kwargs = {}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               AssertionError: must reject before Spark IO
+
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1183: AssertionError
+__________ test_invalid_raw_window_rejected_before_spark[missing_low] __________
+
+manifest = {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b3a7550>
+problem = 'missing_low'
+
+    @pytest.mark.parametrize("problem", [
+        "missing_partition", "ack_before_start", "ack_wrong_partition",
+        "boolean_offset", "missing_low", "snapshot_not_ready", "missing_topic",
+    ])
+    def test_invalid_raw_window_rejected_before_spark(
+        manifest, monkeypatch, problem,
+    ):
+        from unittest.mock import MagicMock
+        before, acks = snapshot_for(manifest), acks_for(manifest)
+        raw = manifest["contract"]["topics"]["raw"]
+        if problem == "missing_partition":
+            del before["bounds"][raw]["2"]
+        elif problem == "ack_before_start":
+            for ack in acks:
+                ack["offset"] -= 1
+        elif problem == "ack_wrong_partition":
+            for ack in acks:
+                ack["partition"] = 3
+        elif problem == "boolean_offset":
+            before["bounds"][raw]["0"]["low"] = False
+        elif problem == "missing_low":
+            del before["bounds"][raw]["0"]["low"]
+        elif problem == "snapshot_not_ready":
+            before["status"] = "FAILED"
+        else:
+            del before["bounds"][manifest["contract"]["topics"]["validated"]]
+        spark = MagicMock()
+        spark.streams.active = []
+        read = Mock(side_effect=AssertionError("must reject before Spark IO"))
+        monkeypatch.setattr(tools, "read_silver", read)
+        with pytest.raises(tools.PreflightError):
+>           tools.run_job(manifest, acks, before, CONFIG, spark)
+
+tests/integration/test_job2_cloud_e2e_tools.py:807:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts/phase2/cloud_e2e.py:799: in run_job
+    read_silver(spark, manifest)
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1124: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1128: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Mock id='4494959696'>
+args = (<MagicMock id='4494960784'>, {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...})
+kwargs = {}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               AssertionError: must reject before Spark IO
+
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1183: AssertionError
+______ test_invalid_raw_window_rejected_before_spark[snapshot_not_ready] _______
+
+manifest = {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10be0f750>
+problem = 'snapshot_not_ready'
+
+    @pytest.mark.parametrize("problem", [
+        "missing_partition", "ack_before_start", "ack_wrong_partition",
+        "boolean_offset", "missing_low", "snapshot_not_ready", "missing_topic",
+    ])
+    def test_invalid_raw_window_rejected_before_spark(
+        manifest, monkeypatch, problem,
+    ):
+        from unittest.mock import MagicMock
+        before, acks = snapshot_for(manifest), acks_for(manifest)
+        raw = manifest["contract"]["topics"]["raw"]
+        if problem == "missing_partition":
+            del before["bounds"][raw]["2"]
+        elif problem == "ack_before_start":
+            for ack in acks:
+                ack["offset"] -= 1
+        elif problem == "ack_wrong_partition":
+            for ack in acks:
+                ack["partition"] = 3
+        elif problem == "boolean_offset":
+            before["bounds"][raw]["0"]["low"] = False
+        elif problem == "missing_low":
+            del before["bounds"][raw]["0"]["low"]
+        elif problem == "snapshot_not_ready":
+            before["status"] = "FAILED"
+        else:
+            del before["bounds"][manifest["contract"]["topics"]["validated"]]
+        spark = MagicMock()
+        spark.streams.active = []
+        read = Mock(side_effect=AssertionError("must reject before Spark IO"))
+        monkeypatch.setattr(tools, "read_silver", read)
+        with pytest.raises(tools.PreflightError):
+>           tools.run_job(manifest, acks, before, CONFIG, spark)
+
+tests/integration/test_job2_cloud_e2e_tools.py:807:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts/phase2/cloud_e2e.py:799: in run_job
+    read_silver(spark, manifest)
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1124: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1128: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Mock id='4505751824'>
+args = (<MagicMock id='4505754128'>, {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...})
+kwargs = {}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               AssertionError: must reject before Spark IO
+
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1183: AssertionError
+_________ test_invalid_raw_window_rejected_before_spark[missing_topic] _________
+
+manifest = {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bd9f250>
+problem = 'missing_topic'
+
+    @pytest.mark.parametrize("problem", [
+        "missing_partition", "ack_before_start", "ack_wrong_partition",
+        "boolean_offset", "missing_low", "snapshot_not_ready", "missing_topic",
+    ])
+    def test_invalid_raw_window_rejected_before_spark(
+        manifest, monkeypatch, problem,
+    ):
+        from unittest.mock import MagicMock
+        before, acks = snapshot_for(manifest), acks_for(manifest)
+        raw = manifest["contract"]["topics"]["raw"]
+        if problem == "missing_partition":
+            del before["bounds"][raw]["2"]
+        elif problem == "ack_before_start":
+            for ack in acks:
+                ack["offset"] -= 1
+        elif problem == "ack_wrong_partition":
+            for ack in acks:
+                ack["partition"] = 3
+        elif problem == "boolean_offset":
+            before["bounds"][raw]["0"]["low"] = False
+        elif problem == "missing_low":
+            del before["bounds"][raw]["0"]["low"]
+        elif problem == "snapshot_not_ready":
+            before["status"] = "FAILED"
+        else:
+            del before["bounds"][manifest["contract"]["topics"]["validated"]]
+        spark = MagicMock()
+        spark.streams.active = []
+        read = Mock(side_effect=AssertionError("must reject before Spark IO"))
+        monkeypatch.setattr(tools, "read_silver", read)
+        with pytest.raises(tools.PreflightError):
+>           tools.run_job(manifest, acks, before, CONFIG, spark)
+
+tests/integration/test_job2_cloud_e2e_tools.py:807:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts/phase2/cloud_e2e.py:799: in run_job
+    read_silver(spark, manifest)
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1124: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1128: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Mock id='4493620560'>
+args = (<MagicMock id='4496262736'>, {'version': 1, 'run_id': 'p2i-11111111111111111111111111111111', 'reference_time': '2026-10-23T00:00:00+00:00', 'schema_id': 1, ...})
+kwargs = {}
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               AssertionError: must reject before Spark IO
+
+../../../../.local/share/uv/python/cpython-3.11.15-macos-aarch64-none/lib/python3.11/unittest/mock.py:1183: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_job2_cloud_e2e_tools.py::test_invalid_raw_window_rejected_before_spark[missing_partition]
+FAILED tests/integration/test_job2_cloud_e2e_tools.py::test_invalid_raw_window_rejected_before_spark[ack_before_start]
+FAILED tests/integration/test_job2_cloud_e2e_tools.py::test_invalid_raw_window_rejected_before_spark[ack_wrong_partition]
+FAILED tests/integration/test_job2_cloud_e2e_tools.py::test_invalid_raw_window_rejected_before_spark[boolean_offset]
+FAILED tests/integration/test_job2_cloud_e2e_tools.py::test_invalid_raw_window_rejected_before_spark[missing_low]
+FAILED tests/integration/test_job2_cloud_e2e_tools.py::test_invalid_raw_window_rejected_before_spark[snapshot_not_ready]
+FAILED tests/integration/test_job2_cloud_e2e_tools.py::test_invalid_raw_window_rejected_before_spark[missing_topic]
+7 failed, 60 deselected, 1 warning in 0.64s
+
+LOG green
+.......                                                                  [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+7 passed, 60 deselected, 1 warning in 0.28s
+
+LOG tools
+...................................................................      [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+67 passed, 1 warning in 1.03s
+
+LOG final
+........................................................................ [  8%]
+........................................................................ [ 17%]
+........................................................................ [ 25%]
+........................................................................ [ 34%]
+........................................................................ [ 43%]
+........................................................................ [ 51%]
+........................................................................ [ 60%]
+........................................................................ [ 69%]
+........................................................................ [ 77%]
+........................................................................ [ 86%]
+...............................ssss..................................... [ 94%]
+...................................sssssss                               [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5
+  /Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+823 passed, 11 skipped, 1 warning in 3.14s
+
+LOG local-delta
+.                                                                        [100%]
+1 passed in 45.07s
+
+LOG prepare
+/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+  from ._compat import httpx2
+{"run_id": "p2i-33333333333333333333333333333333", "manifest_sha256": "edc32d5b224e4fafd5f57b57e8bbf02bbbbbb518cf5095df0f9b9ce3b9e46766", "action": "prepare", "dry_run": true, "cloud_access": false, "input_records": 10, "canonical_ids": 4, "expected_validated": 5, "expected_quarantine": 5}
+
+LOG dryrun
+/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/.venv/lib/python3.11/site-packages/authlib/integrations/httpx_client/assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+  from ._compat import httpx2
+{"run_id": "p2i-33333333333333333333333333333333", "manifest_sha256": "edc32d5b224e4fafd5f57b57e8bbf02bbbbbb518cf5095df0f9b9ce3b9e46766", "action": "publish", "dry_run": true, "cloud_access": false, "input_records": 10, "canonical_ids": 4, "expected_validated": 5, "expected_quarantine": 5}
+
+FINAL SAFETY AUDIT
+192 initial files:4 intended edits/188 unchanged. Existing P2i/P2j evidence preserved.
+9 new evidence files:JSON/known secret patterns/exact two-topic policy/source hashes PASS.
+Final manifest matches current config/schema/source/HEAD; readiness remains BLOCKED.
+Python syntax/79 columns and git diff --check PASS. Staging empty.
+Local recovery worker/JVM ps check: no matching residual processes.

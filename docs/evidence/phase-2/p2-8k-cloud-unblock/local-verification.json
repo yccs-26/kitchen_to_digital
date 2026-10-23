@@ -1,0 +1,121 @@
+{
+  "scope": "P2-8k local verification and read-only management preflight; CLOUD E2E BLOCKED",
+  "captured_at": "2026-10-23T03:05:55.730434+00:00",
+  "branch": "feat/phase2-validation-silver",
+  "head": "42dd5c9edf92402f10de37540e3dbdf1e0b910fa",
+  "tests": {
+    "baseline_passed": 811,
+    "red_failed": 7,
+    "green_passed": 7,
+    "unit_passed": 751,
+    "tool_tests_passed": 72,
+    "combined_passed": 823,
+    "skipped": 11,
+    "warnings": 1,
+    "local_delta_passed": 1,
+    "local_delta_seconds": 45.07
+  },
+  "cloud_mutations": false,
+  "kafka_accessed": false,
+  "compute_started": false,
+  "management": {
+    "aws_calls": 33,
+    "aws_successful": 33,
+    "iam_resource_evaluations": 14,
+    "current_allowed": 3,
+    "current_output_implicit_deny": 4,
+    "with_proposal_allowed": 7,
+    "db_principal_lookup_succeeded": false,
+    "db_blocker": "refresh token invalid; no Workspace HTTP response status observed",
+    "dns_tls_verified": true
+  },
+  "local_delta": {
+    "source": "local file, not Kafka",
+    "storage": "OSS Delta, not UC",
+    "broker_and_registry": "fake",
+    "canonical_rows": 2,
+    "queries": [
+      {
+        "id": "a2c38906-5068-4807-898b-a0a088cffe28",
+        "run_id": "046cbbab-aff2-4ee5-a52d-21e07936e4a4",
+        "name": "ktd_p2_8h_local_only",
+        "checkpoint": "checkpoint"
+      },
+      {
+        "id": "a2c38906-5068-4807-898b-a0a088cffe28",
+        "run_id": "7660da99-2556-4648-b825-7dbfc82051e6",
+        "name": "ktd_p2_8h_local_only",
+        "checkpoint": "checkpoint"
+      },
+      {
+        "id": "a2c38906-5068-4807-898b-a0a088cffe28",
+        "run_id": "3959466a-c6ef-4a03-8405-7e20f85aa8da",
+        "name": "ktd_p2_8h_local_only",
+        "checkpoint": "checkpoint"
+      },
+      {
+        "id": "a2c38906-5068-4807-898b-a0a088cffe28",
+        "run_id": "9bbfb145-c85a-491b-9337-4361e5caf0f1",
+        "name": "ktd_p2_8h_local_only",
+        "checkpoint": "checkpoint"
+      },
+      {
+        "id": "ededfcb1-7201-4162-b8c4-6984a9b1351b",
+        "run_id": "25c11b31-5379-48b5-bbdd-a6933908d811",
+        "name": "ktd_p2_8h_local_only",
+        "checkpoint": "fresh_checkpoint"
+      }
+    ],
+    "ack_journal_count": 17,
+    "batches": [
+      {
+        "batch_id": 0,
+        "received": 5,
+        "validated": 3,
+        "quarantine": 2,
+        "conflict": 1,
+        "duplicate": 2,
+        "late": 3
+      },
+      {
+        "batch_id": 0,
+        "received": 5,
+        "validated": 3,
+        "quarantine": 2,
+        "conflict": 1,
+        "duplicate": 3,
+        "late": 3
+      },
+      {
+        "batch_id": 1,
+        "received": 1,
+        "validated": 1,
+        "quarantine": 0,
+        "conflict": 0,
+        "duplicate": 1,
+        "late": 1
+      },
+      {
+        "batch_id": 0,
+        "received": 6,
+        "validated": 4,
+        "quarantine": 2,
+        "conflict": 1,
+        "duplicate": 4,
+        "late": 4
+      }
+    ]
+  },
+  "source_sha256": {
+    "scripts/phase2/cloud_e2e.py": "7e133fdd517c245b7114b24a448f13df3cea3c3de6ccaedc76b5f0cfec4696a6",
+    "tests/integration/test_job2_cloud_e2e_tools.py": "271276c6cba013c5c85bbbb6d2a0af35ee8cd301357048a10ec474d42800d8bc"
+  },
+  "remaining_blockers": [
+    "user ktd reauthentication",
+    "actual UC resource existence/owners/effective grants and credential bindings",
+    "temporary output-reader policy approval/application",
+    "committed artifact and actual remote SHA",
+    "current Compute, quiet writer window and approved rates/credits/cash budget",
+    "separate normal E2E execution approval"
+  ]
+}
