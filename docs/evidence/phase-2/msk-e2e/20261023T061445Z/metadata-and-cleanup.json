@@ -1,0 +1,112 @@
+{
+  "scope": "MSK metadata only; no publish/consume/Job2/Databricks execution",
+  "run": "20261023T061445Z",
+  "cost_cap_usd": 0.05,
+  "max_ec2_minutes": 15,
+  "fixture_count": 0,
+  "operations": [
+    {
+      "at": "2026-10-23T06:14:57.199274+00:00",
+      "operation": "temporary_describe_policy_put"
+    }
+  ],
+  "cleanup_errors": [],
+  "principal": "arn:aws:iam::048715026902:user/chan",
+  "initial_state": "stopped",
+  "instance_id": "i-08e374efb0c31160d",
+  "role": "ktd-msk-producer-role",
+  "policy_name": "ktd-p2-metadata-20261023T061445Z",
+  "instance_type": "t3.micro",
+  "original_inline_names": [
+    "ktd-msk-producer-policy"
+  ],
+  "original_inline": {
+    "ktd-msk-producer-policy": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "ConnectToKtdMsk",
+          "Effect": "Allow",
+          "Action": [
+            "kafka-cluster:Connect"
+          ],
+          "Resource": [
+            "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+          ]
+        },
+        {
+          "Sid": "CreateAndWriteSensorTopic",
+          "Effect": "Allow",
+          "Action": [
+            "kafka-cluster:CreateTopic",
+            "kafka-cluster:DescribeTopic",
+            "kafka-cluster:WriteData"
+          ],
+          "Resource": [
+            "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.raw"
+          ]
+        }
+      ]
+    }
+  },
+  "original_attached": {
+    "AttachedPolicies": [
+      {
+        "PolicyName": "AmazonSSMManagedInstanceCore",
+        "PolicyArn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      }
+    ]
+  },
+  "cluster_state": "ACTIVE",
+  "bootstrap": "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+  "temporary_policy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "kafka-cluster:DescribeTopic",
+          "kafka-cluster:DescribeTopicDynamicConfiguration"
+        ],
+        "Resource": [
+          "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+          "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine"
+        ]
+      }
+    ]
+  },
+  "start_requested_at": "2026-10-23T06:14:57.200135+00:00",
+  "read_only_client_command": "set -eu\nexport KAFKA_HEAP_OPTS='-Xms128m -Xmx256m'\ntest -f /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties\ntest -f /home/ssm-user/kafka_2.12-2.8.1/libs/aws-msk-iam-auth-2.3.0-all.jar\nfor topic in kitchen.sensor.validated kitchen.sensor.quarantine; do\n timeout 40 /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --describe --topic \"$topic\"\n timeout 40 /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-configs.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --describe --all --entity-type topics --entity-name \"$topic\"\ndone\n",
+  "command_id": "5b5abc4a-4fc4-4065-83ce-eab8f869ddbb",
+  "ssm_result": {
+    "Status": "Success",
+    "ResponseCode": 0,
+    "metadata_lines": [
+      "Topic: kitchen.sensor.validated\tTopicId: Pdggo__HTVugUKNtFIJNDw\tPartitionCount: 3\tReplicationFactor: 3\tConfigs: min.insync.replicas=2,cleanup.policy=delete,segment.bytes=134217728,retention.ms=604800000,message.format.version=3.0-IV1,unclean.leader.election.enable=false,retention.bytes=-1",
+      "\tTopic: kitchen.sensor.validated\tPartition: 0\tLeader: 147\tReplicas: 147,189,249\tIsr: 147,189,249",
+      "\tTopic: kitchen.sensor.validated\tPartition: 1\tLeader: 189\tReplicas: 189,243,147\tIsr: 189,243,147",
+      "\tTopic: kitchen.sensor.validated\tPartition: 2\tLeader: 249\tReplicas: 249,147,267\tIsr: 249,147,267",
+      "  min.insync.replicas=2 sensitive=false synonyms={STATIC_BROKER_CONFIG:min.insync.replicas=2, DEFAULT_CONFIG:min.insync.replicas=1}",
+      "  cleanup.policy=delete sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:cleanup.policy=delete, DEFAULT_CONFIG:log.cleanup.policy=delete}",
+      "  retention.ms=604800000 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.ms=604800000}",
+      "  retention.bytes=-1 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.bytes=-1, STATIC_BROKER_CONFIG:log.retention.bytes=268435456000, DEFAULT_CONFIG:log.retention.bytes=-1}",
+      "Topic: kitchen.sensor.quarantine\tTopicId: h6zeA3MbTPy-T5RBPN8tmQ\tPartitionCount: 3\tReplicationFactor: 3\tConfigs: min.insync.replicas=2,cleanup.policy=delete,segment.bytes=134217728,retention.ms=604800000,message.format.version=3.0-IV1,unclean.leader.election.enable=false,retention.bytes=-1",
+      "\tTopic: kitchen.sensor.quarantine\tPartition: 0\tLeader: 237\tReplicas: 237,267,249\tIsr: 237,267,249",
+      "\tTopic: kitchen.sensor.quarantine\tPartition: 1\tLeader: 267\tReplicas: 267,249,255\tIsr: 267,249,255",
+      "\tTopic: kitchen.sensor.quarantine\tPartition: 2\tLeader: 249\tReplicas: 249,147,261\tIsr: 249,147,261",
+      "  min.insync.replicas=2 sensitive=false synonyms={STATIC_BROKER_CONFIG:min.insync.replicas=2, DEFAULT_CONFIG:min.insync.replicas=1}",
+      "  cleanup.policy=delete sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:cleanup.policy=delete, DEFAULT_CONFIG:log.cleanup.policy=delete}",
+      "  retention.ms=604800000 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.ms=604800000}",
+      "  retention.bytes=-1 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.bytes=-1, STATIC_BROKER_CONFIG:log.retention.bytes=268435456000, DEFAULT_CONFIG:log.retention.bytes=-1}"
+    ],
+    "stderr_present": false
+  },
+  "metadata_verified": true,
+  "final_ec2_state": "stopped",
+  "stopped_at": "2026-10-23T06:15:56.320027+00:00",
+  "temporary_policy_final_state": "NoSuchEntity",
+  "original_policies_preserved": true,
+  "finished_at": "2026-10-23T06:16:02.311162+00:00",
+  "elapsed_request_to_stopped_seconds": 59.119892,
+  "vm_ipv4_gross_estimate_usd": 0.00029559945999999996
+}
