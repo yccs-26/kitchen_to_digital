@@ -1,4 +1,4 @@
-> 최신 로컬 검증은 문서 마지막 **2026-10-23 P2-8h — Job 2 로컬 신뢰성 검증**을 따른다. 기존 cloud/storage 이력은 보존하며, 로컬 통과를 Cloud E2E 통과로 해석하지 않는다.
+> 최신 판단은 문서 마지막 **2026-10-23 P2-8j — Deployment Readiness & Safety Verification**을 따른다. 로컬 안전성 보완은 완료했으나 전체 Cloud 실행은 BLOCKED이며 실제 Cloud E2E는 미실행이다. 과거 검증 이력은 보존했다.
 
 # Phase 2 검증 초안 — P2-8A
 
@@ -1288,3 +1288,385 @@ CreateTopic을 추가하거나 checkpoint/offset를 초기화할 이유는 없�
 
 다음 논리 작업은 **output 읽기 대사 principal과 새 E2E fixture/승인 범위를
 확정하는 실행 전 검토**다. 이번 로컬 수정·검증을 사용자 검토에 넘기고 멈춘다.
+
+
+## 2026-10-23 P2-8i — Cloud E2E 로컬 준비 완료
+
+**LOCAL PREPARED / CLOUD NOT EXECUTED.** AWS read API도 호출하지 않았다.
+실행 도구·fixture·대사·실패 및 재시작 절차를 준비했으며, 실제 IAM/UC 권한,
+원격 환경·비용 확인과 별도 실행 승인은 남아 있다. 실행 절차와 정책 전문은
+[runbook](../implementation/p2-8i-cloud-e2e-runbook.md)에 기록했다.
+
+### 1. Git 상태와 보호
+
+branch `feat/phase2-validation-silver`, HEAD
+`e266a545e084c7da6213f39aa4cfb3ddf0b58da6`에서 시작했다. 이는 요청의 이전
+HEAD보다 이후 커밋이다. 기존 tracked 수정 6개와 미추적 파일을 보존했다.
+시작 시 173개 파일의 hash를 저장하고, 최종에는 이 보고서의 의도된 수정 외
+기존 파일들이 byte-identical임을 확인한다. 기존 설정·코드·P2-8d는 수정하지 않는다.
+Git add/commit/push/merge는 실행하지 않았다.
+
+### 2. 실제 실행 계약
+
+기존 raw/validated/quarantine·bootstrap/IAM 참조·Registry endpoint/secret 참조·
+Silver Delta와 production checkpoint를 추적했다. runtime source credential과
+producer credential은 다르다. Spark의 source consumer group은 자동 생성되며
+운영 group ID를 검증 group으로 바꾸지 않는다. 실제 deploy SHA와 관련 소스 hash를
+manifest에 기록하고, 불일치하면 실행을 차단한다. 과거 runtime JSON의
+processing_version은 사용자 파일 그대로 보존하며 harness는 준비 SHA를 사용한다.
+
+### 3. 추가 코드
+
+`scripts/phase2/cloud_e2e.py`는 prepare/snapshot/publish/run-job/verify/compare,
+기존 Compute용 Jobs submit JSON 생성 함수를 제공한다. 기본은 dry-run이며
+Spark·AWS·Kafka·Registry client를 만들지 않는다. 실제 접근은 `--execute`와
+동일 run의 `--approve-run-id`가 있어야 한다. fault는 별도 `--approve-fault`가 필요하다.
+기존 phase1 MSK fixture producer, Job 2 handler, IAM signer, Delta adapter와
+두 publisher를 재사용했다. production Job 2와 기존 happy-path 도구는 변경하지 않았다.
+
+### 4. Fixture
+
+run namespace의 고정 ID/bytes로 정상, 업무 이상값, domain 위반, framing 불량,
+unknown schema, 동일 duplicate, 충돌, 정책 안/밖 지연, 미래 방어 10개를 만든다.
+기대값은 canonical 4 ID, validated 최소 5건, Quarantine 5건이다. duplicate는
+같은 ID·payload, conflict는 같은 normal ID와 다른 값이며 canonical 4.2를 유지한다.
+Late 두 경우 모두 valid 전달이다. 정책 이내는 ON_TIME이며 watermark 구현을
+가정하지 않는다. unknown ID는 실제 Registry 404/40403 확인 전까지 후보일 뿐이다.
+예시 manifest는 고정 과거 시각/미확인 schema ID의 미실행 preview다.
+
+### 5. Kafka 대사
+
+별도 `ktd-p2e2e-<UUID>` group, 자동 commit/offset 저장 false, 수동 assign만 사용한다.
+시작 low/high를 저장하고 `[before.high, after.high)`를 bounded read한다. partition
+변경·retention gap·미완료 read는 차단한다. raw는 ACK 위치+key/value, validated는
+run ID+key+10필드, Quarantine은 원본 lineage/hash/schema/error/quarantine_id를
+대사한다. ACK 미확정은 journal과 publish lock을 남기고 자동 재발행하지 않는다.
+
+### 6. Silver 및 재시작 대사
+
+MANAGED/delta provider·10필드 타입을 확인하고 모든 run ID를 adapter로 조회한다.
+canonical payload와 ID별 1행, invalid ID 부재를 검사한다. 재처리 추가 출력은
+extra_deliveries로 보고한다. query report에는 checkpoint/query ID/run ID/progress/
+batch counts를 남긴다. compare는 canonical 불변과 같은 checkpoint/query ID,
+다른 run ID·최종 query 완료를 대사한다. query 증빙 없는 비교는 canonical_only다.
+
+### 7. IAM/UC
+
+Raw producer는 기존 EC2 role, Job 2 source/producer는 기존 두 UC credential을
+사용한다. output 검증 주체는 미확정이며 기존 consumer role 재사용안을 검토한다.
+ReadData+DescribeTopic은 세 대상 topic만, Connect는 기존 cluster만,
+DescribeGroup/AlterGroup은 해당 run의 group ARN만인 최소 정책 초안을 만들었다.
+IAM 변경은 없다. UC 검증 SELECT와 실행 MODIFY/Volume/credential 권한을 구분했다.
+
+### 8. 정상·실패·재시작 로컬 검증
+
+신규 `tests/integration/test_job2_cloud_e2e_tools.py`의 36개 검사는 네트워크 없이
+실행한다. manifest 재현성·변조·dry-run·승인 gate, 권한/metadata/미존재 topic,
+bootstrap/schema/provider 불일치, offset gap, 부분 발행·잘못된 ACK, 누락·중복·
+충돌 대사, 기존 파일/lock 보호, 여섯 fault의 실패/patch 복원/query 중지를 검증했다.
+최초 신규 도구 시험은 QuarantineRecord의 비어 있는 details 기대값 때문에
+1 failed/19 passed였고, non-blank 기대 설명으로 수정 후 모두 통과했다.
+
+실제 Job 2를 SQLite 테스트 storage와 fake ACK에 연결한 동일 manifest 재처리에서
+canonical 4행 불변, extra_deliveries 10을 관측했다. 이것은 Delta/broker 증거가 아니다.
+기존 P2-8h 실제 OSS Spark/Delta/file-source checkpoint 테스트도 별도로 재실행하여
+새 프로세스 5회, canonical 2행·ACK journal 17개·같은 checkpoint 복구를 확인했다.
+그 테스트 역시 실제 Kafka/Registry/UC 검증은 아니다. 로컬 worker/JVM 잔존 없음도 확인했다.
+
+### 9. 최종 테스트 결과
+
+- `.venv/bin/python -m pytest -q tests/unit --basetemp=/tmp/ktd-8i-unit-final`:
+  **751 passed, 1 warning**.
+- `.venv/bin/python -m pytest -q tests/unit tests/integration --basetemp=/tmp/ktd-8i-final-checked`:
+  **787 passed, 11 skipped, 1 warning** = unit 751 + 신규 local tools 36.
+- 기존 `/tmp` OSS Spark4.0.1/Delta4.0.0/JDK21 환경의
+  `KTD_RUN_LOCAL_DELTA=1 ... pytest tests/integration/test_job2_local_delta_recovery.py
+  --basetemp=/tmp/ktd-8i-local-delta`: **1 passed, 45.28s**.
+- 실제 prepare + publish dry-run: cloud_access=false, input10/canonical4/validated5/quarantine5.
+- warning은 기존 Authlib deprecation이다. 외부 연동 skip은 cloud 통과가 아니다.
+- Python 구문/줄 길이, 증빙 JSON·정책 범위·비밀값 패턴 및 `git diff --check`를 확인한다.
+
+### 10. 남은 Cloud 차단 요소
+
+검증 IAM role/UC credential, 원격 Python 패키지와 VPC, 실제 schema/subject·metadata,
+UC 격리 table/Volume/grants, 배포 경로·실제 commit, Compute 단가/누적 현금/크레딧,
+다른 workload가 없는 실행 window와 명시적 승인이 필요하다. unknown schema 후보가
+존재하면 다른 후보를 인자로 선택해 새 run을 준비한다. 코드 수정은 필요하지 않다.
+remote runtime 동작 자체는 미검증이므로 새로운 환경 오류의 가능성은 남는다.
+
+### 11. 비용·종료
+
+신규 유료 실행 0건이며 기존 MSK/EBS의 지속 과금은 이번에 조회하지 않았다.
+프로젝트 Databricks 현금 약 $10 목표를 유지한다. cost-plan.json의 단가·이미 쓴
+현금·크레딧·예상액은 null이며 0원으로 간주하지 않는다. task timeout600/retry0,
+query wait180, consumer.close/query.stop, Compute TERMINATED와 사용 EC2 stopped,
+임시 권한 회수 확인 순서를 준비했다. 자동 종료 설정은 실제 실행 전 확인한다.
+
+### 12. 산출물 및 증빙 경로
+
+새 tool/test/runbook 및 아래 8개 증빙의 전체 상대·절대 경로와 역할은 runbook
+§2와 아래 prefix를 따른다. 절대 prefix는
+`/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/`다.
+
+- `docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/manifest-preview.json`: 합성 10개 입력과 기대값/hash.
+- 같은 폴더 `databricks-request-preview.json`: 기존 cluster용 미제출 Jobs 요청. APPROVAL_REQUIRED 경로/credential을 실행 시 확정한다.
+- `reader-policy-preview.json`: 실제 cluster/topic ARN과 예시 run group만의 IAM 초안. 미적용.
+- `canonical-replay.json`: SQLite/fake ACK의 최초/재처리 대사 결과.
+- `local-delta-recovery.json`: 이번 실제 로컬 Spark/Delta 재시작 관측 결과.
+- `cost-plan.json`: 실제 실행 전 채워야 할 비용·종료 항목, 현재 미확인 값 null.
+- `local-summary.json`: 현재 SHA/환경/hash/검증 범위·최종 수치.
+- `test-results.txt`: baseline·초기 신규 실패·최종 회귀·로컬 runtime 원문.
+
+| 저장소 기준 전체 경로 | 절대 경로 |
+|---|---|
+| `scripts/phase2/cloud_e2e.py` | [cloud_e2e.py](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/scripts/phase2/cloud_e2e.py) |
+| `tests/integration/test_job2_cloud_e2e_tools.py` | [test_job2_cloud_e2e_tools.py](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/test_job2_cloud_e2e_tools.py) |
+| `docs/implementation/p2-8i-cloud-e2e-runbook.md` | [p2-8i-cloud-e2e-runbook.md](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/implementation/p2-8i-cloud-e2e-runbook.md) |
+| `docs/reports/phase-2-verification.md` | [phase-2-verification.md](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/reports/phase-2-verification.md) |
+| `docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/manifest-preview.json` | [manifest-preview.json](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/manifest-preview.json) |
+| `docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/databricks-request-preview.json` | [databricks-request-preview.json](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/databricks-request-preview.json) |
+| `docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/reader-policy-preview.json` | [reader-policy-preview.json](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/reader-policy-preview.json) |
+| `docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/canonical-replay.json` | [canonical-replay.json](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/canonical-replay.json) |
+| `docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/local-delta-recovery.json` | [local-delta-recovery.json](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/local-delta-recovery.json) |
+| `docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/cost-plan.json` | [cost-plan.json](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/cost-plan.json) |
+| `docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/local-summary.json` | [local-summary.json](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/local-summary.json) |
+| `docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/test-results.txt` | [test-results.txt](/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/test-results.txt) |
+
+### 13. 사용자 commit 후보 (자동 실행하지 않음)
+
+```bash
+git add -- scripts/phase2/cloud_e2e.py \
+  tests/integration/test_job2_cloud_e2e_tools.py \
+  docs/implementation/p2-8i-cloud-e2e-runbook.md \
+  docs/reports/phase-2-verification.md \
+  docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/manifest-preview.json \
+  docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/databricks-request-preview.json \
+  docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/reader-policy-preview.json \
+  docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/canonical-replay.json \
+  docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/local-delta-recovery.json \
+  docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/cost-plan.json \
+  docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/local-summary.json \
+  docs/evidence/phase-2/p2-8i-cloud-e2e-preflight/test-results.txt
+# 권장 메시지: test: prepare approval-gated Phase 2 cloud E2E tooling
+```
+
+### 14. 다음에 요청할 정확한 승인 범위
+
+대상 cluster/EC2, 시간·현금 상한, 새 run의 raw 10건 발행, schema/metadata 조회,
+지정 격리 UC table 생성/쓰기 및 전용 checkpoint 쓰기, Job 2 실행·output ACK/읽기,
+선택한 fault 주입/같은 checkpoint 재시작, 확정한 최소 IAM/UC credential 변경과
+임시 권한 회수·Compute/EC2 종료를 구체적으로 승인받아야 한다. 원격 패키지
+설치가 필요하면 별도 승인이다. 기존 Topic 변경·production checkpoint 초기화·
+기존 데이터 삭제는 제외한다. 다음 작업을 자동 진행하지 않고 검토를 기다린다.
+
+
+## 2026-10-23 P2-8j — Deployment Readiness & Safety Verification
+
+**전체 Cloud 실행 BLOCKED / 안전한 로컬 수정·검증 완료.**
+실행 가능한 관리 API 조회와 local verification을 구분한다. 실제 Kafka 접근,
+Databricks Compute/SQL, IAM/EC2/MSK/UC 변경은 실행하지 않았다. 전체 최신 계약과
+중단/정리 절차는 [P2-8i runbook의 P2-8j 절](../implementation/p2-8i-cloud-e2e-runbook.md#10-p2-8j--deployment-readiness--safety-verification-2026-10-23-kst)을 따른다.
+
+### 1. Branch / HEAD / working tree
+
+실제 branch=`feat/phase2-validation-silver`,
+HEAD=`e266a545e084c7da6213f39aa4cfb3ddf0b58da6`다. 최근 commit은 P2-8h Registry
+오류 분류/로컬 복구 검증이며 P2-8i 도구·보고서는 아직 미커밋이다. 시작 시
+tracked 수정 7개와 기존 미추적 파일을 확인했다. 시작 파일 전체의 hash를 보관하고
+의도한 tool/test/runbook/report 4개 외에는 내용 변경이 없는지 대조한다.
+브랜치·stage·commit·push·merge 작업은 하지 않았다.
+
+### 2. Cloud 도구 안전성 검토
+
+기본 dry-run에서 cloud client를 만들지 않는 기존 gate, Consumer의 전용 group/
+auto.commit=false/auto.offset.store=false/수동 assign, ACK 뒤 별도 대사, partial
+publish의 fsync journal/lock을 확인했다. 실제 실행에는 추가 readiness가 필요하다.
+서로 다른 Kafka 위치의 중복 output은 허용하고 canonical 보존·누락을 대사한다.
+기존 production Job 2·Delta·publisher는 수정하지 않았다.
+
+### 3. 실제 배포 환경 확인
+
+25회 관리 조회 중 AWS 23회 성공, cluster resource policy는 미설정 응답 1회,
+Databricks principal 조회는 1회 실패했다. AWS actor는 IAM user chan이며 MSK
+ACTIVE/SERVERLESS 및 bootstrap 설정 일치, 기존 EC2 t3.micro/stopped와 실제 profile→
+producer role 연결을 확인했다. 새 자격증명·인증 우회는 하지 않았다.
+
+로컬 ktd profile의 workspace host만 확인했고, DBR live principal 조회 실패 뒤
+후속 DBR 조회를 중단했다. 안전하게 저장한 오류 분류에서 인증/연결의 정확한
+원인은 확정할 수 없으며, SQL·credential 값 조회로 우회하지 않았다. 현재 Compute,
+UC grants/service credential binding, 원격 패키지/배포 파일은 UNVERIFIED다.
+과거 cluster 0929-113111-cgu7k91c/DBR17.3 자료는 현재 실측으로 쓰지 않는다.
+
+### 4. 격리 table/checkpoint
+
+production=`ktd.silver.sensor_validated`, checkpoint=`.../job2/sensor-validation`.
+이제 모든 normal/fault E2E는 `<production_table>_e2e_<run UUID hex>` 및
+`/Volumes/ktd/silver/checkpoints/job2/e2e/<run_id>`만 허용한다. 다른 schema,
+production 대소문자 별칭, 임의 하위 checkpoint는 거부한다. 실제 UC test table/
+GRANT는 생성하지 않았다. 원격 존재 여부와 권한은 미검증이다. raw before.high와
+ACK 위치를 사용하며 production group/committed offset을 변경하지 않는다.
+
+### 5. IAM/UC 실효 권한 범위
+
+- A raw producer: ktd-msk-producer-role 및 EC2 instance profile 연결 확인,
+  Connect/raw DescribeTopic·WriteData 존재. 기존 raw CreateTopic을 임의 제거하지 않음.
+- B Job 2 producer: Connect + 두 output DescribeTopic/WriteData, CreateTopic 없음.
+  source consumer role: Connect/raw ReadData·DescribeTopic/group 권한만 확인.
+- C output reader: 실제 principal 미선정. source role에는 output ReadData 허용이
+  없고 cluster resource policy도 미설정이므로 추가 권한/주체 확정이 필요하다.
+  source의 기존 group `.../*`는 새 exact-group 정책을 붙여도 자동 축소되지 않는다.
+- D UC reader: 실제 DBR 사용자/SP와 USE CATALOG/SCHEMA/SELECT/Volume 권한 미확인.
+- E 배포/Job 실행: AWS chan과 DBR principal을 구분한다. DBR 배포/CAN_ATTACH_TO/
+  실행·중지 및 필요한 CAN_MANAGE는 현재 확인 불가다.
+
+조회한 role/user에 boundary 필드가 없고 확인한 statement에 명시적 Deny가 없었다.
+SCP/session 제약·실제 AssumeRole/UC ACCESS와 broker 인증까지 확인한 것은 아니다.
+IAM simulation을 새로 실행하지 않았으며 정책 정의를 broker 성공으로 주장하지 않는다.
+최소 exact-resource 정책 초안만 기록했고 IAM/UC 변경은 없다.
+
+### 6. Fixture·대사 계약
+
+10개 입력 → canonical4/validated최소5/Quarantine5를 실제 Job 2 로컬 컴포넌트로
+재검증했다. normal+duplicate는 동일 canonical/재발행, conflict는 metric_value
+충돌 격리와 최초4.2 보존이다. late는 처리 시각 기준 분류이며 Spark watermark가
+아니다. framing/unknown schema는 null decoded ID와 raw lineage로 대사한다.
+Registry infrastructure 실패는 Quarantine으로 바꾸지 않는다.
+
+결과에 canonical_fingerprints, validated_lineage_by_event,
+quarantine_lineage_by_case, failure_reasons_by_case를 추가했다. 기존 ACK positions,
+run_id/manifest hash와 함께 비교한다. 정상 first와 누적 restart를 별도로 보관한다.
+재시작의 extra delivery를 실패로 만들거나 exactly-once로 표현하지 않는다.
+
+### 7. 재현 결함과 수정
+
+수정 전 4 failed → 수정 후 4 passed:
+
+1. production Silver를 normal E2E로 사용 가능 → 모든 E2E의 정확한 run table 강제.
+2. production과 다른 임의 checkpoint를 허용 → 정확한 sibling/run 경로 강제.
+3. 비용/외부 Writer 확인 없이 세션 생성 → readiness를 client/Jobs 요청 생성 전 검사.
+4. checkpoint/첫 run ID가 없는 restart 자료도 PASS 가능 → 필수 식별자 모두 검사.
+
+readiness는 manifest·환경·시간·principal·credential·IAM/UC·배포/패키지·cleanup·
+writer·budget에 묶인다. 상태/비용이 미확인, NaN/bool/null/음수, 예산 초과면 거부한다.
+writer 증거는 5분, readiness는 최대15분 유효하다. 이것은 operator attestation이며
+분산 lock이나 권한 증명서가 아니다. 외부 writer의 TOCTOU는 별도 실행 시간 확보가 필요하다.
+raw publish 직전 STS role 일치도 확인하여 chan 관리자를 producer로 혼동하지 않는다.
+
+### 8. 추가 테스트
+
+기존 36개 tool 검사를 유지하고 총60개로 보강했다. negative 및 malformed manifest,
+production/foreign table/checkpoint, 비용/credential/권한 미확인, writer busy/stale,
+missing table, 승인 없는 client 생성, 잘못된 raw caller, Job request cluster/credential
+불일치, canonical fingerprint·lineage·reason을 검사한다. 기존 default production
+기반 검사는 새 격리 기본값과 명시적인 unsafe rejection으로 전환했다. 권한 실패
+분기에는 local-ready 대역을 주입해 새 사전 gate만 검사하고 넘어가지 않도록 했다.
+
+### 9. 최종 unit / local integration
+
+- baseline `pytest tests/unit tests/integration`: 787 passed/11 skipped.
+- red/green 명령은 `test-results.txt`: 4 failed → 4 passed.
+- 최종 `.venv/bin/python -m pytest -q tests/unit tests/integration
+  --basetemp=/tmp/ktd-8j-final`: **811 passed/11 skipped/1 warning**
+  (전체 unit751 + local tools60).
+- 기존 OSS Spark4.0.1/Delta4/JDK21의 local recovery 재실행:
+  **1 passed, 48.32s**. 새 프로세스5회, canonical2행, journal17개.
+- local tools replay는 SQLite/fake ACK, 기존 Spark test는 실제 local Delta/file-source
+  checkpoint이며 둘 다 실제 MSK/Registry/UC runtime 증거가 아니다.
+- Python 구문/79열, 증빙 JSON·정책 범위·비밀값 패턴, git diff --check: PASS.
+  warning은 기존 Authlib deprecation이다. 외부 opt-in skip은 성공 증거가 아니다.
+
+### 10. READY / BLOCKED / UNVERIFIED
+
+READY(해당 범위만): local dry-run/검토 gate/격리 설정/대사, AWS 관리 인증,
+MSK 관리 상태·bootstrap, EC2 profile/role 정의. 전체 Cloud 준비 완료를 뜻하지 않는다.
+
+BLOCKED: 전체 E2E, output reader 주체/ReadData, stopped EC2 client 실행,
+실제 배포 SHA/검토 readiness 및 비용/종료 권한 근거.
+
+UNVERIFIED: DBR principal/Compute/UC table·grants·credential·원격 패키지,
+다른 writer/consumer 부재, 실제 broker metadata·ACK·Kafka source restart,
+SCP/session 제약·현재 단가/크레딧/현금 누적.
+
+### 11. 비용·종료
+
+신규 유료 자원 실행은 없다. 기존 MSK/EBS 지속 과금은 미확인이다. 실제 t3.micro
+형식만 확인했고 DBU/VM rate와 credits/cash는 모른다. 임의 금액을 만들지 않았다.
+준비한 budget gate는 확인된 시간당 순현금×계획 시간과 각각 승인한 AWS/DBR 상한,
+프로젝트 DBR 누적 약 $10 목표를 검사한다. Query1~180초, task600초/retry0가 적용된다.
+이것은 Compute 총수명/현금 상한을 자동 보장하지 않는다.
+
+실패 시 해당 query stop → consumer close → task terminal 확인 → 승인한 Compute
+TERMINATED 확인 → 이번 임시 권한만 회수/조회 → 시작했다면 EC2 stopped 확인 →
+잔여 과금 기록 순서다. 다른 사용자의 실행 중 자원을 중지하지 않았다.
+
+### 12. 변경/생성 경로
+
+기존 tool/test/runbook/report 4개를 수정하고 새 독립 실행 도구는 만들지 않았다.
+시작 시 SHA256 snapshot 184개 파일 중 의도한 4개만 변경되었다.
+P2-8i 증빙 원본은 보존했다. 새 증빙은 다음 표의 p2-8j 폴더에만 기록했다.
+모든 새 JSON은 management preflight/local verification/proposal임을 구분한다.
+
+| 저장소 루트 기준 경로 | 절대 경로 |
+| --- | --- |
+| `scripts/phase2/cloud_e2e.py` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/scripts/phase2/cloud_e2e.py` |
+| `tests/integration/test_job2_cloud_e2e_tools.py` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/tests/integration/test_job2_cloud_e2e_tools.py` |
+| `docs/implementation/p2-8i-cloud-e2e-runbook.md` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/implementation/p2-8i-cloud-e2e-runbook.md` |
+| `docs/reports/phase-2-verification.md` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/reports/phase-2-verification.md` |
+| `docs/evidence/phase-2/p2-8j-cloud-readiness/canonical-replay.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8j-cloud-readiness/canonical-replay.json` |
+| `docs/evidence/phase-2/p2-8j-cloud-readiness/local-delta-recovery.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8j-cloud-readiness/local-delta-recovery.json` |
+| `docs/evidence/phase-2/p2-8j-cloud-readiness/local-summary.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8j-cloud-readiness/local-summary.json` |
+| `docs/evidence/phase-2/p2-8j-cloud-readiness/management-preflight.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8j-cloud-readiness/management-preflight.json` |
+| `docs/evidence/phase-2/p2-8j-cloud-readiness/manifest-preview.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8j-cloud-readiness/manifest-preview.json` |
+| `docs/evidence/phase-2/p2-8j-cloud-readiness/output-reader-policy-proposal.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8j-cloud-readiness/output-reader-policy-proposal.json` |
+| `docs/evidence/phase-2/p2-8j-cloud-readiness/readiness-blocked.json` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8j-cloud-readiness/readiness-blocked.json` |
+| `docs/evidence/phase-2/p2-8j-cloud-readiness/test-results.txt` | `/Users/uchan/Downloads/DE/02_project/kitchen_to_digital/docs/evidence/phase-2/p2-8j-cloud-readiness/test-results.txt` |
+
+### 13. Git commit 후보
+
+위 12개 파일이 이번 검토 대상이다. tool/test/runbook은 작업 시작부터 미추적이므로
+아래 명령은 기존 P2-8i 내용과 이번 보완을 함께 포함한다. 보고서에도 기존 변경이
+있다. 사용자가 diff를 검토한 뒤 실행하며 이번 작업에서는 staging하지 않았다.
+다른 기존 수정 6개와 과거 증빙은 이 후보에서 제외한다.
+
+```sh
+git add -- \
+  scripts/phase2/cloud_e2e.py \
+  tests/integration/test_job2_cloud_e2e_tools.py \
+  docs/implementation/p2-8i-cloud-e2e-runbook.md \
+  docs/reports/phase-2-verification.md \
+  docs/evidence/phase-2/p2-8j-cloud-readiness/canonical-replay.json \
+  docs/evidence/phase-2/p2-8j-cloud-readiness/local-delta-recovery.json \
+  docs/evidence/phase-2/p2-8j-cloud-readiness/local-summary.json \
+  docs/evidence/phase-2/p2-8j-cloud-readiness/management-preflight.json \
+  docs/evidence/phase-2/p2-8j-cloud-readiness/manifest-preview.json \
+  docs/evidence/phase-2/p2-8j-cloud-readiness/output-reader-policy-proposal.json \
+  docs/evidence/phase-2/p2-8j-cloud-readiness/readiness-blocked.json \
+  docs/evidence/phase-2/p2-8j-cloud-readiness/test-results.txt
+```
+
+권장 메시지: `fix: enforce isolated and reviewed Phase 2 E2E deployment`
+
+### 14. 실제 Cloud 실행에 필요한 승인 범위
+
+현재는 승인 요청 가능한 실행 준비 완료 상태가 아니다. 기존 Databricks 인증을
+복구하고 read-only로 principal/Compute/UC/credential 및 현재 Writer를 확인해야 한다.
+그 뒤 출력 검증 Consumer principal·정확한 IAM/UC 범위, 확정 배포 SHA, 새 run의
+격리 테이블/checkpoint, 실제 단가/크레딧/기지출·현금 상한을 확정한다.
+
+후속 실행 승인에는 필요한 경우에만 임시 output-reader 정책 적용·회수,
+지정 격리 Managed Delta 테이블 생성과 한정된 UC 권한, 확정 코드 배포 및 지정
+Compute/Job 실행·종료, raw fixture10건 발행 및 제한된 output 읽기, 동일 manifest의
+정상·재시작·명시적 장애 검증, 증빙 수집과 종료 확인을 각각 포함해야 한다.
+EC2를 사용할 경우 기존 인스턴스 시작·중지도 별도 범위로 명시한다.
+설치/신규 리소스/운영 테이블 변경/운영 checkpoint 초기화는 포함하지 않는다.
+P2-8g의 과거 provisioning 승인을 이 Cloud E2E 승인으로 확장하지 않는다.
+
+### 15. Phase 2 DoD 잔여 항목
+
+실제 VPC/Registry 인증 및 metadata,10개 fixture의 broker ACK와 source lineage,
+UC Delta canonical fingerprint/validated·Quarantine 누적 대사, 동일 checkpoint의
+Kafka source 재시작과 sink 부분 실패 복구, 다른 Writer 부재 및 raw retention/lag
+대사, Compute 종료·권한 회수·실제 비용 기록이 남아 있다.
+로컬 SQLite/fake publisher 및 실제 OSS Delta/file checkpoint 결과는 각각의 범위만
+입증한다. Phase 2 전체 또는 Cloud E2E 완료로 표시하지 않는다. 이 논리 작업은
+로컬 결함 수정과 준비 검증에서 종료하고 사용자 검토를 기다린다.
