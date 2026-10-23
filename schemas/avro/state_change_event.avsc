@@ -1,0 +1,131 @@
+{
+  "type": "record",
+  "name": "StateChangeEvent",
+  "namespace": "ktd.state",
+  "doc": "Local draft only. No Schema Registry registration or deployment.",
+  "fields": [
+    {
+      "name": "wire_version",
+      "type": "string"
+    },
+    {
+      "name": "axis",
+      "type": {
+        "type": "enum",
+        "name": "StateAxis",
+        "symbols": [
+          "OPERATIONAL",
+          "HEALTH"
+        ]
+      }
+    },
+    {
+      "name": "state_change_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "health_change_id",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "store_id",
+      "type": "string"
+    },
+    {
+      "name": "equipment_id",
+      "type": "string"
+    },
+    {
+      "name": "equipment_type",
+      "type": "string"
+    },
+    {
+      "name": "profile_id",
+      "type": "string"
+    },
+    {
+      "name": "profile_version",
+      "type": "string"
+    },
+    {
+      "name": "previous_state",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "current_state",
+      "type": "string"
+    },
+    {
+      "name": "effective_at",
+      "type": "string"
+    },
+    {
+      "name": "evaluation_time",
+      "type": "string"
+    },
+    {
+      "name": "last_seen",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "freshness_deadline",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "change_revision",
+      "type": "long"
+    },
+    {
+      "name": "snapshot_revision",
+      "type": [
+        "null",
+        "long"
+      ],
+      "default": null
+    },
+    {
+      "name": "policy_fingerprint",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "timer_provenance",
+      "type": [
+        "null",
+        "bytes"
+      ],
+      "default": null
+    },
+    {
+      "name": "canonical_payload",
+      "type": "bytes"
+    },
+    {
+      "name": "payload_sha256",
+      "type": "string"
+    }
+  ]
+}
