@@ -1,0 +1,124 @@
+{
+  "time": "2026-10-22T05:19:24.007529+00:00",
+  "ec2": [
+    {
+      "Id": "i-08e374efb0c31160d",
+      "State": "stopped",
+      "PublicIp": null,
+      "Profile": "arn:aws:iam::048715026902:instance-profile/ktd-msk-producer-role"
+    }
+  ],
+  "temp_policy": {
+    "error": "NoSuchEntity",
+    "operation": [
+      "iam",
+      "get-role-policy"
+    ]
+  },
+  "role": {
+    "Role": {
+      "Path": "/",
+      "RoleName": "ktd-msk-producer-role",
+      "RoleId": "AROAQWV5EKHLBQIHKFBZN",
+      "Arn": "arn:aws:iam::048715026902:role/ktd-msk-producer-role",
+      "CreateDate": "2026-10-01T06:18:48+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "Allows EC2 instances to call AWS services on your behalf.",
+      "MaxSessionDuration": 3600,
+      "RoleLastUsed": {
+        "LastUsedDate": "2026-10-11T17:46:08+00:00",
+        "Region": "ap-northeast-2"
+      }
+    }
+  },
+  "inline_names": {
+    "PolicyNames": [
+      "ktd-msk-producer-policy"
+    ]
+  },
+  "inline": {
+    "ktd-msk-producer-policy": {
+      "RoleName": "ktd-msk-producer-role",
+      "PolicyName": "ktd-msk-producer-policy",
+      "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "ConnectToKtdMsk",
+            "Effect": "Allow",
+            "Action": [
+              "kafka-cluster:Connect"
+            ],
+            "Resource": [
+              "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+            ]
+          },
+          {
+            "Sid": "CreateAndWriteSensorTopic",
+            "Effect": "Allow",
+            "Action": [
+              "kafka-cluster:CreateTopic",
+              "kafka-cluster:DescribeTopic",
+              "kafka-cluster:WriteData"
+            ],
+            "Resource": [
+              "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.raw"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "attached": {
+    "AttachedPolicies": [
+      {
+        "PolicyName": "AmazonSSMManagedInstanceCore",
+        "PolicyArn": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      }
+    ]
+  },
+  "job2_policy": {
+    "RoleName": "ktd-msk-job2-producer-role",
+    "PolicyName": "ktd-msk-job2-producer-policy",
+    "PolicyDocument": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "ConnectToKtdMsk",
+          "Effect": "Allow",
+          "Action": "kafka-cluster:Connect",
+          "Resource": "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+        },
+        {
+          "Sid": "WriteJob2OutputTopics",
+          "Effect": "Allow",
+          "Action": [
+            "kafka-cluster:DescribeTopic",
+            "kafka-cluster:WriteData"
+          ],
+          "Resource": [
+            "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+            "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine"
+          ]
+        }
+      ]
+    }
+  },
+  "preservation_checks": {
+    "existing_inline_policy": true,
+    "attached_policies": true,
+    "role_trust": true,
+    "job2_policy": true
+  }
+}

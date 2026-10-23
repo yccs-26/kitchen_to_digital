@@ -862,3 +862,149 @@ SHA-256이 동일했다. git diff와 git diff --check로 최종 범위를 확인
 제품 코드가 바뀌지 않아 pytest 회귀는 반복하지 않았다.
 실제 IAM AccessDenied/SASL/네트워크/TopicAlreadyExists 장애 주입과
 EC2·Spark 재시작·Kafka 생성·발행은 수행하지 않았다. 실패·재실행 절차는 설계 검토다.
+
+## 13. P2-8g 실제 provisioning 결과 — 2026-10-22
+
+**두 output topic 생성·실측 설정 검증 완료. EC2 stopped 및 임시 권한 회수 확인.**
+이는 topic provisioning 완료이며 Job 2 E2E·발행 ACK·Spark 복구 완료를 뜻하지 않는다.
+
+### 13.1 승인 범위와 변경 전 확인
+
+사용자는 이번 채팅에서 EC2 role의 임시 최소 정책 추가·회수, 기존 EC2 시작·중지,
+두 output 조회와 명확히 없는 topic만 계획 사양으로 생성, 사후 검증·증빙·필수 정리를
+명시적으로 승인했다. 설치·신규 인프라·Kafka 데이터 발행·Databricks 실행은 제외했다.
+
+branch/HEAD는 `feat/phase2-validation-silver` /
+`888a59c3acd99989501f487ecd24191a675633af`다. 기존 수정 5개와 미추적 파일은
+보존했다. AGENTS.md, 본 실행 문서, 계획서 P2-8, platform/data-contract,
+Job 2 runtime의 인증·acks·자동 생성 설정과 기존 SSM 경로를 확인했다.
+기존 role의 trust는 EC2, 연결된 instance profile 한 개, 해당 profile의 EC2는
+ap-northeast-2의 대상 `i-08e374efb0c31160d` 한 대뿐이었다.
+확인한 trust/profile/리전 내 EC2 범위에서 추가 서비스 의존성은 관측되지 않았다.
+기존 raw policy와 AmazonSSMManagedInstanceCore 외 추가 정책은 없었다.
+관리 API 주체는 `arn:aws:iam::048715026902:user/chan`, cluster는 ACTIVE/SERVERLESS,
+bootstrap은 본문과 같고 EC2는 stopped였다.
+
+### 13.2 실제 변경과 클라이언트
+
+임시 policy 이름은 `ktd-p2-output-topics-admin-temporary`다. NoSuchEntity를 확인한
+후 §4 JSON을 별도 inline policy로 적용하고 GET 결과와 일치함을 확인했다.
+기존 inline policy를 덮어쓰지 않았다. EC2를 시작한 뒤 system/instance status ok와
+SSM Online을 확인했다. SSM AWS-RunShellScript로 inventory와 Kafka CLI를 실행했다.
+
+실제 발견한 기존 경로:
+
+| 도구 | 경로·버전 |
+|---|---|
+| kafka-topics.sh | /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh |
+| kafka-configs.sh | /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-configs.sh |
+| IAM JAR | /home/ssm-user/kafka_2.12-2.8.1/libs/aws-msk-iam-auth-2.3.0-all.jar |
+| 기존 인증 파일 | /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties |
+| CLI 버전 | 2.8.1 (Commit:839b886f9b732b15) |
+| EC2 내부 principal | arn:aws:sts::048715026902:assumed-role/ktd-msk-producer-role/i-08e374efb0c31160d |
+
+기존 properties는 SASL_SSL/AWS_MSK_IAM과 기대한 IAMLoginModule/callback에
+일치했다. credential 환경변수·공유 파일·JAAS override는 발견되지 않았다.
+기존 파일을 그대로 사용했으며 패키지/JAR 설치나 기존 인증 파일 수정은 없었다.
+JVM heap과 classpath는 명령 실행 프로세스의 환경에만 지정했다.
+
+### 13.3 생성 전후 실제 Kafka 결과
+
+두 output 각각에서 생성 전 완전 일치 Describe가 명시적으로
+`does not exist as expected`를 반환했다. 정상 --list에는 kitchen.sensor.raw만
+있었고 인증/timeout 오류를 output 부재로 분류하지 않았다. 생성 직전에 각각
+같은 부재 응답을 다시 확인하고 §6의 --create --if-not-exists 명령을 한 번씩 실행했다.
+양쪽 모두 `Created topic ...`와 exit 0을 반환했다. 다른 topic은 생성하지 않았다.
+
+| 실측 항목 | kitchen.sensor.validated | kitchen.sensor.quarantine |
+|---|---|---|
+| 생성 | 이번 생성, 성공 | 이번 생성, 성공 |
+| Describe/config | 모두 exit 0 | 모두 exit 0 |
+| partition 수·ID | 3 / 0,1,2 | 3 / 0,1,2 |
+| cleanup.policy | delete | delete |
+| retention.ms | 604800000 | 604800000 |
+| retention.bytes | -1 | -1 |
+| 실측 RF | 3 | 3 |
+| 실측 min.insync.replicas | 2 (STATIC_BROKER_CONFIG) | 2 (STATIC_BROKER_CONFIG) |
+| leader / replicas / ISR | 각 partition 유효 leader, replica 3개·ISR 3개 | 동일 |
+
+RF/min ISR을 지정하거나 변경하지 않고 Serverless 관리값을 읽었다.
+사후 --list에는 raw와 두 output이 있었다. 생성·Describe·config 명령과 실제
+stdout/stderr, partition별 leader/replica/ISR은 증빙에 저장했다.
+config stdout은 대상 설정 관련 행과 전체 원본 출력 SHA-256을 보관했으며 전체
+config 텍스트를 보관했다고 하지 않는다. 동적 retention 설정과 broker 기본값을
+구분해 유효값을 검사했다.
+
+### 13.4 필수 정리와 보존 확인
+
+성공 후 finally 경로에서 EC2 stop을 요청하고 stopped를 조회했다. 이번 임시
+policy의 실제 내용이 적용한 초안과 같음을 확인한 뒤 그 policy만 삭제했다.
+재조회 결과는 NoSuchEntity이며 정리 오류는 없었다.
+
+최종 별도 AWS 읽기 확인:
+
+- EC2 stopped, PublicIp=null, 기존 instance profile 유지.
+- 기존 EC2 inline policy의 이름·본문, attached policy, role trust 전후 동일.
+- `ktd-msk-job2-producer-policy` 전후 동일. Job 2 CreateTopic 추가 없음.
+- 임시 policy 부재 재확인. 기존 raw/SSM 권한은 제거하지 않음.
+- 기존 데이터·offset·checkpoint·인증 설정·다른 Phase 변경 없음.
+
+### 13.5 실행 시간과 비용
+
+아래는 실제 관리 API 호출·조회 시각이며 청구서의 확정 실행 시간은 아니다.
+
+| 시점 | UTC | KST |
+|---|---|---|
+| EC2 시작 요청 | 2026-10-22 05:11:57.735 | 14:11:57.735 |
+| EC2 중지 요청 | 2026-10-22 05:18:25.858 | 14:18:25.858 |
+| stopped 관측 | 2026-10-22 05:18:43.205 | 14:18:43.205 |
+| 임시 policy 회수 확인 | 2026-10-22 05:18:46.260 | 14:18:46.260 |
+
+시작 요청~stopped 관측은 405.47초(약 6분 45초)다. §12.7의 10/20 관측 단가로
+전체 구간을 과금 시간으로 잡으면 EC2 약 $0.00146, public IPv4 한 개 가정 포함
+약 $0.00203이다. 실제 IPv4 할당 시간·청구 내역은 조회하지 않아 확정 비용이 아니다.
+실제 RUNNING 과금 구간보다 넓은 요청/관측 구간을 사용한 추정치다.
+기존 EBS·MSK cluster 요금은 지속하며 이번 6 partitions는 §9의 단가 기준
+$0.0108/시간(730시간 $7.884)과 데이터 저장·입출력 비용이 추가된다.
+요금 재조회와 AWS 크레딧 적용 확인은 이번 실행에 포함하지 않았다.
+
+### 13.6 오류·경고와 미검증
+
+기존 raw의 전체 Describe는 TopicAuthorizationException이었다. raw 부재로 처리하지
+않았고 기존 raw의 존재는 생성 전후 목록으로 확인했다. EC2 role에는 raw
+DescribeTopicDynamicConfiguration이 없고 Kafka 2.8.1 TopicCommand의 전체 Describe는
+config도 조회하므로 해당 권한 경계에 부합하는 오류로 판단했다. raw 권한을
+넓히지 않았다. raw의 전체 설정·partition 전후 대사는 미검증으로 남긴다.
+[Kafka 2.8.1 TopicCommand 구현](https://github.com/apache/kafka/blob/2.8.1/core/src/main/scala/kafka/admin/TopicCommand.scala)
+
+생성 시 점/밑줄 topic 이름의 metric 충돌 가능성에 대한 Kafka 일반 경고가 있었고
+원문을 보관했다. 대상의 계획된 이름은 바꾸지 않았다. 두 output의 실제 설정
+불일치·생성 실패·정리 실패는 없었다.
+
+다음은 여전히 미검증이다: Job 2 producer credential의 broker metadata,
+produce callback ACK, 메시지/offset 대사, Spark checkpoint 재시작·부분 실패 복구.
+일반 권한 실패·SASL/네트워크 장애·TopicAlreadyExists·정리 실패 장애 주입은
+수행하지 않았다. 이번 provisioning 완료를 Phase 2 전체 완료로 표현하지 않는다.
+
+### 13.7 증빙과 변경 범위
+
+증빙 폴더: `docs/evidence/phase-2/msk-output-topics/20261022T051154Z/`.
+
+- before.json / after.json: 변경 전후 상태와 기존 정책 보존 확인.
+- temporary-policy-applied.json / operations.jsonl: 임시 정책·변경 시각.
+- client-inventory.json / ready.json: 실제 도구·인증 참조·EC2/SSM 상태.
+- topic-preflight.json / topic-list-readonly.json: 생성 전 부재·raw 목록.
+- topic-commands.json / topics-final.json / cli-results.txt: 실제 Kafka 명령·설정 결과.
+- cleanup.json / run-summary.json: stopped·회수·시간·비용 추정.
+- *-request.json / *-result.json: SSM command ID·실행 명령·응답.
+
+cli-results.txt를 열어 양쪽 after-describe/config와 정리 결과 화면을 촬영할 수 있다.
+실제 화면 캡처 이미지 파일은 이번에 생성하지 않았다. JSON/CLI 텍스트가 실측 증빙이다.
+비밀값은 출력하지 않았고 local evidence 제외 설정도 바꾸지 않는다.
+이번 저장소 변경은 본 절과 증빙 폴더뿐이며 Git add/commit/push/merge는 하지 않았다.
+Job 2 E2E나 발행 단계로 자동 진행하지 않고 사용자 검토에서 멈춘다.
+
+최종 검증: 증빙 22개 JSON/JSONL 파싱·텍스트 확인과 credential 패턴 검사를
+통과했다. 실측 두 topic 설정·leader/ISR·cleanup assertion도 통과했다.
+다른 기존 추적·미추적 파일은 세션 시작 SHA-256과 동일했고 git diff --check도
+통과했다. 제품 코드 변경이 없어 unit 회귀는 반복하지 않았다.

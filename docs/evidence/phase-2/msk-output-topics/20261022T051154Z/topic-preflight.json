@@ -1,0 +1,53 @@
+{
+  "topic_describes": {
+    "kitchen.sensor.raw": {
+      "command": [
+        "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh",
+        "--bootstrap-server",
+        "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+        "--command-config",
+        "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+        "--describe",
+        "--topic",
+        "^kitchen\\.sensor\\.raw$"
+      ],
+      "returncode": 1,
+      "stdout": "Error while executing topic command : Topic authorization failed.\n",
+      "stderr": "[2026-10-22 05:15:12,939] ERROR org.apache.kafka.common.errors.TopicAuthorizationException: Topic authorization failed.\n (kafka.admin.TopicCommand$)\n"
+    },
+    "kitchen.sensor.validated": {
+      "command": [
+        "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh",
+        "--bootstrap-server",
+        "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+        "--command-config",
+        "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+        "--describe",
+        "--topic",
+        "^kitchen\\.sensor\\.validated$"
+      ],
+      "returncode": 1,
+      "stdout": "Error while executing topic command : Topic '^kitchen\\.sensor\\.validated$' does not exist as expected\n",
+      "stderr": "[2026-10-22 05:15:16,598] ERROR java.lang.IllegalArgumentException: Topic '^kitchen\\.sensor\\.validated$' does not exist as expected\n\tat kafka.admin.TopicCommand$.kafka$admin$TopicCommand$$ensureTopicExists(TopicCommand.scala:542)\n\tat kafka.admin.TopicCommand$AdminClientTopicService.describeTopic(TopicCommand.scala:317)\n\tat kafka.admin.TopicCommand$.main(TopicCommand.scala:69)\n\tat kafka.admin.TopicCommand.main(TopicCommand.scala)\n (kafka.admin.TopicCommand$)\n"
+    },
+    "kitchen.sensor.quarantine": {
+      "command": [
+        "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh",
+        "--bootstrap-server",
+        "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+        "--command-config",
+        "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+        "--describe",
+        "--topic",
+        "^kitchen\\.sensor\\.quarantine$"
+      ],
+      "returncode": 1,
+      "stdout": "Error while executing topic command : Topic '^kitchen\\.sensor\\.quarantine$' does not exist as expected\n",
+      "stderr": "[2026-10-22 05:15:20,291] ERROR java.lang.IllegalArgumentException: Topic '^kitchen\\.sensor\\.quarantine$' does not exist as expected\n\tat kafka.admin.TopicCommand$.kafka$admin$TopicCommand$$ensureTopicExists(TopicCommand.scala:542)\n\tat kafka.admin.TopicCommand$AdminClientTopicService.describeTopic(TopicCommand.scala:317)\n\tat kafka.admin.TopicCommand$.main(TopicCommand.scala:69)\n\tat kafka.admin.TopicCommand.main(TopicCommand.scala)\n (kafka.admin.TopicCommand$)\n"
+    }
+  },
+  "configs": {},
+  "client_version": "2.8.1 (Commit:839b886f9b732b15)",
+  "python_kafka_present": false,
+  "python_signer_present": false
+}

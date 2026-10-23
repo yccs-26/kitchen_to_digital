@@ -1,0 +1,114 @@
+{
+  "kitchen.sensor.validated": {
+    "created": true,
+    "partitions": [
+      {
+        "partition": 0,
+        "leader": 147,
+        "replicas": [
+          147,
+          189,
+          249
+        ],
+        "isr": [
+          147,
+          189,
+          249
+        ]
+      },
+      {
+        "partition": 1,
+        "leader": 189,
+        "replicas": [
+          189,
+          243,
+          147
+        ],
+        "isr": [
+          189,
+          243,
+          147
+        ]
+      },
+      {
+        "partition": 2,
+        "leader": 249,
+        "replicas": [
+          249,
+          147,
+          267
+        ],
+        "isr": [
+          249,
+          147,
+          267
+        ]
+      }
+    ],
+    "partition_count": 3,
+    "replication_factor": 3,
+    "configs": {
+      "cleanup.policy": "delete",
+      "retention.ms": "604800000",
+      "retention.bytes": "-1",
+      "min.insync.replicas": "2"
+    },
+    "verified": true
+  },
+  "kitchen.sensor.quarantine": {
+    "created": true,
+    "partitions": [
+      {
+        "partition": 0,
+        "leader": 237,
+        "replicas": [
+          237,
+          267,
+          249
+        ],
+        "isr": [
+          237,
+          267,
+          249
+        ]
+      },
+      {
+        "partition": 1,
+        "leader": 267,
+        "replicas": [
+          267,
+          249,
+          255
+        ],
+        "isr": [
+          267,
+          249,
+          255
+        ]
+      },
+      {
+        "partition": 2,
+        "leader": 249,
+        "replicas": [
+          249,
+          147,
+          261
+        ],
+        "isr": [
+          249,
+          147,
+          261
+        ]
+      }
+    ],
+    "partition_count": 3,
+    "replication_factor": 3,
+    "configs": {
+      "cleanup.policy": "delete",
+      "retention.ms": "604800000",
+      "retention.bytes": "-1",
+      "min.insync.replicas": "2"
+    },
+    "verified": true
+  }
+}

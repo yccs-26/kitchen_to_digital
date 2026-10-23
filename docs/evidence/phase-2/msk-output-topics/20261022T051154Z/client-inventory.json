@@ -1,0 +1,38 @@
+{
+  "paths": {
+    "topics": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh"
+    ],
+    "configs": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-configs.sh"
+    ],
+    "jars": [
+      "/home/ssm-user/kafka_2.12-2.8.1/libs/aws-msk-iam-auth-2.3.0-all.jar"
+    ],
+    "properties": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties"
+    ]
+  },
+  "properties": [
+    {
+      "path": "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+      "required_settings_match": true,
+      "credential_override_present": false,
+      "unknown_keys": []
+    }
+  ],
+  "principal_arn": "arn:aws:sts::048715026902:assumed-role/ktd-msk-producer-role/i-08e374efb0c31160d",
+  "java_present": true,
+  "javac_present": false,
+  "credential_env_present": {
+    "AWS_ACCESS_KEY_ID": false,
+    "AWS_SECRET_ACCESS_KEY": false,
+    "AWS_SESSION_TOKEN": false,
+    "AWS_PROFILE": false,
+    "AWS_SHARED_CREDENTIALS_FILE": false,
+    "AWS_CONFIG_FILE": false,
+    "JAVA_TOOL_OPTIONS": false,
+    "KAFKA_OPTS": false
+  },
+  "shared_credential_files_exist": []
+}

@@ -1,0 +1,8 @@
+{"time": "2026-10-22T05:11:57.734978+00:00", "operation": "iam.put-role-policy", "role": "ktd-msk-producer-role", "policy_name": "ktd-p2-output-topics-admin-temporary"}
+{"time": "2026-10-22T05:11:59.107892+00:00", "operation": "ec2.start-instances", "response": {"StartingInstances": [{"InstanceId": "i-08e374efb0c31160d", "CurrentState": {"Code": 0, "Name": "pending"}, "PreviousState": {"Code": 80, "Name": "stopped"}}]}}
+{"time": "2026-10-22T05:14:08.500737+00:00", "operation": "ssm.send-command", "label": "client-inventory", "command_id": "094fc4e0-3c87-477f-b94b-53d43540120e"}
+{"time": "2026-10-22T05:15:03.816328+00:00", "operation": "ssm.send-command", "label": "topic-preflight", "command_id": "a4b955aa-0b99-4471-a8e9-c4a77b857b62"}
+{"time": "2026-10-22T05:16:22.726107+00:00", "operation": "ssm.send-command", "label": "topic-list-readonly", "command_id": "cbcd602f-cc22-43c4-894a-ecebb2c48725"}
+{"time": "2026-10-22T05:17:45.956787+00:00", "operation": "ssm.send-command", "label": "output-topic-provisioning", "command_id": "490c38b1-224b-4e90-b9f3-bdf4e4df506c"}
+{"time": "2026-10-22T05:18:25.858336+00:00", "operation": "ec2.stop-instances", "response": {"StoppingInstances": [{"InstanceId": "i-08e374efb0c31160d", "CurrentState": {"Code": 64, "Name": "stopping"}, "PreviousState": {"Code": 16, "Name": "running"}}]}}
+{"time": "2026-10-22T05:18:45.254645+00:00", "operation": "iam.delete-role-policy", "role": "ktd-msk-producer-role", "policy_name": "ktd-p2-output-topics-admin-temporary"}

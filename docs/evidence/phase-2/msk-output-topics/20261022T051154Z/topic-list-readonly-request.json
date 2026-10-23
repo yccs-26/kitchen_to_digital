@@ -1,0 +1,6 @@
+{
+  "command_id": "cbcd602f-cc22-43c4-894a-ecebb2c48725",
+  "instance_id": "i-08e374efb0c31160d",
+  "submitted_at": "2026-10-22T05:16:22.725220+00:00",
+  "script": "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --list"
+}

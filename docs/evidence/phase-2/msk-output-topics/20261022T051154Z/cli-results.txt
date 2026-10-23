@@ -1,0 +1,88 @@
+P2-8g 실제 Kafka CLI 결과
+Run: 20261022T051154Z
+실행일: 2026-10-22 KST
+데이터 발행 없음. config stdout은 지정 설정 관련 행만 보관.
+
+[kitchen.sensor.validated-before-create]
+$ /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --describe --topic '^kitchen\.sensor\.validated$'
+exit=1
+Error while executing topic command : Topic '^kitchen\.sensor\.validated$' does not exist as expected
+stderr:
+[2026-10-22 05:17:51,441] ERROR java.lang.IllegalArgumentException: Topic '^kitchen\.sensor\.validated$' does not exist as expected
+	at kafka.admin.TopicCommand$.kafka$admin$TopicCommand$$ensureTopicExists(TopicCommand.scala:542)
+	at kafka.admin.TopicCommand$AdminClientTopicService.describeTopic(TopicCommand.scala:317)
+	at kafka.admin.TopicCommand$.main(TopicCommand.scala:69)
+	at kafka.admin.TopicCommand.main(TopicCommand.scala)
+ (kafka.admin.TopicCommand$)
+
+[kitchen.sensor.validated-create]
+$ /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --create --if-not-exists --topic kitchen.sensor.validated --partitions 3 --config cleanup.policy=delete --config retention.ms=604800000 --config retention.bytes=-1
+exit=0
+WARNING: Due to limitations in metric names, topics with a period ('.') or underscore ('_') could collide. To avoid issues it is best to use either, but not both.
+Created topic kitchen.sensor.validated.
+
+[kitchen.sensor.validated-after-describe]
+$ /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --describe --topic '^kitchen\.sensor\.validated$'
+exit=0
+Topic: kitchen.sensor.validated	TopicId: Pdggo__HTVugUKNtFIJNDw	PartitionCount: 3	ReplicationFactor: 3	Configs: min.insync.replicas=2,cleanup.policy=delete,segment.bytes=134217728,retention.ms=604800000,message.format.version=3.0-IV1,unclean.leader.election.enable=false,retention.bytes=-1
+	Topic: kitchen.sensor.validated	Partition: 0	Leader: 147	Replicas: 147,189,249	Isr: 147,189,249
+	Topic: kitchen.sensor.validated	Partition: 1	Leader: 189	Replicas: 189,243,147	Isr: 189,243,147
+	Topic: kitchen.sensor.validated	Partition: 2	Leader: 249	Replicas: 249,147,267	Isr: 249,147,267
+
+[kitchen.sensor.validated-after-config]
+$ /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-configs.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --entity-type topics --entity-name kitchen.sensor.validated --describe --all
+exit=0
+  min.insync.replicas=2 sensitive=false synonyms={STATIC_BROKER_CONFIG:min.insync.replicas=2, DEFAULT_CONFIG:min.insync.replicas=1}
+  cleanup.policy=delete sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:cleanup.policy=delete, DEFAULT_CONFIG:log.cleanup.policy=delete}
+  retention.ms=604800000 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.ms=604800000}
+  retention.bytes=-1 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.bytes=-1, STATIC_BROKER_CONFIG:log.retention.bytes=268435456000, DEFAULT_CONFIG:log.retention.bytes=-1}
+  delete.retention.ms=86400000 sensitive=false synonyms={DEFAULT_CONFIG:log.cleaner.delete.retention.ms=86400000}
+전체 config stdout SHA-256: 331fb7d3efdfd7e8355fb2830bf26008201582ec47b918373e0cd5ec196dd310
+
+[kitchen.sensor.quarantine-before-create]
+$ /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --describe --topic '^kitchen\.sensor\.quarantine$'
+exit=1
+Error while executing topic command : Topic '^kitchen\.sensor\.quarantine$' does not exist as expected
+stderr:
+[2026-10-22 05:18:08,462] ERROR java.lang.IllegalArgumentException: Topic '^kitchen\.sensor\.quarantine$' does not exist as expected
+	at kafka.admin.TopicCommand$.kafka$admin$TopicCommand$$ensureTopicExists(TopicCommand.scala:542)
+	at kafka.admin.TopicCommand$AdminClientTopicService.describeTopic(TopicCommand.scala:317)
+	at kafka.admin.TopicCommand$.main(TopicCommand.scala:69)
+	at kafka.admin.TopicCommand.main(TopicCommand.scala)
+ (kafka.admin.TopicCommand$)
+
+[kitchen.sensor.quarantine-create]
+$ /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --create --if-not-exists --topic kitchen.sensor.quarantine --partitions 3 --config cleanup.policy=delete --config retention.ms=604800000 --config retention.bytes=-1
+exit=0
+WARNING: Due to limitations in metric names, topics with a period ('.') or underscore ('_') could collide. To avoid issues it is best to use either, but not both.
+Created topic kitchen.sensor.quarantine.
+
+[kitchen.sensor.quarantine-after-describe]
+$ /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --describe --topic '^kitchen\.sensor\.quarantine$'
+exit=0
+Topic: kitchen.sensor.quarantine	TopicId: h6zeA3MbTPy-T5RBPN8tmQ	PartitionCount: 3	ReplicationFactor: 3	Configs: min.insync.replicas=2,cleanup.policy=delete,segment.bytes=134217728,retention.ms=604800000,message.format.version=3.0-IV1,unclean.leader.election.enable=false,retention.bytes=-1
+	Topic: kitchen.sensor.quarantine	Partition: 0	Leader: 237	Replicas: 237,267,249	Isr: 237,267,249
+	Topic: kitchen.sensor.quarantine	Partition: 1	Leader: 267	Replicas: 267,249,255	Isr: 267,249,255
+	Topic: kitchen.sensor.quarantine	Partition: 2	Leader: 249	Replicas: 249,147,261	Isr: 249,147,261
+
+[kitchen.sensor.quarantine-after-config]
+$ /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-configs.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --entity-type topics --entity-name kitchen.sensor.quarantine --describe --all
+exit=0
+  min.insync.replicas=2 sensitive=false synonyms={STATIC_BROKER_CONFIG:min.insync.replicas=2, DEFAULT_CONFIG:min.insync.replicas=1}
+  cleanup.policy=delete sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:cleanup.policy=delete, DEFAULT_CONFIG:log.cleanup.policy=delete}
+  retention.ms=604800000 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.ms=604800000}
+  retention.bytes=-1 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.bytes=-1, STATIC_BROKER_CONFIG:log.retention.bytes=268435456000, DEFAULT_CONFIG:log.retention.bytes=-1}
+  delete.retention.ms=86400000 sensitive=false synonyms={DEFAULT_CONFIG:log.cleaner.delete.retention.ms=86400000}
+전체 config stdout SHA-256: 7ec0b0a15001871a626e68f0c64f1e9b927b172b744da5c1332b07c0546bc207
+
+[final-topic-list]
+$ /home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh --bootstrap-server boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098 --command-config /home/ssm-user/kafka_2.12-2.8.1/bin/client.properties --list
+exit=0
+kitchen.sensor.quarantine
+kitchen.sensor.raw
+kitchen.sensor.validated
+
+[정리 결과]
+EC2: stopped
+임시 정책: NoSuchEntity
+기존 role inline/attached/trust 및 Job 2 policy: 전후 동일

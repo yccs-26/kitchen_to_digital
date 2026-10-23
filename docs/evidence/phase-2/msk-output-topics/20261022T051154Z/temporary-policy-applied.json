@@ -1,0 +1,28 @@
+{
+  "RoleName": "ktd-msk-producer-role",
+  "PolicyName": "ktd-p2-output-topics-admin-temporary",
+  "PolicyDocument": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "ConnectToTargetCluster",
+        "Effect": "Allow",
+        "Action": "kafka-cluster:Connect",
+        "Resource": "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+      },
+      {
+        "Sid": "ProvisionAndInspectOnlyJob2Outputs",
+        "Effect": "Allow",
+        "Action": [
+          "kafka-cluster:CreateTopic",
+          "kafka-cluster:DescribeTopic",
+          "kafka-cluster:DescribeTopicDynamicConfiguration"
+        ],
+        "Resource": [
+          "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+          "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine"
+        ]
+      }
+    ]
+  }
+}

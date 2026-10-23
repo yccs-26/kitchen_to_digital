@@ -1,0 +1,39 @@
+{
+  "time": "2026-10-22T05:14:08.046183+00:00",
+  "ec2": {
+    "InstanceStatuses": [
+      {
+        "AvailabilityZone": "ap-northeast-2a",
+        "AvailabilityZoneId": "apne2-az1",
+        "Operator": {
+          "Managed": false,
+          "HiddenByDefault": false
+        },
+        "InstanceId": "i-08e374efb0c31160d",
+        "InstanceState": {
+          "Code": 16,
+          "Name": "running"
+        },
+        "InstanceStatus": {
+          "Details": [
+            {
+              "Name": "reachability",
+              "Status": "passed"
+            }
+          ],
+          "Status": "ok"
+        },
+        "SystemStatus": {
+          "Details": [
+            {
+              "Name": "reachability",
+              "Status": "passed"
+            }
+          ],
+          "Status": "ok"
+        }
+      }
+    ]
+  },
+  "ssm_online": true
+}

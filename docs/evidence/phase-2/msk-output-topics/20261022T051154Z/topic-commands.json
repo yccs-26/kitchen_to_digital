@@ -1,0 +1,172 @@
+[
+  {
+    "label": "kitchen.sensor.validated-before-create",
+    "command": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh",
+      "--bootstrap-server",
+      "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+      "--command-config",
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+      "--describe",
+      "--topic",
+      "^kitchen\\.sensor\\.validated$"
+    ],
+    "returncode": 1,
+    "stdout": "Error while executing topic command : Topic '^kitchen\\.sensor\\.validated$' does not exist as expected\n",
+    "stderr": "[2026-10-22 05:17:51,441] ERROR java.lang.IllegalArgumentException: Topic '^kitchen\\.sensor\\.validated$' does not exist as expected\n\tat kafka.admin.TopicCommand$.kafka$admin$TopicCommand$$ensureTopicExists(TopicCommand.scala:542)\n\tat kafka.admin.TopicCommand$AdminClientTopicService.describeTopic(TopicCommand.scala:317)\n\tat kafka.admin.TopicCommand$.main(TopicCommand.scala:69)\n\tat kafka.admin.TopicCommand.main(TopicCommand.scala)\n (kafka.admin.TopicCommand$)\n"
+  },
+  {
+    "label": "kitchen.sensor.validated-create",
+    "command": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh",
+      "--bootstrap-server",
+      "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+      "--command-config",
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+      "--create",
+      "--if-not-exists",
+      "--topic",
+      "kitchen.sensor.validated",
+      "--partitions",
+      "3",
+      "--config",
+      "cleanup.policy=delete",
+      "--config",
+      "retention.ms=604800000",
+      "--config",
+      "retention.bytes=-1"
+    ],
+    "returncode": 0,
+    "stdout": "WARNING: Due to limitations in metric names, topics with a period ('.') or underscore ('_') could collide. To avoid issues it is best to use either, but not both.\nCreated topic kitchen.sensor.validated.\n",
+    "stderr": ""
+  },
+  {
+    "label": "kitchen.sensor.validated-after-describe",
+    "command": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh",
+      "--bootstrap-server",
+      "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+      "--command-config",
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+      "--describe",
+      "--topic",
+      "^kitchen\\.sensor\\.validated$"
+    ],
+    "returncode": 0,
+    "stdout": "Topic: kitchen.sensor.validated\tTopicId: Pdggo__HTVugUKNtFIJNDw\tPartitionCount: 3\tReplicationFactor: 3\tConfigs: min.insync.replicas=2,cleanup.policy=delete,segment.bytes=134217728,retention.ms=604800000,message.format.version=3.0-IV1,unclean.leader.election.enable=false,retention.bytes=-1\n\tTopic: kitchen.sensor.validated\tPartition: 0\tLeader: 147\tReplicas: 147,189,249\tIsr: 147,189,249\n\tTopic: kitchen.sensor.validated\tPartition: 1\tLeader: 189\tReplicas: 189,243,147\tIsr: 189,243,147\n\tTopic: kitchen.sensor.validated\tPartition: 2\tLeader: 249\tReplicas: 249,147,267\tIsr: 249,147,267\n",
+    "stderr": ""
+  },
+  {
+    "label": "kitchen.sensor.validated-after-config",
+    "command": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-configs.sh",
+      "--bootstrap-server",
+      "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+      "--command-config",
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+      "--entity-type",
+      "topics",
+      "--entity-name",
+      "kitchen.sensor.validated",
+      "--describe",
+      "--all"
+    ],
+    "returncode": 0,
+    "stdout": "  min.insync.replicas=2 sensitive=false synonyms={STATIC_BROKER_CONFIG:min.insync.replicas=2, DEFAULT_CONFIG:min.insync.replicas=1}\n  cleanup.policy=delete sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:cleanup.policy=delete, DEFAULT_CONFIG:log.cleanup.policy=delete}\n  retention.ms=604800000 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.ms=604800000}\n  retention.bytes=-1 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.bytes=-1, STATIC_BROKER_CONFIG:log.retention.bytes=268435456000, DEFAULT_CONFIG:log.retention.bytes=-1}\n  delete.retention.ms=86400000 sensitive=false synonyms={DEFAULT_CONFIG:log.cleaner.delete.retention.ms=86400000}",
+    "stderr": "",
+    "full_stdout_sha256": "331fb7d3efdfd7e8355fb2830bf26008201582ec47b918373e0cd5ec196dd310",
+    "output_filter": "cleanup.policy,retention.ms,retention.bytes,min.insync.replicas only"
+  },
+  {
+    "label": "kitchen.sensor.quarantine-before-create",
+    "command": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh",
+      "--bootstrap-server",
+      "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+      "--command-config",
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+      "--describe",
+      "--topic",
+      "^kitchen\\.sensor\\.quarantine$"
+    ],
+    "returncode": 1,
+    "stdout": "Error while executing topic command : Topic '^kitchen\\.sensor\\.quarantine$' does not exist as expected\n",
+    "stderr": "[2026-10-22 05:18:08,462] ERROR java.lang.IllegalArgumentException: Topic '^kitchen\\.sensor\\.quarantine$' does not exist as expected\n\tat kafka.admin.TopicCommand$.kafka$admin$TopicCommand$$ensureTopicExists(TopicCommand.scala:542)\n\tat kafka.admin.TopicCommand$AdminClientTopicService.describeTopic(TopicCommand.scala:317)\n\tat kafka.admin.TopicCommand$.main(TopicCommand.scala:69)\n\tat kafka.admin.TopicCommand.main(TopicCommand.scala)\n (kafka.admin.TopicCommand$)\n"
+  },
+  {
+    "label": "kitchen.sensor.quarantine-create",
+    "command": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh",
+      "--bootstrap-server",
+      "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+      "--command-config",
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+      "--create",
+      "--if-not-exists",
+      "--topic",
+      "kitchen.sensor.quarantine",
+      "--partitions",
+      "3",
+      "--config",
+      "cleanup.policy=delete",
+      "--config",
+      "retention.ms=604800000",
+      "--config",
+      "retention.bytes=-1"
+    ],
+    "returncode": 0,
+    "stdout": "WARNING: Due to limitations in metric names, topics with a period ('.') or underscore ('_') could collide. To avoid issues it is best to use either, but not both.\nCreated topic kitchen.sensor.quarantine.\n",
+    "stderr": ""
+  },
+  {
+    "label": "kitchen.sensor.quarantine-after-describe",
+    "command": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh",
+      "--bootstrap-server",
+      "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+      "--command-config",
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+      "--describe",
+      "--topic",
+      "^kitchen\\.sensor\\.quarantine$"
+    ],
+    "returncode": 0,
+    "stdout": "Topic: kitchen.sensor.quarantine\tTopicId: h6zeA3MbTPy-T5RBPN8tmQ\tPartitionCount: 3\tReplicationFactor: 3\tConfigs: min.insync.replicas=2,cleanup.policy=delete,segment.bytes=134217728,retention.ms=604800000,message.format.version=3.0-IV1,unclean.leader.election.enable=false,retention.bytes=-1\n\tTopic: kitchen.sensor.quarantine\tPartition: 0\tLeader: 237\tReplicas: 237,267,249\tIsr: 237,267,249\n\tTopic: kitchen.sensor.quarantine\tPartition: 1\tLeader: 267\tReplicas: 267,249,255\tIsr: 267,249,255\n\tTopic: kitchen.sensor.quarantine\tPartition: 2\tLeader: 249\tReplicas: 249,147,261\tIsr: 249,147,261\n",
+    "stderr": ""
+  },
+  {
+    "label": "kitchen.sensor.quarantine-after-config",
+    "command": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-configs.sh",
+      "--bootstrap-server",
+      "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+      "--command-config",
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+      "--entity-type",
+      "topics",
+      "--entity-name",
+      "kitchen.sensor.quarantine",
+      "--describe",
+      "--all"
+    ],
+    "returncode": 0,
+    "stdout": "  min.insync.replicas=2 sensitive=false synonyms={STATIC_BROKER_CONFIG:min.insync.replicas=2, DEFAULT_CONFIG:min.insync.replicas=1}\n  cleanup.policy=delete sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:cleanup.policy=delete, DEFAULT_CONFIG:log.cleanup.policy=delete}\n  retention.ms=604800000 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.ms=604800000}\n  retention.bytes=-1 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.bytes=-1, STATIC_BROKER_CONFIG:log.retention.bytes=268435456000, DEFAULT_CONFIG:log.retention.bytes=-1}\n  delete.retention.ms=86400000 sensitive=false synonyms={DEFAULT_CONFIG:log.cleaner.delete.retention.ms=86400000}",
+    "stderr": "",
+    "full_stdout_sha256": "7ec0b0a15001871a626e68f0c64f1e9b927b172b744da5c1332b07c0546bc207",
+    "output_filter": "cleanup.policy,retention.ms,retention.bytes,min.insync.replicas only"
+  },
+  {
+    "label": "final-topic-list",
+    "command": [
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/kafka-topics.sh",
+      "--bootstrap-server",
+      "boot-aersevd2.c2.kafka-serverless.ap-northeast-2.amazonaws.com:9098",
+      "--command-config",
+      "/home/ssm-user/kafka_2.12-2.8.1/bin/client.properties",
+      "--list"
+    ],
+    "returncode": 0,
+    "stdout": "kitchen.sensor.quarantine\nkitchen.sensor.raw\nkitchen.sensor.validated\n",
+    "stderr": ""
+  }
+]

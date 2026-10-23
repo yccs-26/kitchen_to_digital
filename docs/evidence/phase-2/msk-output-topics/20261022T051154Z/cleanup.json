@@ -1,0 +1,156 @@
+{
+  "run": "20261022T051154Z",
+  "evidence": "docs/evidence/phase-2/msk-output-topics/20261022T051154Z",
+  "policy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "ConnectToTargetCluster",
+        "Effect": "Allow",
+        "Action": "kafka-cluster:Connect",
+        "Resource": "arn:aws:kafka:ap-northeast-2:048715026902:cluster/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2"
+      },
+      {
+        "Sid": "ProvisionAndInspectOnlyJob2Outputs",
+        "Effect": "Allow",
+        "Action": [
+          "kafka-cluster:CreateTopic",
+          "kafka-cluster:DescribeTopic",
+          "kafka-cluster:DescribeTopicDynamicConfiguration"
+        ],
+        "Resource": [
+          "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.validated",
+          "arn:aws:kafka:ap-northeast-2:048715026902:topic/ktd-msk-serverless/3a22c4d6-d923-4098-9ac4-a4746abf3b8a-s2/kitchen.sensor.quarantine"
+        ]
+      }
+    ]
+  },
+  "started_at": "2026-10-22T05:11:54.466698+00:00",
+  "head": "888a59c3acd99989501f487ecd24191a675633af",
+  "policy_put_requested": true,
+  "policy_applied_at": "2026-10-22T05:11:57.734146+00:00",
+  "start_requested": true,
+  "start_requested_at": "2026-10-22T05:11:57.735021+00:00",
+  "topics_verified_at": "2026-10-22T05:18:24.283070+00:00",
+  "topics": {
+    "kitchen.sensor.validated": {
+      "created": true,
+      "partitions": [
+        {
+          "partition": 0,
+          "leader": 147,
+          "replicas": [
+            147,
+            189,
+            249
+          ],
+          "isr": [
+            147,
+            189,
+            249
+          ]
+        },
+        {
+          "partition": 1,
+          "leader": 189,
+          "replicas": [
+            189,
+            243,
+            147
+          ],
+          "isr": [
+            189,
+            243,
+            147
+          ]
+        },
+        {
+          "partition": 2,
+          "leader": 249,
+          "replicas": [
+            249,
+            147,
+            267
+          ],
+          "isr": [
+            249,
+            147,
+            267
+          ]
+        }
+      ],
+      "partition_count": 3,
+      "replication_factor": 3,
+      "configs": {
+        "cleanup.policy": "delete",
+        "retention.ms": "604800000",
+        "retention.bytes": "-1",
+        "min.insync.replicas": "2"
+      },
+      "verified": true
+    },
+    "kitchen.sensor.quarantine": {
+      "created": true,
+      "partitions": [
+        {
+          "partition": 0,
+          "leader": 237,
+          "replicas": [
+            237,
+            267,
+            249
+          ],
+          "isr": [
+            237,
+            267,
+            249
+          ]
+        },
+        {
+          "partition": 1,
+          "leader": 267,
+          "replicas": [
+            267,
+            249,
+            255
+          ],
+          "isr": [
+            267,
+            249,
+            255
+          ]
+        },
+        {
+          "partition": 2,
+          "leader": 249,
+          "replicas": [
+            249,
+            147,
+            261
+          ],
+          "isr": [
+            249,
+            147,
+            261
+          ]
+        }
+      ],
+      "partition_count": 3,
+      "replication_factor": 3,
+      "configs": {
+        "cleanup.policy": "delete",
+        "retention.ms": "604800000",
+        "retention.bytes": "-1",
+        "min.insync.replicas": "2"
+      },
+      "verified": true
+    }
+  },
+  "stop_requested_at": "2026-10-22T05:18:25.857636+00:00",
+  "ec2_final_state": "stopped",
+  "stopped_at": "2026-10-22T05:18:43.204602+00:00",
+  "policy_removed_at": "2026-10-22T05:18:46.260453+00:00",
+  "policy_final_state": "NoSuchEntity",
+  "cleanup_errors": [],
+  "cleanup_checked_at": "2026-10-22T05:18:46.260907+00:00"
+}
