@@ -165,12 +165,15 @@ class FencedPublicationStore(PublicationStore):
         return ('COMPLETE' if axes == done else
                 'PARTIAL' if done else 'ADMITTED')
 
-    def run_command(self, token, command_ref, request, axes, operation):
+    def run_command(self, token, command_ref, request, axes, operation, *,
+                    admission_hook=lambda: None):
         """Record a caller-ordered command, then resume its independent axes.
 
         request must include input, evaluation time and exact configuration.
         A failed/invalid command remains admitted: do not silently skip it.
         The caller must retry the same request; no implicit cancel/migration.
+        admission_hook is for same-connection local metadata only. It runs in
+        the admission transaction; no external side effects belong there.
         """
         text(command_ref)
         read_json(request)
@@ -210,6 +213,7 @@ class FencedPublicationStore(PublicationStore):
                     'INSERT INTO admissions VALUES (?,?,?,?,?)',
                     (key, command_ref, request, encoded_axes, canonical([])),
                 )
+            admission_hook()
         self._writer, self._command = token, command_ref
         try:
             return operation()
