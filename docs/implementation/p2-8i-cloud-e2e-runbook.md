@@ -1,4 +1,4 @@
-> 최신 결과는 **§13 Autonomous Mission**, Cloud 실행 조건은 §12·§13을 따른다. 실물 로컬 복구와 MSK metadata는 확인했지만 전체 Cloud E2E는 BLOCKED다.
+> 최신 결과는 **§14 P2-8m**을 따른다. AWS FreeTier credit0/Databricks 비용 미확인, output 읽기 권한 미적용과 원격 source drift로 Cloud data E2E는 BLOCKED다.
 
 # P2-8i — Cloud E2E 실행 준비 패키지 (P2-8j 안전성 보강)
 
@@ -1163,3 +1163,420 @@ git add -p -- docs/implementation/p2-8i-cloud-e2e-runbook.md \
 포트폴리오 캡처는 real-kafka-suite.log의8 passed와 normal/result.json의 canonical
 fingerprint/lineage, recovery query id/run id, MSK 두 topic/config와 cleanup 상태를
 보여주면 된다. Compose credentials·토큰·실제 runtime 값은 공유하지 않는다.
+
+## 14. P2-8m — Cloud 최종 차단 원인과 실행 전 조건 (2026-10-23)
+
+**현재 실행 판정: BLOCKED_COST + BLOCKED_ACCESS.** 본 작업의 Databricks 현금
+승인은$0다. IAM 변경/MSK 발행도 이번에는 금지되어 실행하지 않았다. EC2 시작,
+Compute/SQL query, UC DDL/Grant/IO, 원격 업로드, offset/checkpoint 변경도0건이다.
+기존 실물 로컬8개를 반복하지 않았다. source를 재구현하지 않았다.
+
+### 14.1 Git·기준과 현재 배포 후보
+
+Branch feat/phase2-validation-silver, 로컬/추적 ref/실제 origin 모두
+`e086c0e32b555f9f4af4bae1647beb5cfb711594`다. 앞선 mission 변경은 commit된 상태다.
+미추적 보류 docker0바이트, p2-8b 개인정보 README, p2-8l 증빙, legacy scripts3개와
+ignored 실제 runtime은 보존했다. 이번 시작309개 파일 SHA256을 기록했다.
+
+forward 계획은 root에는 없지만 **docs/plans/ktd-forward-execution-plan-2026-10-06.md**
+에서 접근·대조했다. AGENTS 지정 계획과 함께 읽었으며 로컬 계획/사본을 Git에 넣지 않는다.
+과거 진척 스냅샷은 현재 구현 증거로 쓰지 않았다.
+
+선정 SHA의 streaming/schema/rules/cloud_e2e/fixture/pyproject/lock을 git archive로
+`/tmp/ktd-8m/deployment`에 만들었다.28파일, manifest source23개, rules/schema/config
+hash 재검증 PASS. 실제 runtime 원본은 건드리지 않고 SecretReference 이름만 포함한
+strict candidate를 생성했다. processing_version=git:선정SHA다. rules_path는
+**runtime config 파일 기준 `validation_rules.json`**이다. `config/validation_rules.json`
+으로 넣으면 config/config 경로가 되어 후보 생성에서 실패했고 basename으로 고쳐 통과했다.
+이것은 새 임시 후보 생성 오류였으며 기존 runtime loader의 결함은 아니다.
+
+현재 후보의 run UUID/시각/schema_id1은 offline preview다. 실제 실행 승인과 준비가
+완료된 뒤 live Registry ID·fresh 시각/run_id로 package 안에서 다시 생성한다.
+문서 commit 후 repo HEAD와 선정 SHA를 섞어 prepare하지 않는다. package의
+make_manifest(...,deployment_sha=선정SHA)를 사용하고 load_manifest를 다시 통과시킨다.
+
+### 14.2 Consumer 차단 원인과 검증된 최소 delta
+
+관리 API Principal은 IAM user chan이다. 실제 output reader 예정 주체는
+`arn:aws:iam::048715026902:role/ktd-databricks-msk-consumer-role`, UC SERVICE credential은
+ktd-msk-consumer다. credential→role ARN, UC trust principal, ExternalId 일치 boolean을
+확인했다. 실제 ExternalId/credential/token 값은 증빙에 넣지 않았다.
+
+기존 ktd-msk-consumer-policy는 Connect exact cluster, ReadData/DescribeTopic raw만,
+DescribeGroup/AlterGroup cluster의 group/*, SelfAssumeRole을 허용한다. output2에
+identity Allow가 없어4 implicitDeny가 발생한다. 관리 user 권한과 이 Role을 혼동하지 않는다.
+추가 managed policy0, boundary 없음, OrganizationsNotInUse로 SCP 적용 조직은 없다.
+관측 identity explicitDeny 없음. ACTIVE cluster의 get-cluster-policy는 NotFound를
+반환했으며 리소스 정책 본문은 반환되지 않았다. STS session policy와 broker 판단은 미검증이다.
+
+기존 JSON을 그대로 재사용한다. 정책 사본을 새로 만들거나 적용하지 않았다.
+`docs/evidence/phase-2/p2-8k-cloud-unblock/output-reader-policy-delta.json`:
+DescribeTopic/ReadData2 actions × exact validated/quarantine2 ARNs다.
+
+- 기존 정책: 필요한9조합 중5 allowed, output4 implicitDeny.
+- 위 delta를 PolicyInputList로 더한 IAM simulation: 필요한9/9 allowed.
+- 추가 정책으로 CreateTopic/WriteData/AlterTopic/DeleteTopic×output2의8개는 모두
+  implicitDeny. 기존 raw/Connect/group 권한은 유지된다.
+- 기존 EC2 raw producer3조합과 Job2 output producer5조합도 fresh simulation에서
+  allowed다. runtime source/producer credential 이름은 실제 UC metadata와 일치한다.
+- Access Analyzer 기본 ValidatePolicy는 findings0. analyzer나 유료 custom check를
+  만들지 않았다. 전체 action/resource cross-product의 무관한 deny는 실패로 세지 않는다.
+
+[MSK consume 권한](https://docs.aws.amazon.com/msk/latest/developerguide/iam-access-control-use-cases.html),
+[무료 기본 정책 검증](https://aws.amazon.com/iam/access-analyzer/pricing/).
+시뮬레이션은 실제 broker 인증/네트워크 성공의 증거가 아니다.
+
+**다음은 별도 적용 승인 이후에만 쓸 명령이며 이번 실행하지 않았다.** 먼저 동명 policy가
+NoSuchEntity인지 확인한다. 존재하면 덮어쓰지 말고 중단한다. 임시 이름·원문hash·시각을
+기록한 후 승인된 delta만 추가하고, 종료 시 이번 policy만 회수·부재 확인한다.
+
+```sh
+aws iam get-role-policy --role-name ktd-databricks-msk-consumer-role \
+  --policy-name ktd-p2-output-reader-e2e-temporary
+# NoSuchEntity와 명시적 적용 승인, 비용/종료 조건이 모두 확인된 뒤에만:
+aws iam put-role-policy --role-name ktd-databricks-msk-consumer-role \
+  --policy-name ktd-p2-output-reader-e2e-temporary \
+  --policy-document file://docs/evidence/phase-2/p2-8k-cloud-unblock/output-reader-policy-delta.json
+# 성공/실패 공통 정리. 원문이 이번 policy와 같은지도 먼저 확인:
+aws iam delete-role-policy --role-name ktd-databricks-msk-consumer-role \
+  --policy-name ktd-p2-output-reader-e2e-temporary
+aws iam get-role-policy --role-name ktd-databricks-msk-consumer-role \
+  --policy-name ktd-p2-output-reader-e2e-temporary
+```
+
+### 14.3 UC 권한과 실제 원격 코드 차이
+
+현재 active 사용자 ID77582772021430, Workspace
+https://dbc-1c3b2d11-7408.cloud.databricks.com (7474648508646287), users/admins다.
+ktd/ktd.silver/checkpoints Volume/운영 Managed Delta Table의 owner와 Job explicit
+run-as가 모두 현재 사용자와 실제로 일치한다. grants get의 빈 결과는 ownership 기반
+권한 부재가 아니다. USE CATALOG/USE SCHEMA/CREATE TABLE와 READ/WRITE VOLUME의
+metadata 근거는 있으나 새 table 생성·checkpoint IO는 하지 않았다.
+[Volume 권한](https://docs.databricks.com/aws/en/volumes/privileges).
+
+원격 Job50294370651632의 기존 b8c6ee2 경로 launcher를 **AUTO export**해 SHA256
+182ad664698270fedcb61afedffe344ce1477cf67ca9b2f94e39bbad6ba574ce를 얻었다.
+이는 b8c6ee2와 선정e086c0e 양쪽 Git blob과 같다. 파일 하나/폴더 이름만으로 실제
+배포 전체 SHA를 확정할 수 없다.23개 code file을 추가로 read-only export해 확인했다.
+
+| 비교 | 결과 |
+|---|---|
+| 선정 SHA와 일치 |19파일|
+| Quarantine publisher 차이 |remote에는 bool/비정수 ACK offset 거부가 없음|
+| Avro decoder 차이 |remote는 HTTP404만으로 unknown schema 분류; 선정본은40403도 확인|
+| 없는 파일 |scripts/phase2/cloud_e2e.py, scripts/phase1_msk_fixture_producer.py|
+
+두 누락 경로는 get-status에서도 doesn't exist로 확인했다. 기존 root를 inplace
+덮어쓰지 않고 새 `/Workspace/Users/<authenticated user>/ktd-job2-e086c0e`에 선정
+패키지를 배포하는 것이 다음 승인안이다. metadata 소유권만으로 배포 성공이라고 하지 않는다.
+
+배포 후 Compute 없이 각 파일을 AUTO export해 로컬 sha256과28개 모두 비교한다.
+code는 export bytes 그대로, 주입 config는 canonical JSON/원본hash 기준을 고정한다.
+실제 config를 공유 로그로 export하지 말고 보호된 임시 로컬 경로에서만 비교한다.
+불일치/누락이면 Compute를 실행하지 않는다. 최종 manifest의 source23/rules/schema/config
+검증도 같은 배포 root에서 통과해야 한다. 운영 Job의 옛 root와 새 테스트 root를 혼용하지 않는다.
+실행 table은 sensor_validated_e2e_<UUID>, checkpoint는 /Volumes/ktd/silver/checkpoints/
+job2/e2e/<fresh run_id>다. 운영 table/checkpoint를 재사용하지 않는다.
+
+### 14.4 크레딧·실제 청구 확인과 Compute 금지 이유
+
+ktd profile 인증은 유효하다. 기존 classic Compute0929-113111-cgu7k91c는
+TERMINATED/r5d.large/num_workers0/first_on_demand1/auto termination60분이다.
+현재 사용자/admins의 cluster CAN_MANAGE와 Job IS_OWNER/CAN_MANAGE도 조회했다.
+종료 권한의 metadata 근거이며 실제 종료 실험은 하지 않았다. 서버리스 Small SQL Warehouse도 존재하나 STOPPED/num_clusters0다. SQL availability는
+Job2 Spark 실행·사설 MSK 접근·무료 비용의 증거가 아니다. 새 serverless Job이나
+새 cluster를 만들지 않는다. 기존 all-purpose cluster의 Job 실행은 all-purpose
+과금이며 Jobs 할인 단가로 추정하지 않는다.
+[기존 cluster 과금](https://docs.databricks.com/aws/en/reference/jobs-2.0-api).
+
+billing usage CLI는 workspace profile 문맥에서 NotFound였다. account 전용 host와
+기존 account_id만 넣은 임시 설정으로도 기존 인증을 재사용하지 못했다. 원래 profile은
+변경하지 않았고 로그인/새 credential을 만들지 않았다. IAB account console은 Sign In만
+보여줬고 임시 탭은 닫았다.404는 잔액0이나 사용량0의 증거가 아니다.
+workspace-conf enableServerlessCompute 키 조회도 Invalid keys였으며 이를 serverless
+비활성으로 해석하지 않는다. 실제 SQL serverless metadata는 별도로 확인됐다.
+
+AWS FreeTier GetAccountPlanState는 **PAID/ACTIVE, 해당 FreeTier remaining credit0USD**다.
+다른 프로모션 크레딧 전체나 실제 청구를 확인한 것은 아니다. Databricks trial credit은
+Databricks 사용에만 적용되며 classic workspace의 AWS 비용을 자동 충당하지 않는다.
+[FreeTier API 범위](https://docs.aws.amazon.com/boto3/latest/reference/services/freetier/client/get_account_plan_state.html),
+[Databricks/AWS 비용 분리](https://docs.databricks.com/aws/en/getting-started/cloud-setup).
+
+관리자에게 필요한 확인 항목:
+
+1. Databricks Account Console→Settings→Subscription & billing의 active/expired
+   credit 잔액·만료UTC·대상workspace/SKU/서비스·계약rate, 실제 현금 invoice, 결제 방식과
+   소진 후 pay-as-you-go 조건. workspace admins가 account billing 권한을 뜻하지 않는다.
+2. Account Usage의 DBU/SKU/월별 CSV와 실제 invoice/credit application의 연결.
+   system.billing SQL/대시보드를 실행해 유료 Warehouse를 시작하지 않는다.
+3. AWS Billing→Credits/Bills에서 일반 프로모션 잔액·서비스 적용·만료와 EC2/EBS/VPC/
+   MSK/Marketplace의 실제 credit 상계·net cash. FreeTier0과 전체 크레딧을 구분한다.
+
+[크레딧 UI](https://docs.databricks.com/aws/en/admin/account-settings/account),
+[Usage UI](https://docs.databricks.com/aws/en/admin/account-settings/usage),
+[AWS Credits](https://docs.aws.amazon.com/us_en/awsaccountbilling/latest/aboutv2/useconsolidatedbilling-credits.html).
+실제 cash0 조건이 입증되지 않았으므로 Compute를 시작하지 않는다. 예산 알림이나
+auto termination60분은 현금 지출의 hard cap이 아니다.
+
+### 14.5 상시 AWS 비용과 NAT 의존성
+
+현재 EC23 stopped, gp3 합46GiB(3000 IOPS/125MiBps), EIP2/NAT2 available,
+MSK Serverless ACTIVE다. 이번 새 Price List 조회의 Seoul gross OnDemand 값이다.
+
+| 항목 | 단가·범위 |
+|---|---|
+| NAT2 |각$0.059/h, 합$0.118/h +처리GB당$0.059|
+| public IPv42 |각$0.005/h, 합$0.010/h, 실제 NAT ENI에 연결|
+| MSK cluster |$0.92/h +partition$0.0018/h +in$0.123/GB/out$0.061/GB/storage$0.114/GB-month|
+| gp3 storage46GiB |$0.0912/GB-month→약$4.1952/month, 추가 provision은 관측 기준 기본값|
+| 기존 client t3.micro |시작 시$0.013/h, 현재VM 실행료0; EBS는 별도|
+| DBR r5d.large1VM |시작 시$0.173/h; DBU rate/credits/청구는 미확인|
+
+MSK cluster+NAT2+EIP2의 소계만 **$1.048/h,720시간$754.56**다. partition/EBS/
+traffic/endpoint 가능 비용/DBU/세금/credit은 빠진 gross 추정이다. 실제 청구액이 아니다.
+30분 VM2대의 조건부 증가 추정은$0.093+DBU/IP/추가 storage/traffic 등이다.
+이번 작업은 그 VM을 시작하지 않았다. 기존 상시 비용은 계속된다.
+[public IPv4/NAT 과금](https://aws.amazon.com/vpc/pricing/).
+
+현재 workspace VPC vpc-097807d9351692806의 main rtb-0d538aeb6844f75ae는
+0/0→nat-04acfddc496fd144e다. NAT subnet을 제외한4개 subnet이 main을 사용한다.
+MSK10.20/16은 pcx-01230317b54320aa5로, MSK SG9098은 Databricks worker SG를
+허용한다. 이 private MSK 경로 자체는 NAT를 쓰지 않지만 공개 Registry/relay/API
+외부 경로는 현재 NAT 설정에 의존한다. 이는 설정 분석이며 live network test는 아니다.
+
+다른 NAT nat-04a269200987189f1은 VPC vpc-0d04681c8530be6fe의 main
+rtb-01a71a3f6f364aa68에 연결돼4개 subnet에 적용된다. tag는 다른 Databricks WorkerEnvId다.
+현재 KTD peering 의존은 관측되지 않지만 소유·다른 workload·삭제 영향은 미확정이다.
+S3 Gateway endpoint2개는 S3 경로를 제공하며 모든 outbound를 대신하지 않는다.
+MSK VPC의 requester-managed Interface endpoint1개/2subnet도 발견했다. 비용 귀속은
+별도 미확인으로 위 소계에 넣지 않았다. 어느 NAT/EIP/endpoint도 바꾸거나 삭제하지 않았다.
+
+### 14.6 MSK 독립 실행 조건과 최종 gate
+
+이번 MSK publish/consume/broker CLI 실행은0건이다. 기존 EC2는 stopped다.
+관측 active Jobs0/cluster terminated/EC23 stopped만으로 외부 Producer·Consumer의
+부재나 raw quiet-window를 증명할 수 없다. 실제 consumer group/원격 query는 미조회다.
+
+향후 MSK 독립 테스트도 fresh run_id/event_id, exact principal/topic, 다른 Consumer의
+fixture 영향 승인/격리, 소량10건과 비용·시간 상한, 실제 입력 bounds/ACK의 위치 기록,
+manual assignment/auto commit=false, 종료·정책 회수 담당이 필요하다. EC2 raw producer
+Role을 UC reader Role로 임의 교체하거나 trust를 바꾸지 않는다. EC2에서 읽기까지
+할 경우 그 EC2 Principal에 맞는 별도 최소 권한 검토가 필요하다. UC role delta만으로
+EC2 인증이 된다고 가정하지 않는다. 공유 raw에 다른 Consumer 영향이 남으면 발행하지 않는다.
+
+현재 Cloud에서만 남은 최소 검증은 cash0 조건, 실제 runtime imports/Registry/IAM/
+VPC 연결, UC 새 table/checkpoint IO, raw10 ACK→canonical4/validated5이상/quarantine5
+bytes·lineage 대사, Cloud 재시작/부분 실패/retention·lag·Bronze 대사와 필수 종료/회수다.
+적용 승인 범위는 reader exact2 최소 임시 delta/회수, 새 root 배포·hash 검증, 새 격리
+UC table/checkpoint, 비용0이 입증된 기존Compute 및 client만의 제한 실행·종료와 fixture10이다.
+비용 증빙과 최종 Writer 격리 없이 실행 승인을 요청하거나 readiness를 READY로 올리지 않는다.
+
+증빙6개는 docs/evidence/phase-2/p2-8m-cloud-final-readiness/README.md에 상대·절대
+경로를 모두 기록했다. 새 코드 결함은 없어 구현/기존 테스트 assertion을 수정하지 않았다.
+이번 full unit/integration은823 passed/19 skipped/1 warning(3.78s), package 검증 PASS,
+IAM validation findings0/시뮬레이션 확인이다. 로컬 실물8/Delta1의 과거 결과와 구별한다.
+main merge는 Phase2 전체 DoD까지 차단하며 사용자 검토에서 멈춘다.
+
+
+## AWS 자율 실행 정책 반영 — MSK ACK/Offset/Output Reader (2026-10-23)
+
+앞선 P2-8m의 AWS 변경 금지는 이번 사용자 명시 지시로 대체됐다. 사용자 확인 AWS 잔액은
+$108이며 FreeTier0을 일반 promo 잔액으로 해석하지 않는다. Databricks cash0 조건은 유지한다.
+
+- **PASS (실제 broker):** 기존 EC2/CLI/IAM Auth 재사용, 격리 1-partition topic
+  `ktd.phase2.acceptance.20261023t125109z`에3건 발행, callback ACK `[0,1,2]`와 실제 consume offset 일치.
+  strings transport test이며 Avro/Job2 Cloud E2E 증거로 합산하지 않는다.
+- **PASS (실제 Output Reader):** UC `ktd-msk-consumer`에서 Compute 없이 발급한 임시 AWS
+  자격증명으로 실제 `ktd-databricks-msk-consumer-role` STS identity 확인. exact output2
+  ReadData/DescribeTopic delta 임시 적용 후6개 partition Fetch `error=NONE` 확인.
+  latest-tail 수신0은 전체 topic이 비었다는 증거가 아니다. manual assignment,
+  enable.auto.commit=false. group join/commit 권한과 Databricks executor 접속은 미검증.
+- 공유 Raw/Output 발행0, Raw/Output metadata 전후 동일, 운영 offset/checkpoint 변경0.
+  output2의3 partitions/RF3/minISR2/delete/retention604800000/bytes-1 재확인.
+- 첫 두 시도는 local CLI secret-stdin parsing 및 Raw Admin DescribeConfig 권한 누락으로
+  생성/발행 전에 실패했다. 설치된 SDK와 Raw exact DescribeTopicDynamicConfiguration
+  임시 권한으로 보정했다. 첫 회 초기 cleanup 검사 오류와 후속 해소 증거도 보존했다.
+- **정리 확인:** 3회 모두 EC2 stopped, 두 role의 이번 임시 정책 NoSuchEntity,
+  암호화 전달용 SSM SecureString ParameterNotFound, 기존 정책/trust 보존. 설치0.
+  test topic/3records는 자동 삭제하지 않았다. 잔여 partition $0.0018/h=$0.0432/day;
+  retention1h/bytes1MiB는 비동기 data retention이며 partition 요금을 없애지 않는다.
+- EC2 총466.07초, EC2+선택적IPv4 gross 약$0.002330. Cost Explorer API 한 건
+  약$0.01 +test partition 첫1h를 포함한 증가 추정 약$0.0141.
+  세금/rounding/traffic/KMS/request/기존 상시 비용 제외, hard cap/실제 청구가 아니다.
+  CE 월중 MSK Credit -$108.39(Estimated)는 적용 이력이며 잔액/향후 적용/최종 청구가 아니다.
+  EC2/NAT/EIP credit 적용은 미확인이다. 기존 MSK/NAT2/EIP2 gross 소계$1.048/h는 별도다.
+- **BLOCKED_COST:** DBR 인증active, cluster TERMINATED, active runs0, checkpoints volume
+  owner 일치 재조회. Compute/SQL/UC DDL/Grant/upload 실행0. credit/rate/expiry/SKU 적용과
+  실제cash0이 미확인이다. AWS credit을 DBR DBU에 적용된다고 간주하지 않는다.
+- 다음 Cloud gate: 현금0 DBR 증거, 정확한SHA 배포 확인, UC 격리IO, 공유 Raw 소비자 영향
+  격리 후 실제 fixture10→canonical4/validated5/quarantine5 및 Cloud 복구 검증.
+  Phase2 전체DoD 전 main merge 금지. 이미 통과한 로컬 테스트는 반복하지 않았다.
+
+상세 실행/실패/명령/비용/정리:
+[`docs/evidence/phase-2/msk-e2e/20261023T125109Z/README.md`](../evidence/phase-2/msk-e2e/20261023T125109Z/README.md).
+이 항목은 이번 추가분이며 이전 미커밋 문서·보류 파일은 보존했다.
+
+
+## Databricks 실제 실행 비용 계획 — 2026-10-24 KST
+
+**판정: 증가 비용은 $10보다 충분히 작게 설계 가능하다. 프로젝트 누적 Databricks 현금
+$10 이내 보장은 미확인이다.** 이전 invoice/크레딧/계약 요금제를 읽을 account 인증이 없다.
+이번 요청은 분석이며 Compute 실행 승인이 아니다. 기존 cash0 정책도 자동 해제하지 않는다.
+금액은 USD 공개 gross 추정이며 세금·환율·크레딧 상계 후 실제 청구가 아니다.
+
+### 실측 설정과 Job 2 호환성
+
+- HEAD e086c0e32b555f9f4af4bae1647beb5cfb711594, branch feat/phase2-validation-silver.
+  기존 미커밋 문서·증빙·legacy/개인정보/실제 runtime 파일은 보존했다.
+- ktd-phase1-dev / 0929-113111-cgu7k91c: **TERMINATED**, r5d.large driver1,
+  workers0, autoscale 없음, singleNode/local[*,4], 2vCPU/16GiB/75GB local disk.
+  DBR17.3.x-scala2.13, USER_ISOLATION(Standard access), **PHOTON**, autotermination60분.
+  SPOT_WITH_FALLBACK이지만 first_on_demand1이고 node가 driver 한 대이므로 spot 할인을
+  가정하지 않고 OnDemand 1대로 계산한다. node가0대인 종료 상태의 미래 실행료 추정이다.
+- Job50294370651632는 existing_cluster_id를 참조한다. Job을 붙여도 All-Purpose SKU다.
+  현재 parameter는 --check-kafka-metadata, 원격 root는 ktd-job2-b8c6ee2다.
+  Job/Task timeout_seconds=0, max_concurrent_runs1, explicit max_retries/retry_on_timeout
+  필드는 반환되지 않았다. schedule/continuous 없음, 현재 active runs0.
+- confluent-kafka2.15.1/fastavro1.12.2/MSK signer1.0.2 등록은 있으나 현재 PENDING이다.
+  설정이 존재한다는 사실을 라이브러리 import/worker 실행 성공으로 간주하지 않는다.
+- [DBR17.3](https://docs.databricks.com/aws/en/release-notes/runtime/17.3lts)는 Spark4.0.0이고
+  프로젝트 Python>=3.11, Scala2.13과 세대가 맞는다. Runtime 제공 Delta/UC를 사용하며
+  로컬 delta-spark jar를 설치하지 않는다. Bronze Managed Iceberg도 유지한다.
+- 현재 소스는 Kafka source의 UC service credential(16.1+), foreachBatch, Python
+  scalar-UDF 내 service credential token mint, toLocalIterator, Delta MERGE/lookup,
+  /Volumes checkpoint, Registry HTTPS/Avro와 Python Producer callback ACK가 필요하다.
+  RDD/sc API 의존은 이번 handler에서 확인되지 않았다. Standard-access callback의
+  직렬화·executor 의존성·UC IO·SDK UDF·MSK/Registry 접속은 실제 Compute에서 미검증이다.
+  [Kafka service credential 지원](https://docs.databricks.com/aws/en/spark/api-options),
+  [Standard 제한](https://docs.databricks.com/aws/en/compute/standard-limitations).
+  앞선 EC2에서 UC role Fetch 성공은 DBR executor 경로 성공이 아니다.
+- 기존 launcher 기본 processingTime10초 + 무기한 awaitTermination은 비용 상한이 없다.
+  이번 계획은 기존 scripts/phase2/cloud_e2e.py의 AvailableNow harness를 사용한다.
+  이 도구는 query timeout<=180초, finally query.stop, snapshot/read-window/ACK/manifest
+  검증을 이미 구현했다. bounded_job_request는 Job/Task600초와 max_retries0을 이미 만든다.
+  새 기능/테스트를 구현하거나 기존 로컬 테스트를 반복하지 않았다.
+
+### 공개 요금과 15/30/60분 계산
+
+[Databricks 공식 계산기](https://www.databricks.com/product/pricing/product-pricing/instance-types)
+의 AWS/Premium·Enterprise/해당 SKU r5d.large 행을 직접 조회했다. DBU/h는 cluster API에
+없어 공식 표로 계산한 값이다. 선택한 Premium/Enterprise는 실제 계정 요금제 확인이 아니다.
+All-Purpose Photon0.900 DBU/h, Classic Jobs 비-Photon0.450, Jobs Photon1.305다.
+Photon 배수를 임의로 적용하거나 SKU 간 DBU/h를 동일시하지 않았다.
+[AWS OnDemand](https://aws.amazon.com/ec2/pricing/on-demand/) Price List API에서 서울/Linux/
+Shared/NA/Used r5d.large **$0.173/h**를 재조회했다. AWS 단가는 DBU 가격에 포함되지 않는다.
+
+아래 시간은 **billable VM/DBU lifetime**이다. query15분에 startup/idle/종료가 추가되면
+그 전체 시간으로 다시 계산한다. 각 셀은 Databricks + AWS VM = 합계다.
+
+| 공개 요금 구성(1 driver,0 worker) | DBU/h × $/DBU | 15분 | 30분 | 60분 |
+|---|---:|---:|---:|---:|
+| 기존 AP Photon / Premium |0.900×0.55|0.12375+0.04325=0.16700|0.24750+0.08650=0.33400|0.49500+0.17300=0.66800|
+| 기존 AP Photon / Enterprise |0.900×0.65|0.14625+0.04325=0.18950|0.29250+0.08650=0.37900|0.58500+0.17300=0.75800|
+| 신규 Classic Jobs 비-Photon / Premium |0.450×0.15|0.016875+0.04325=0.060125|0.03375+0.08650=0.12025|0.06750+0.17300=0.24050|
+| 신규 Classic Jobs 비-Photon / Enterprise |0.450×0.20|0.02250+0.04325=0.06575|0.04500+0.08650=0.13150|0.09000+0.17300=0.26300|
+| 신규 Classic Jobs Photon / Premium |1.305×0.15|0.0489375+0.04325=0.0921875|0.097875+0.08650=0.184375|0.19575+0.17300=0.36875|
+
+공식 Jobs Photon 행의 표시 $0.1958/h는 반올림이며 계산은1.305×0.15를 썼다.
+Classic 비용은 node 수에 선형으로 증가한다. driver+worker1이면 대략2배다.
+Disk/S3/UC storage/IP/네트워크/세금/기존 MSK·NAT 비용은 위 표에 없다.
+AWS credit$108은 사용자 확인값이고 DBR DBU credit으로 상계하지 않는다.
+
+Serverless Jobs는 계산기 Premium selector **$0.40/DBU**를 확인했다. 인프라가 포함되어
+별도 r5d.large EC2료를 더하지 않는다. 실제 서울 account/SKU rate와 DBU 소모량은 미확인이다.
+1/4/8 DBU/h를 **가정**하면 15분 $0.10/0.40/0.80,30분 $0.20/0.80/1.60,
+60분 $0.40/1.60/3.20이다. r5d.large 대응값이 아니며 $10=25DBU는 해당 예시 단가의
+산술 한도일 뿐 실행 예측/강제 cap이 아니다.
+
+### Compute 비교와 추천 하나
+
+| 후보 | 확인한 장점 | 차단/검증 필요 |
+|---|---|---|
+| 기존 AP Photon 재사용 | 기존 node/UC 설정·이전 VPC 경로, 새 compute 구성 불필요 | 시간당 비쌈, Job 종료가 cluster 종료가 아님, PENDING libs/runtime IO 미검증 |
+| 신규 Classic Jobs / 비-Photon | 공개 단가 최저, task 종료 후 ephemeral compute 정리 | 새 compute 승인·생성권한/정책·동일 VPC/SG/UC·single-node 지원 실측, cold start/import 추가 |
+| Serverless Jobs | Python script/AvailableNow/UC 경로를 제품상 지원, 인프라 운영 최소 | 계정 활성/서울 SKU rate·NCC/private MSK 접근 미검증, 기존 VPC peering 자동 상속 안 함, consumption 상한 불명 |
+
+[Serverless](https://docs.databricks.com/aws/en/jobs/run-serverless-jobs)는 Python script를
+지원한다. [제한](https://docs.databricks.com/aws/en/compute/serverless/limitations)상
+AvailableNow는 가능하나 processingTime은 불가하고 Spark Connect/설정/로그 제약이 있다.
+기존 서비스 자격증명 UDF/foreachBatch를 그대로 실행할 수 있다고 단정하지 않는다.
+SQL Warehouse 존재는 serverless Jobs 활성이나 MSK private 경로 증거가 아니다.
+
+**추천: 이번 소량 수용 검증은 기존 AP Photon을 한 번 시작해 재사용한다.** 신규 구성의
+호환성/네트워크 조사·실행을 추가하기보다 기존 경로에서 총2시간으로 묶는다. Premium에서
+새 Jobs 비-Photon의 DBU 절감은2시간 기준 $0.855이므로, 이번 검증에서 그 절감을 위해
+새 runtime 배포 위험을 추가하지 않는다. 장기/운영 streaming 기본안은 Classic Jobs가
+유리하며 이번 AP 권고를 운영 설계로 일반화하지 않는다.
+
+### 실행 사양·순서 (승인 전 실행 금지)
+
+기존 AP cluster 설정 그대로: DBR17.3/PHOTON/r5d.large/driver1/workers0/no autoscale.
+총120분 계획(시작요청~TERMINATED 확인까지),90분에 새 scenario 진입 중단,
+마지막30분은 취소·정리 reserve다. 별도 로컬 watchdog으로 wall-clock을 측정한다.
+Job/Task timeout600초, max_retries0, retry_on_timeout=false 명시를 제안한다.
+후자는 현재 helper에 생략되므로 제출 request 생성 단계에서 확인한다. 동시실행1,
+continuous/schedule 없음, 무한 queue/repair/auto-retry 금지, 실패 복구는 사람이 검토한
+명시적 다음 실행이다. query180초/read-window60초/Producer ACK15초 계약을 재사용한다.
+
+1. 유료 시작 전(0 DBU): account billing/잔여 예산 확인, 새 root에 선정e086c0e 전체 hash
+   일치 배포 확인, SecretReference 안전 주입, readiness 실제 항목 확인. 기존 remote
+   b8c6ee2 경로의 metadata-only Job을 그대로 run-now하지 않는다. Runtime secrets 본문은
+   로그/artifact에 넣지 않는다. UC 격리 table/Volume grant·writer 충돌·shared raw 외부
+   consumer 영향 격리가 선행 조건이다. offset 필터만으로 타 consumer 영향을 막지 못한다.
+2. 0~15분: 기존 compute 시작, libs/import/UDF/UC/MSK/Registry smoke 및 종료권한 확인.
+   15분까지 준비 실패면 새 시나리오를 열지 말고 취소·종료한다. 시작 중 VM의 비용도
+   포함해 기록하며 queue/setup 시간을 task timeout만으로 제한한다고 가정하지 않는다.
+3. 15~35분: 정상 E2E. raw partitions 시작 offsets→fixture10 ACK→isolated run-job→
+   canonical4/validated5/quarantine5·bytes·lineage 대사. precreated 격리 table
+   ktd.silver.sensor_validated_e2e_<UUID>, checkpoint /Volumes/ktd/silver/checkpoints/job2/e2e/<run_id>.
+   실제 생성/권한 변경은 별도 승인된 실행에서만 한다.
+4. 35~50분: 같은 manifest/table/checkpoint로 **별도 task/process** 재실행, 새 발행0,
+   query.id 동일/runId 다름, canonical 불변/추가 output window 대사. query restart와
+   VM 재시작을 구분한다. Compute 재시작 요구가 추가되면 별도 시간·승인으로 다시 산정한다.
+5. 50~75분: 별도 scenario manifest/table/checkpoint와 입력 ACK 범위로 controlled
+   ack_uncertain 실패→same checkpoint 정상 복구, 이어 after_ack-before-checkpoint 실패→
+   복구를 예산 내에서 수행한다. 앞 scenario checkpoint를 초기화하지 않는다. 새 scenario
+   fixture는 필요 시10건, 전체 최대30건 제안. 실제 broker 장애와 injected callback
+   장애를 구분해 기록한다. quarantine-only/cloud outage/SIGKILL 등 추가 장애는 이번
+   최소 비용 범위에 포함했다고 주장하지 않는다.
+6. 75~90분: 최종 Silver/output 대사와 증빙 저장. 90분 넘으면 새 run 금지.
+   query/consumer close→active task 취소→cluster terminate 요청→TERMINATED/잔존 EC2 확인.
+   120분까지 중지 확인 안 되면 cleanup 실패로 즉시 보고하고 계속 종료를 시도한다.
+   운영 run/query는 시작 전 배제하며 타 사용자 실행이 보이면 cluster를 강제 종료하지 않는다.
+
+표준2시간: Premium DBU **$0.99** / Enterprise **$1.17**, AWS VM **$0.346**,
+합 **$1.336/$1.516** +제외 비용. 전체4시간으로 늘어난 스트레스 값도 DBU$1.98/$2.34,
+AWS$0.692,합$2.672/$3.032다. 기존 MSK/NAT2/EIP2 gross 소계$1.048/h는 별도로 계속
+발생하므로2시간$2.096(+partition/EBS/data 등)을 신규 VM료와 혼동하지 않는다.
+이전 서울 단가 관측을 인용한 기존 baseline이며 이번 새로 전체 인프라 과금을 검증하지 않았다.
+
+### 비용 상한 위험과 승인 조건
+
+- query.awaitTermination180초는 query.stop/driver hang/시작시간까지 강제 종료하는
+  장치가 아니다. task600초도 cluster 종료를 보장하지 않는다. cancellation→termination
+  완료까지 billable duration을 계속 계측해야 한다.
+- 현재 AP 자동종료60분은 idle 이후다. active streaming이 있으면 종료되지 않을 수 있고,
+  idle1시간을 방치하면 DBU$0.495~0.585 +AWS$0.173이 추가된다.
+  [Compute 종료/idle 과금](https://docs.databricks.com/en/user-guide/clusters/sparkui.html).
+- max_retries=-1/continuous/repair 재실행은 예산을 무한히 늘릴 수 있다. 이번 계획은0이고
+  두 복구 재실행은 자동retry가 아니라 별도 예산 집계 대상이다. 동시 cluster 수1을 유지한다.
+- budget alert·수동 watchdog·timeout은 결제 hard cap이 아니다. 현재 과금 rate와 invoice
+  지연, 세금/FX, cleanup API 오류, 갑작스러운 node 증가/다른 사용자 실행이 상한 위험이다.
+
+workspace profile로 account usage API는 Not Found. 올바른 account host probe도 account
+인증 불가였고 Account Console은 Sign In 화면이다. 로그인/토큰 생성은 하지 않았다.
+**Databricks 크레딧 잔액·만료·적용 SKU·계약 rate·현재 cash invoice 모두 미확인**이다.
+system.billing SQL을 실행하려고 Warehouse를 시작하지 않았다. billing list price는 invoice
+또는 credit-adjusted cash와 같지 않다. 잔여 예산은 `10 - 기존 누적 현금 B`이며 B가 없어
+프로젝트 총$10 준수 여부를 확정할 수 없다.
+
+승인 전에 사용자가 확인할 내용은 Account Console의 요금제/credits·expiry·해당 workspace/
+SKU 적용·실제 invoice B와 신규 현금 허용 여부다. 실행 승인을 요청할 구체 범위는
+**기존 AP 시작·최종 종료, 최대120분 계획, DBR 증가 현금 최대$3의 제안 예산,
+AWS 증가 VM/소량 테스트 최대$1 제안 예산(기존 상시료 별도), 격리 UC 목적지 생성/최소
+권한, 정확한SHA 배포, 정상10건+필요한 장애 scenario 최대30건 및 두 controlled fault**다.
+프로젝트 누적$10을 유지하려면 우선 B+$3<=10을 확인해야 한다. 이 문서는 해당 승인이
+아니며, 비용 초과 위험에 대한 강제 cap도 아니다. 현재 유료 실행은 계속 BLOCKED 상태다.
+
+실측/수식/명령/미검증 값은
+[databricks-cost-estimate](../evidence/phase-2/databricks-cost-estimate/README.md)에 기록했다.

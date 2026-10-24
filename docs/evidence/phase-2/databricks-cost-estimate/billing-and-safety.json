@@ -1,0 +1,17 @@
+{
+  "correct_account_host_probe_exit": 1,
+  "error": "account_auth_unavailable",
+  "credits_balance": "UNVERIFIED",
+  "credits_expiration": "UNVERIFIED",
+  "current_cash_invoice": "UNVERIFIED",
+  "account_plan_and_contract": "UNVERIFIED",
+  "compute_or_sql_started": false,
+  "date_kst": "2026-10-24",
+  "workspace_host_account_billing_probe": "Not Found; wrong account API context, not evidence of zero usage",
+  "account_console": "Sign In page; no login/credential entry attempted",
+  "user_reported_aws_credits_usd": 108,
+  "aws_credits_are_not_databricks_dbu_credits": true,
+  "status": "COST_FEASIBLE_INCREMENTAL; BLOCKED_APPROVAL_AND_BILLING; previous cash-zero policy not waived",
+  "local_tests_reexecuted": false,
+  "cloud_mutations": 0
+}

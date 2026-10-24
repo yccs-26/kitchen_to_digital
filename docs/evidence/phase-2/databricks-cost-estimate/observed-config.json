@@ -1,0 +1,139 @@
+{
+  "cluster": {
+    "cluster_name": "ktd-phase1-dev",
+    "cluster_id": "0929-113111-cgu7k91c",
+    "state": "TERMINATED",
+    "node_type_id": "r5d.large",
+    "driver_node_type_id": "r5d.large",
+    "num_workers": 0,
+    "autoscale": null,
+    "spark_version": "17.3.x-scala2.13",
+    "data_security_mode": "USER_ISOLATION",
+    "autotermination_minutes": 60,
+    "runtime_engine": "PHOTON",
+    "is_single_node": true,
+    "spark_conf": {
+      "spark.databricks.cluster.profile": "singleNode",
+      "spark.master": "local[*, 4]"
+    },
+    "aws_attributes": {
+      "availability": "SPOT_WITH_FALLBACK",
+      "first_on_demand": 1,
+      "spot_bid_price_percent": 100,
+      "zone_id": "auto"
+    },
+    "enable_elastic_disk": false,
+    "cluster_source": "UI"
+  },
+  "node_type": {
+    "category": "Memory Optimized",
+    "description": "r5d.large",
+    "display_order": 0,
+    "instance_type_id": "r5d.large",
+    "is_deprecated": false,
+    "is_encrypted_in_transit": false,
+    "is_graviton": false,
+    "is_hidden": false,
+    "is_io_cache_enabled": true,
+    "memory_mb": 16384,
+    "node_instance_type": {
+      "instance_type_id": "r5d.large",
+      "local_disk_size_gb": 75,
+      "local_disks": 1
+    },
+    "node_type_id": "r5d.large",
+    "num_cores": 2,
+    "num_gpus": 0,
+    "photon_driver_capable": true,
+    "photon_worker_capable": true,
+    "support_cluster_tags": true,
+    "support_ebs_volumes": true,
+    "support_port_forwarding": true
+  },
+  "job": {
+    "name": "New Job 2026-10-12 01:34:55",
+    "timeout_seconds": 0,
+    "max_concurrent_runs": 1,
+    "tasks": [
+      {
+        "disabled": false,
+        "email_notifications": {},
+        "existing_cluster_id": "0929-113111-cgu7k91c",
+        "libraries": [
+          {
+            "pypi": {
+              "package": "confluent-kafka[avro,schemaregistry]==2.15.1"
+            }
+          },
+          {
+            "pypi": {
+              "package": "fastavro==1.12.2"
+            }
+          },
+          {
+            "pypi": {
+              "package": "aws-msk-iam-sasl-signer-python==1.0.2"
+            }
+          }
+        ],
+        "run_if": "ALL_SUCCESS",
+        "spark_python_task": {
+          "parameters": [
+            "--runtime-config",
+            "config/job2-runtime.json",
+            "--check-kafka-metadata"
+          ],
+          "python_file": "/Workspace/Users/<authenticated-user>/ktd-job2-b8c6ee2/scripts/run_job2_databricks.py"
+        },
+        "task_key": "job2-validation-silver",
+        "timeout_seconds": 0,
+        "webhook_notifications": {}
+      }
+    ],
+    "job_clusters": null,
+    "schedule": null,
+    "continuous": null
+  },
+  "active_runs": 0,
+  "serverless_flag": {
+    "error": "read_API_failed"
+  },
+  "libraries": [
+    {
+      "is_library_for_all_clusters": false,
+      "library": {
+        "pypi": {
+          "package": "confluent-kafka[avro,schemaregistry]==2.15.1"
+        }
+      },
+      "status": "PENDING"
+    },
+    {
+      "is_library_for_all_clusters": false,
+      "library": {
+        "pypi": {
+          "package": "fastavro==1.12.2"
+        }
+      },
+      "status": "PENDING"
+    },
+    {
+      "is_library_for_all_clusters": false,
+      "library": {
+        "pypi": {
+          "package": "aws-msk-iam-sasl-signer-python==1.0.2"
+        }
+      },
+      "status": "PENDING"
+    }
+  ],
+  "billing_probe": {
+    "error": "Not Found"
+  },
+  "authentication_active": true,
+  "date_kst": "2026-10-24",
+  "branch": "feat/phase2-validation-silver",
+  "head": "e086c0e32b555f9f4af4bae1647beb5cfb711594",
+  "dbu_per_hour_api_field": "not supplied by clusters/get or list-node-types; derived from public calculator",
+  "source_path_redacted": true
+}

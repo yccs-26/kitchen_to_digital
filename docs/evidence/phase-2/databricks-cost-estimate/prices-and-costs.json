@@ -1,0 +1,296 @@
+{
+  "date_kst": "2026-10-24",
+  "source": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
+  "method": "Official calculator UI: lower supported-instance table, AWS, independently selected Premium/Enterprise plans and compute SKU; r5d.large row. Upper calculator Premium Serverless selector explicitly showed $0.40/DBU.",
+  "account_plan": "UNKNOWN; calculator selection is not account entitlement or contracted rate",
+  "official_rows_observed": [
+    {
+      "plan": "Premium",
+      "sku": "All-Purpose Compute Photon",
+      "row_text": "r5d.large (Photon) | 2 | 16 | 0.900 | 0.4950"
+    },
+    {
+      "plan": "Enterprise",
+      "sku": "All-Purpose Compute Photon",
+      "row_text": "r5d.large (Photon) | 2 | 16 | 0.900 | 0.5850"
+    },
+    {
+      "plan": "Premium",
+      "sku": "Lakeflow Jobs Classic",
+      "row_text": "r5d.large | 2 | 16 | 0.450 | 0.0675"
+    },
+    {
+      "plan": "Enterprise",
+      "sku": "Lakeflow Jobs Classic",
+      "row_text": "r5d.large | 2 | 16 | 0.450 | 0.0900"
+    },
+    {
+      "plan": "Premium",
+      "sku": "Lakeflow Jobs Classic Photon",
+      "row_text": "r5d.large (Photon) | 2 | 16 | 1.305 | 0.1958"
+    }
+  ],
+  "aws_price_api": {
+    "filters": {
+      "location": "Asia Pacific (Seoul)",
+      "instanceType": "r5d.large",
+      "operatingSystem": "Linux",
+      "tenancy": "Shared",
+      "preInstalledSw": "NA",
+      "capacitystatus": "Used"
+    },
+    "exit_code": 0,
+    "source": "AWS Pricing GetProducts; public OnDemand, not invoice",
+    "products": [
+      {
+        "sku": "QUDR94VPERQVEQ9N",
+        "attributes": {
+          "enhancedNetworkingSupported": "Yes",
+          "intelTurboAvailable": "Yes",
+          "memory": "16 GiB",
+          "dedicatedEbsThroughput": "Up to 2120 Mbps",
+          "vcpu": "2",
+          "classicnetworkingsupport": "false",
+          "capacitystatus": "Used",
+          "locationType": "AWS Region",
+          "storage": "1 x 75 NVMe SSD",
+          "instanceFamily": "Memory optimized",
+          "operatingSystem": "Linux",
+          "intelAvx2Available": "Yes",
+          "instanceFamilyCategory": "Memory Optimized",
+          "regionCode": "ap-northeast-2",
+          "physicalProcessor": "Intel Xeon Platinum 8175",
+          "clockSpeed": "3.1 GHz",
+          "ecu": "10",
+          "networkPerformance": "Up to 10 Gigabit",
+          "servicename": "Amazon Elastic Compute Cloud",
+          "gpuMemory": "NA",
+          "dedicatedEbsThroughputDescription": "425 Mbps",
+          "vpcnetworkingsupport": "true",
+          "instanceType": "r5d.large",
+          "tenancy": "Shared",
+          "usagetype": "APN2-BoxUsage:r5d.large",
+          "normalizationSizeFactor": "4",
+          "intelAvxAvailable": "Yes",
+          "processorFeatures": "Intel AVX; Intel AVX2; Intel AVX512; Intel Turbo",
+          "servicecode": "AmazonEC2",
+          "licenseModel": "No License required",
+          "currentGeneration": "Yes",
+          "preInstalledSw": "NA",
+          "location": "Asia Pacific (Seoul)",
+          "processorArchitecture": "64-bit",
+          "marketoption": "OnDemand",
+          "operation": "RunInstances",
+          "availabilityzone": "NA"
+        },
+        "on_demand": {
+          "QUDR94VPERQVEQ9N.JRTCKXETXF": {
+            "priceDimensions": {
+              "QUDR94VPERQVEQ9N.JRTCKXETXF.6YS6EN2CT7": {
+                "unit": "Hrs",
+                "endRange": "Inf",
+                "description": "$0.173 per On Demand Linux r5d.large Instance Hour",
+                "appliesTo": [],
+                "rateCode": "QUDR94VPERQVEQ9N.JRTCKXETXF.6YS6EN2CT7",
+                "beginRange": "0",
+                "pricePerUnit": {
+                  "USD": "0.1730000000"
+                }
+              }
+            },
+            "sku": "QUDR94VPERQVEQ9N",
+            "effectiveDate": "2026-10-01T00:00:00Z",
+            "offerTermCode": "JRTCKXETXF",
+            "termAttributes": {}
+          }
+        }
+      }
+    ]
+  },
+  "classic_estimates": [
+    {
+      "configuration": "existing_all_purpose_photon",
+      "r5d_large_dbu_hour_per_node": 0.9,
+      "nodes": 1,
+      "tiers": {
+        "Premium": {
+          "public_usd_per_dbu": 0.55,
+          "databricks_usd_hour": 0.49500000000000005,
+          "aws_vm_usd_hour": 0.173,
+          "periods": {
+            "15": {
+              "databricks_usd": 0.12375,
+              "aws_vm_usd": 0.04325,
+              "combined_usd": 0.167
+            },
+            "30": {
+              "databricks_usd": 0.2475,
+              "aws_vm_usd": 0.0865,
+              "combined_usd": 0.334
+            },
+            "60": {
+              "databricks_usd": 0.495,
+              "aws_vm_usd": 0.173,
+              "combined_usd": 0.668
+            }
+          }
+        },
+        "Enterprise": {
+          "public_usd_per_dbu": 0.65,
+          "databricks_usd_hour": 0.5850000000000001,
+          "aws_vm_usd_hour": 0.173,
+          "periods": {
+            "15": {
+              "databricks_usd": 0.14625,
+              "aws_vm_usd": 0.04325,
+              "combined_usd": 0.1895
+            },
+            "30": {
+              "databricks_usd": 0.2925,
+              "aws_vm_usd": 0.0865,
+              "combined_usd": 0.379
+            },
+            "60": {
+              "databricks_usd": 0.585,
+              "aws_vm_usd": 0.173,
+              "combined_usd": 0.758
+            }
+          }
+        }
+      }
+    },
+    {
+      "configuration": "candidate_jobs_classic_standard",
+      "r5d_large_dbu_hour_per_node": 0.45,
+      "nodes": 1,
+      "tiers": {
+        "Premium": {
+          "public_usd_per_dbu": 0.15,
+          "databricks_usd_hour": 0.0675,
+          "aws_vm_usd_hour": 0.173,
+          "periods": {
+            "15": {
+              "databricks_usd": 0.016875,
+              "aws_vm_usd": 0.04325,
+              "combined_usd": 0.060125
+            },
+            "30": {
+              "databricks_usd": 0.03375,
+              "aws_vm_usd": 0.0865,
+              "combined_usd": 0.12025
+            },
+            "60": {
+              "databricks_usd": 0.0675,
+              "aws_vm_usd": 0.173,
+              "combined_usd": 0.2405
+            }
+          }
+        },
+        "Enterprise": {
+          "public_usd_per_dbu": 0.2,
+          "databricks_usd_hour": 0.09000000000000001,
+          "aws_vm_usd_hour": 0.173,
+          "periods": {
+            "15": {
+              "databricks_usd": 0.0225,
+              "aws_vm_usd": 0.04325,
+              "combined_usd": 0.06575
+            },
+            "30": {
+              "databricks_usd": 0.045,
+              "aws_vm_usd": 0.0865,
+              "combined_usd": 0.1315
+            },
+            "60": {
+              "databricks_usd": 0.09,
+              "aws_vm_usd": 0.173,
+              "combined_usd": 0.263
+            }
+          }
+        }
+      }
+    },
+    {
+      "configuration": "candidate_jobs_classic_photon",
+      "r5d_large_dbu_hour_per_node": 1.305,
+      "nodes": 1,
+      "tiers": {
+        "Premium": {
+          "public_usd_per_dbu": 0.15,
+          "databricks_usd_hour": 0.19574999999999998,
+          "aws_vm_usd_hour": 0.173,
+          "periods": {
+            "15": {
+              "databricks_usd": 0.0489375,
+              "aws_vm_usd": 0.04325,
+              "combined_usd": 0.0921875
+            },
+            "30": {
+              "databricks_usd": 0.097875,
+              "aws_vm_usd": 0.0865,
+              "combined_usd": 0.184375
+            },
+            "60": {
+              "databricks_usd": 0.19575,
+              "aws_vm_usd": 0.173,
+              "combined_usd": 0.36875
+            }
+          }
+        }
+      }
+    }
+  ],
+  "period_semantics": "15/30/60 minutes of billable single-node lifetime, not query-only wall time; exclude idle/setup/cleanup outside those periods",
+  "serverless": {
+    "public_calculator_premium_usd_dbu": 0.4,
+    "includes_compute_infrastructure": true,
+    "actual_seoul_account_sku_rate": "UNVERIFIED",
+    "actual_dbu_hour": "UNVERIFIED; not inferable from classic r5d.large DBUs",
+    "illustrative_only": [
+      {
+        "assumed_dbu_hour": 1,
+        "cost_15min": 0.1,
+        "cost_30min": 0.2,
+        "cost_60min": 0.4
+      },
+      {
+        "assumed_dbu_hour": 4,
+        "cost_15min": 0.4,
+        "cost_30min": 0.8,
+        "cost_60min": 1.6
+      },
+      {
+        "assumed_dbu_hour": 8,
+        "cost_15min": 0.8,
+        "cost_30min": 1.6,
+        "cost_60min": 3.2
+      }
+    ],
+    "ten_dollar_no_credit_dbu_limit_at_example_rate": 25
+  },
+  "exclusions": [
+    "tax/FX",
+    "EBS/S3/UC storage",
+    "public IP/traffic/PrivateLink",
+    "ongoing existing MSK/NAT/EIP fees",
+    "account contracted rates, credits and previous invoices"
+  ],
+  "recommendation": {
+    "compute": "reuse existing ktd-phase1-dev All-Purpose Photon for this bounded acceptance session; no config changes",
+    "nodes": 1,
+    "workers": 0,
+    "autoscaling": false,
+    "planned_total_lifetime_minutes_including_setup_and_cleanup": 120,
+    "soft_stop_new_scenarios_minutes": 90,
+    "premium_dbu_usd_120min": 0.99,
+    "enterprise_dbu_usd_120min": 1.17,
+    "aws_vm_usd_120min": 0.346,
+    "premium_combined_usd_120min": 1.336,
+    "enterprise_combined_usd_120min": 1.516,
+    "approval_proposal_incremental_databricks_cash_usd": 3,
+    "approval_proposal_incremental_aws_usd": 1,
+    "project_budget_condition": "known prior Databricks cash + approved new cash <= 10 USD; prior cash unknown, so total cannot be certified",
+    "hard_cap": false,
+    "justification": "Existing UC/standard-access configuration and prior VPC path avoid a new runtime/network migration for a tiny fixture. Classic Jobs Standard is cheaper per hour, but saves only 0.855 USD DBU over two hours versus Premium AP Photon and introduces a new unverified compute configuration. This recommendation is for acceptance only, not production streaming."
+  }
+}
